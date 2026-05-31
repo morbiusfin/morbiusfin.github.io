@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "2.5.0";
-const VERSION_NOTES = "⚡ sincronização instantânea celular ↔ web (atualiza ao abrir e a cada poucos segundos) · 🔒 PIN + criptografia · 📡 push";
+const APP_VERSION = "2.6.0";
+const VERSION_NOTES = "🔗 ativar sincronização por 1 link · ⚡ sync instantânea celular ↔ web (ao abrir e a cada poucos segundos) · 🔒 PIN + criptografia";
 let history = [];
 let lastSnap = JSON.stringify(DATA);
 const HISTORY_MAX = 50;
@@ -663,9 +663,29 @@ function startApp() {
   render();
   if (curTab === "resumo" && !annual) renderCharts();
   checkAndNotify(); checkVersion();
-  if (syncCfg()) { pullSync(false); startLiveSync(); }
+  if (syncCfg()) { pullSync(window.__syncFromLink ? true : false); startLiveSync(); }
+  if (window.__syncFromLink) { toast("Sincronização ativada ⚡"); window.__syncFromLink = false; }
+}
+/* Auto-configura a sincronização a partir de um link (#cfg=base64).
+   Lê do fragmento (#) — que NÃO é enviado a servidores — salva e limpa
+   o token da barra de endereço/histórico na hora. Uso: abrir 1x o link. */
+function applyConfigLink() {
+  try {
+    const m = (location.hash || "").match(/[#&]cfg=([^&]+)/);
+    if (m) {
+      const b64 = decodeURIComponent(m[1]).replace(/-/g, "+").replace(/_/g, "/");
+      const cfg = JSON.parse(decodeURIComponent(escape(atob(b64))));
+      if (cfg && cfg.u && cfg.t) {
+        localStorage.setItem(SYNC_CFG_KEY, JSON.stringify({ url: cfg.u, token: cfg.t }));
+        window.__syncFromLink = true;
+      }
+    }
+  } catch (e) {}
+  // remove o hash (token) da URL para não ficar visível nem no histórico
+  if (location.hash) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {} }
 }
 async function boot() {
+  applyConfigLink();
   let raw = localStorage.getItem(STORE_KEY) || localStorage.getItem("financas2026.v1");
   let parsed = null; try { parsed = raw ? JSON.parse(raw) : null; } catch (e) {}
   if (parsed && parsed.enc) { showLock(parsed); return; }   // bloqueado: exige PIN
