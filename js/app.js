@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = loadData();
-const APP_VERSION = "2.1.0";
-const VERSION_NOTES = "↩︎ Desfazer (Ctrl+Z) · 🔔 notificações + teste · puxe p/ atualizar · margens melhores";
+const APP_VERSION = "2.2.0";
+const VERSION_NOTES = "📡 push no celular (app fechado) · ↩︎ desfazer · puxe p/ atualizar · notificação de teste";
 let history = [];
 let lastSnap = JSON.stringify(DATA);
 const HISTORY_MAX = 50;
@@ -470,16 +470,40 @@ $("#btnImport").onclick = () => $("#importFile").click();
 $("#importFile").onchange = (e) => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { DATA = migrate(JSON.parse(r.result)); persist(); toast("Backup importado"); $("#settingsModal").classList.add("hidden"); } catch { toast("Arquivo inválido"); } }; r.readAsText(f); };
 $("#btnReset").onclick = () => { if (confirm("Apagar tudo e voltar aos dados de exemplo?")) { DATA = resetData(); persist(); toast("Restaurado"); $("#settingsModal").classList.add("hidden"); } };
 
+// ===== Web Push (servidor: Cloudflare Worker) =====
+const VAPID_PUBLIC = "BC1EnbsN2qolEkoNvMqsAuqjqrPUfNlslzCnoRIOgWvCthh0ytYXzbUrP9iSzNgNswcS9H121de7cCANXGhuSz4";
+let PUSH_API = ""; // preenchido após publicar o Worker
+function urlB64ToU8(b64) { const pad = "=".repeat((4 - b64.length % 4) % 4); const s = (b64 + pad).replace(/-/g, "+").replace(/_/g, "/"); const raw = atob(s); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); }
+async function ativarPush() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) { toast("Push não suportado aqui (use o app instalado no iPhone)"); return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") { toast("Permissão negada"); return; }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) });
+    localStorage.setItem("financas2026.pushsub", JSON.stringify(sub));
+    if (PUSH_API) {
+      await fetch(PUSH_API + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub) });
+      toast("Push ativado no celular ✅");
+    } else { toast("Inscrição criada ✅ (servidor em configuração)"); }
+  } catch (e) { toast("Falha ao ativar push: " + e.message); }
+  render();
+}
+
 function renderNotifBtn() {
   const wrap = $("#notifWrap"); if (!wrap) return;
   const perm = ("Notification" in window) ? Notification.permission : "unsupported";
-  wrap.innerHTML = (perm === "granted"
-    ? `<div class="hint">🔔 Notificações ativadas. O app avisa ao abrir quando há contas a vencer.</div>
-       <button class="btn ghost" id="btnTest">📲 Enviar notificação de teste</button>`
-    : `<button class="btn ghost" id="btnNotif">🔔 Ativar notificações de contas</button>`)
-    + `<p class="hint" style="margin-top:8px">Versão do app: <b>v${APP_VERSION}</b></p>`;
+  const pushOn = !!localStorage.getItem("financas2026.pushsub");
+  wrap.innerHTML =
+    (perm === "granted"
+      ? `<div class="hint">🔔 Avisos ao abrir o app ativados.</div><button class="btn ghost" id="btnTest">📲 Enviar notificação de teste</button>`
+      : `<button class="btn ghost" id="btnNotif">🔔 Ativar avisos no app</button>`)
+    + `<button class="btn ghost" id="btnPush" style="margin-top:10px">📡 ${pushOn ? "Push ativo — reativar" : "Ativar push no celular (app fechado)"}</button>`
+    + `<p class="hint" style="margin-top:8px">Push exige abrir pelo app instalado na tela de início. Versão: <b>v${APP_VERSION}</b></p>`;
   const b = $("#btnNotif"); if (b) b.onclick = pedirNotificacao;
   const tb = $("#btnTest"); if (tb) tb.onclick = enviarTeste;
+  const pb = $("#btnPush"); if (pb) pb.onclick = ativarPush;
 }
 function enviarTeste() {
   if (!("Notification" in window) || Notification.permission !== "granted") { pedirNotificacao(); return; }

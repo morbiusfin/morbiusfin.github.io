@@ -40,3 +40,21 @@ self.addEventListener("fetch", (e) => {
   }
 });
 self.addEventListener("message", (e) => { if (e.data === "skipWaiting") self.skipWaiting(); });
+
+/* ---- Web Push ---- */
+self.addEventListener("push", (e) => {
+  let data = { title: "💸 Finanças", body: "Você tem contas a vencer — abra o app." };
+  try { if (e.data) data = Object.assign(data, e.data.json()); } catch (err) { if (e.data) data.body = e.data.text(); }
+  e.waitUntil(self.registration.showNotification(data.title, {
+    body: data.body, icon: "icons/icon-192.png", badge: "icons/icon-192.png",
+    tag: data.tag || "contas", data: { url: data.url || "./index.html" }
+  }));
+});
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "./index.html";
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+    for (const c of list) { if ("focus" in c) return c.focus(); }
+    if (clients.openWindow) return clients.openWindow(url);
+  }));
+});
