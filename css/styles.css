@@ -156,7 +156,7 @@ main { padding: 18px 18px 16px; max-width: 640px; margin: 0 auto; }
 .flow-row.total b { font-size: 20px; }
 .flow-row.total .pos { color: #6dffa8; } .flow-row.total .neg { color: #ff9a9d; }
 
-.pr-block { margin: 12px 0; }
+.pr-block { margin: 12px 0; padding: 0 16px; }
 .pr-head { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
 .pr-head i { font-style: normal; color: var(--muted); font-weight: 400; }
 .pr-bar { height: 10px; background: #eef1f0; border-radius: 6px; overflow: hidden; }

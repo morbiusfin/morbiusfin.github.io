@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = loadData();
-const APP_VERSION = "2.2.0";
-const VERSION_NOTES = "📡 push no celular (app fechado) · ↩︎ desfazer · puxe p/ atualizar · notificação de teste";
+const APP_VERSION = "2.2.1";
+const VERSION_NOTES = "espaçamento das barras Previsto×Realizado e Orçamento mais confortável";
 let history = [];
 let lastSnap = JSON.stringify(DATA);
 const HISTORY_MAX = 50;
