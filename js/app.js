@@ -605,24 +605,15 @@ function configurarSync() {
   localStorage.setItem(SYNC_CFG_KEY, JSON.stringify({ url: url.trim(), token: token.trim() }));
   toast("Sincronização configurada"); renderNotifBtn(); pullSync(true); startLiveSync();
 }
-function jsonp(url) {
-  return new Promise((res, rej) => {
-    const cb = "__sync_cb_" + Math.random().toString(36).slice(2);
-    const s = document.createElement("script");
-    window[cb] = (d) => { delete window[cb]; s.remove(); res(d); };
-    s.onerror = () => { delete window[cb]; s.remove(); rej(new Error("falha")); };
-    s.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cb;
-    document.body.appendChild(s);
-    setTimeout(() => { if (window[cb]) { delete window[cb]; s.remove(); rej(new Error("timeout")); } }, 12000);
-  });
-}
 let pulling = false;
 async function pullSync(aviso) {
   const c = syncCfg(); if (!c || pulling) return;
   pulling = true;
   try {
-    // &t= quebra cache de GET (proxies/Apps Script podem servir resposta velha)
-    const r = await jsonp(c.url + "?token=" + encodeURIComponent(c.token) + "&t=" + Date.now());
+    // fetch CORS direto (o Web App "Qualquer pessoa" envia Access-Control-Allow-Origin).
+    // &t= e cache:no-store evitam resposta velha de proxy/cache.
+    const resp = await fetch(c.url + "?token=" + encodeURIComponent(c.token) + "&t=" + Date.now(), { method: "GET", cache: "no-store" });
+    const r = await resp.json();
     if (r && r.ok) {
       const remote = r.data;
       const localTs = (DATA && DATA.updatedAt) || 0;
