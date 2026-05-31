@@ -20,6 +20,7 @@
     <div class="header-row">
       <h1 id="screenTitle">Resumo</h1>
       <div class="header-actions">
+        <button id="btnRefresh" class="icon-btn" aria-label="Atualizar" title="Atualizar agora">🔄</button>
         <button id="btnUndo" class="icon-btn" aria-label="Desfazer" title="Desfazer (Ctrl+Z)">↩︎</button>
         <button id="btnSettings" class="icon-btn" aria-label="Configurações">⚙️</button>
       </div>
@@ -40,6 +41,14 @@
 
   <!-- PULL TO REFRESH -->
   <div id="ptr" class="ptr"><span id="ptrText">↓ puxe para atualizar</span></div>
+
+  <!-- BARRA DE PROGRESSO DA SINCRONIZAÇÃO -->
+  <div id="syncProg" class="sync-prog hidden">
+    <div class="sync-card">
+      <div id="syncProgMsg" class="sync-msg">Atualizando…</div>
+      <div class="sync-track"><div id="syncProgBar" class="sync-fill"></div></div>
+    </div>
+  </div>
 
   <!-- BANNER DE VERSÃO -->
   <div id="verBanner" class="ver-banner hidden"></div>

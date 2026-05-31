@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "2.6.0";
-const VERSION_NOTES = "🔗 ativar sincronização por 1 link · ⚡ sync instantânea celular ↔ web (ao abrir e a cada poucos segundos) · 🔒 PIN + criptografia";
+const APP_VERSION = "2.7.0";
+const VERSION_NOTES = "🔄 botão Atualizar com barra de progresso e resumo · 🔗 sync por 1 link · ⚡ sync instantânea celular ↔ web · 🔒 PIN";
 let history = [];
 let lastSnap = JSON.stringify(DATA);
 const HISTORY_MAX = 50;
@@ -457,6 +457,7 @@ let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.
 $$(".tab").forEach(t => t.onclick = () => { $$(".tab").forEach(x => x.classList.remove("active")); t.classList.add("active"); curTab = t.dataset.tab; if (curTab !== "resumo") annual = false; render(); });
 $("#fab").onclick = () => curTab === "diaria" ? openDiariaModal(null) : openEntryModal(curTab, null);
 $("#btnUndo").onclick = undo;
+{ const br = $("#btnRefresh"); if (br) br.onclick = syncNow; }
 document.addEventListener("keydown", (e) => {
   const t = (e.target.tagName || "");
   if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z") && t !== "INPUT" && t !== "SELECT" && t !== "TEXTAREA") { e.preventDefault(); undo(); }
@@ -606,13 +607,16 @@ function configurarSync() {
   toast("Sincronização configurada"); renderNotifBtn(); pullSync(true); startLiveSync();
 }
 let pulling = false;
-async function pullSync(aviso) {
-  const c = syncCfg(); if (!c || pulling) return;
+async function pullSync(aviso, onProg) {
+  const c = syncCfg(); if (!c || pulling) return { ok: false, reason: "ocupado" };
   pulling = true;
+  let result = { ok: false, reason: "?" };
   try {
+    if (onProg) onProg(25, "Conectando à nuvem…");
     // fetch CORS direto (o Web App "Qualquer pessoa" envia Access-Control-Allow-Origin).
     // &t= e cache:no-store evitam resposta velha de proxy/cache.
     const resp = await fetch(c.url + "?token=" + encodeURIComponent(c.token) + "&t=" + Date.now(), { method: "GET", cache: "no-store" });
+    if (onProg) onProg(60, "Baixando dados…");
     const r = await resp.json();
     if (r && r.ok) {
       const remote = r.data;
@@ -620,16 +624,56 @@ async function pullSync(aviso) {
       const remoteTs = (remote && remote.updatedAt) || 0;
       if (remote && remoteTs > localTs) {
         // nuvem tem algo mais novo → adota e mantém histórico de desfazer
+        if (onProg) onProg(85, "Aplicando alterações…");
         history.push(lastSnap); if (history.length > HISTORY_MAX) history.shift();
         DATA = migrate(remote); saveData(DATA); lastSnap = JSON.stringify(DATA); render();
+        result = { ok: true, changed: true };
         if (aviso) toast("Atualizado da nuvem ⤓");
       } else if (!remote || localTs > remoteTs) {
         // nuvem vazia ou mais velha → meu aparelho manda o estado mais novo
-        pushSync(); if (aviso) toast(remote ? "Já estava em dia ✓" : "Enviado pra nuvem ⤴");
-      } else if (aviso) { toast("Já estava em dia ✓"); }
-    } else if (r && r.error) { if (aviso) toast("Sync: " + r.error); }
-  } catch (e) { if (aviso) toast("Sync (baixar) falhou"); }
+        pushSync(); result = { ok: true, changed: false, pushed: true };
+        if (aviso) toast(remote ? "Já estava em dia ✓" : "Enviado pra nuvem ⤴");
+      } else { result = { ok: true, changed: false }; if (aviso) toast("Já estava em dia ✓"); }
+    } else if (r && r.error) { result = { ok: false, reason: r.error }; if (aviso) toast("Sync: " + r.error); }
+  } catch (e) { result = { ok: false, reason: "rede" }; if (aviso) toast("Sync (baixar) falhou"); }
   finally { pulling = false; }
+  return result;
+}
+
+// Conta itens para o resumo de atualização
+function countItems(d) {
+  const r = (d.receitas || []).length, f = (d.fixas || []).length, c = (d.cartao || []).length, dd = (d.diaria || []).length;
+  return { receitas: r, fixas: f, cartao: c, diaria: dd, total: r + f + c + dd };
+}
+
+// Atualização manual COM barra de progresso + resumo
+let syncing = false;
+async function syncNow() {
+  if (!syncCfg()) { toast("Ative a sincronização em ⚙️ primeiro"); return; }
+  if (syncing) return; syncing = true;
+  const wrap = $("#syncProg"), bar = $("#syncProgBar"), msg = $("#syncProgMsg");
+  const set = (p, m) => { if (bar) bar.style.width = p + "%"; if (m && msg) msg.textContent = m; };
+  if (bar) { bar.style.background = ""; bar.classList.remove("indet"); }
+  if (wrap) wrap.classList.remove("hidden");
+  set(10, "Iniciando atualização…");
+  const before = countItems(DATA);
+  let res;
+  try { res = await pullSync(false, set); } catch (e) { res = { ok: false, reason: "erro" }; }
+  set(100, null);
+  const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const a = countItems(DATA);
+  const detalhe = `<small>${a.receitas} receitas · ${a.fixas} fixas · ${a.cartao} no cartão · ${a.diaria} no débito</small>`;
+  if (!res || !res.ok) {
+    if (bar) bar.style.background = "var(--red)";
+    if (msg) msg.innerHTML = `⚠️ Não consegui atualizar agora.<small>Verifique a internet e tente de novo.</small>`;
+  } else if (res.changed) {
+    const delta = a.total - before.total;
+    const dtxt = delta !== 0 ? ` — ${delta > 0 ? "+" : ""}${delta} lançamento(s)` : "";
+    if (msg) msg.innerHTML = `✅ Atualizado às ${hora}${dtxt}${detalhe}`;
+  } else {
+    if (msg) msg.innerHTML = `✅ Tudo em dia (${hora})${detalhe}`;
+  }
+  setTimeout(() => { if (wrap) wrap.classList.add("hidden"); if (bar) { bar.style.width = "0"; bar.style.background = ""; } syncing = false; }, 2600);
 }
 let pushT;
 function pushSync() {
@@ -724,7 +768,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
   }, { passive: false });
   window.addEventListener("touchend", () => {
     if (!pulling) return; pulling = false;
-    if (armed) { txt.textContent = "atualizando…"; setTimeout(() => location.reload(), 150); }
+    if (armed) { ptr.style.height = "0"; ptr.style.opacity = "0"; if (syncCfg()) syncNow(); else location.reload(); }
     else { ptr.style.height = "0"; ptr.style.opacity = "0"; }
   });
 })();
