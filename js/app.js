@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "2.8.0";
-const VERSION_NOTES = "↪︎ Refazer (Ctrl+Y) + Desfazer (Ctrl+Z) · 🔔 avisos de contas dentro do app (sem instalar) · 🔄 atualizar com progresso · ⚡ sync instantânea";
+const APP_VERSION = "2.9.0";
+const VERSION_NOTES = "🔄 Atualizar agora baixa SEMPRE o que está na web (a web manda) · 🩺 status de sincronização visível em ⚙️";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -548,15 +548,29 @@ function renderNotifBtn() {
         : `<button class="btn primary" id="btnPin">🔒 Proteger o app com PIN</button><p class="hint" style="margin-top:6px">Exige um PIN pra abrir e criptografa seus valores no aparelho.</p>`)
     + `<hr style="border:0;border-top:1px solid var(--line);margin:14px 0">`
     + (syncCfg()
-        ? `<button class="btn ghost" id="btnSync">🔄 Sincronizar agora</button><button class="btn ghost" id="btnSyncCfg" style="margin-top:8px">⚙️ Reconfigurar sincronização</button><p class="hint" style="margin-top:6px">⚡ Sincronização instantânea ligada — sobe a cada mudança e baixa ao abrir o app e a cada poucos segundos (celular ↔ web).</p>`
-        : `<button class="btn primary" id="btnSyncCfg">🔄 Ativar sincronização (celular ↔ web)</button>`)
+        ? `<button class="btn primary" id="btnSync">🔄 Baixar da web agora</button><button class="btn ghost" id="btnSyncCfg" style="margin-top:8px">⚙️ Reconfigurar sincronização</button>${syncStatusHTML()}`
+        : `<button class="btn primary" id="btnSyncCfg">🔄 Ativar sincronização (celular ↔ web)</button><p class="hint" style="margin-top:6px">⚠️ Sincronização <b>desligada neste aparelho</b> — por isso ele não mostra o que está na web. Toque para ativar.</p>`)
     + `<p class="hint" style="margin-top:8px">Push exige abrir pelo app instalado na tela de início. Versão: <b>v${APP_VERSION}</b></p>`;
   const b = $("#btnNotif"); if (b) b.onclick = pedirNotificacao;
   const tb = $("#btnTest"); if (tb) tb.onclick = enviarTeste;
   const pb = $("#btnPush"); if (pb) pb.onclick = ativarPush;
   const pin = $("#btnPin"); if (pin) pin.onclick = window.CRYPTO_KEY ? removerPin : definirPin;
   const sc = $("#btnSyncCfg"); if (sc) sc.onclick = configurarSync;
-  const sn = $("#btnSync"); if (sn) sn.onclick = () => pullSync(true);
+  const sn = $("#btnSync"); if (sn) sn.onclick = () => pullSync(true, null, true);
+}
+// Linha de diagnóstico da sincronização (mostra se está realmente puxando)
+function syncStatusHTML() {
+  const localTs = (DATA && DATA.updatedAt) || 0;
+  const fmt = (t) => t ? new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+  let linha;
+  if (lastSyncInfo.when === 0) {
+    linha = "Ainda não sincronizou nesta sessão. Toque em <b>Baixar da web agora</b>.";
+  } else {
+    const ic = lastSyncInfo.ok ? "✅" : "⚠️";
+    linha = `${ic} Última sync: <b>${lastSyncInfo.msg}</b> (${fmt(lastSyncInfo.when)})`;
+  }
+  return `<p class="hint" style="margin-top:8px">${linha}<br>📲 este aparelho: ${fmt(localTs)} · ☁️ web: ${fmt(lastSyncInfo.remoteTs)}</p>`
+    + `<p class="hint" style="margin-top:4px">O botão acima <b>baixa o que está na web</b> (a web manda). Ao abrir, ele também puxa sozinho.</p>`;
 }
 function enviarTeste() {
   if (!("Notification" in window) || Notification.permission !== "granted") { pedirNotificacao(); return; }
@@ -646,8 +660,12 @@ function configurarSync() {
   toast("Sincronização configurada"); renderNotifBtn(); pullSync(true); startLiveSync();
 }
 let pulling = false;
-async function pullSync(aviso, onProg) {
-  const c = syncCfg(); if (!c || pulling) return { ok: false, reason: "ocupado" };
+// status da última sincronização (mostrado em ⚙️ para diagnóstico)
+let lastSyncInfo = { when: 0, ok: null, msg: "ainda não sincronizou", remoteTs: 0 };
+// force=true → a WEB é a fonte da verdade: adota a nuvem sempre que houver e for diferente
+// (usado no botão 🔄 e no puxar-para-atualizar). Sem force = merge por timestamp (boot/auto).
+async function pullSync(aviso, onProg, force) {
+  const c = syncCfg(); if (!c || pulling) return { ok: false, reason: "sem-config" };
   pulling = true;
   let result = { ok: false, reason: "?" };
   try {
@@ -661,20 +679,33 @@ async function pullSync(aviso, onProg) {
       const remote = r.data;
       const localTs = (DATA && DATA.updatedAt) || 0;
       const remoteTs = (remote && remote.updatedAt) || 0;
-      if (remote && remoteTs > localTs) {
-        // nuvem tem algo mais novo → adota e mantém histórico de desfazer
+      const difere = remote ? (JSON.stringify(remote) !== JSON.stringify(DATA)) : false;
+      // adota a nuvem se: (forçado e diferente) OU (auto e a nuvem é mais nova)
+      const adota = remote && (force ? difere : remoteTs > localTs);
+      if (adota) {
         if (onProg) onProg(85, "Aplicando alterações…");
-        history.push(lastSnap); if (history.length > HISTORY_MAX) history.shift();
-        DATA = migrate(remote); saveData(DATA); lastSnap = JSON.stringify(DATA); render();
+        history.push(lastSnap); if (history.length > HISTORY_MAX) history.shift(); // dá pra desfazer (Ctrl+Z) se quiser o estado local de volta
+        DATA = migrate(remote); if (!DATA.updatedAt) DATA.updatedAt = remoteTs || Date.now();
+        saveData(DATA); lastSnap = JSON.stringify(DATA); render();
         result = { ok: true, changed: true };
-        if (aviso) toast("Atualizado da nuvem ⤓");
-      } else if (!remote || localTs > remoteTs) {
-        // nuvem vazia ou mais velha → meu aparelho manda o estado mais novo
+        if (aviso) toast("Baixado da web ⤓");
+      } else if (!remote || (!force && localTs > remoteTs)) {
+        // nuvem vazia ou (no modo auto) meu aparelho é mais novo → eu mando pra nuvem
         pushSync(); result = { ok: true, changed: false, pushed: true };
         if (aviso) toast(remote ? "Já estava em dia ✓" : "Enviado pra nuvem ⤴");
       } else { result = { ok: true, changed: false }; if (aviso) toast("Já estava em dia ✓"); }
-    } else if (r && r.error) { result = { ok: false, reason: r.error }; if (aviso) toast("Sync: " + r.error); }
-  } catch (e) { result = { ok: false, reason: "rede" }; if (aviso) toast("Sync (baixar) falhou"); }
+      lastSyncInfo = { when: Date.now(), ok: true, remoteTs: remoteTs,
+        msg: result.changed ? "baixou da web" : (result.pushed ? "enviou o local" : "já estava igual") };
+    } else if (r && r.error) {
+      result = { ok: false, reason: r.error };
+      lastSyncInfo = { when: Date.now(), ok: false, msg: "erro do servidor: " + r.error, remoteTs: 0 };
+      if (aviso) toast("Sync: " + r.error);
+    }
+  } catch (e) {
+    result = { ok: false, reason: "rede" };
+    lastSyncInfo = { when: Date.now(), ok: false, msg: "falha de rede/CORS ao baixar", remoteTs: 0 };
+    if (aviso) toast("Sync (baixar) falhou");
+  }
   finally { pulling = false; }
   return result;
 }
@@ -697,7 +728,7 @@ async function syncNow() {
   set(10, "Iniciando atualização…");
   const before = countItems(DATA);
   let res;
-  try { res = await pullSync(false, set); } catch (e) { res = { ok: false, reason: "erro" }; }
+  try { res = await pullSync(false, set, true); } catch (e) { res = { ok: false, reason: "erro" }; }
   set(100, null);
   const hora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const a = countItems(DATA);
@@ -746,7 +777,12 @@ function startApp() {
   render();
   if (curTab === "resumo" && !annual) renderCharts();
   checkAndNotify(); checkVersion();
-  if (syncCfg()) { pullSync(window.__syncFromLink ? true : false); startLiveSync(); }
+  if (syncCfg()) {
+    pullSync(window.__syncFromLink ? true : false).then(r => {
+      if (r && !r.ok && r.reason !== "sem-config") setTimeout(() => toast("Não consegui baixar da web ao abrir — toque 🔄"), 800);
+    });
+    startLiveSync();
+  }
   if (window.__syncFromLink) { toast("Sincronização ativada ⚡"); window.__syncFromLink = false; }
 }
 /* Auto-configura a sincronização a partir de um link (#cfg=base64).
