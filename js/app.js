@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.4.2";
-const VERSION_NOTES = "↺ Botão limpar no simulador (zera valor e parcelas)";
+const APP_VERSION = "3.5.0";
+const VERSION_NOTES = "🌧️ Fundo com chuva de números e cifras (estilo Matrix, bem sutil) · ♾️ abertura com fita de Möbius em 3D girando";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -1215,6 +1215,7 @@ window.addEventListener("online", () => { if (syncCfg()) pullSync(false); });
 /* ---------- Boot ---------- */
 function startApp() {
   window.__started = true;
+  startMobius3D();
   lastSnap = JSON.stringify(DATA);
   render();
   if (curTab === "resumo" && !annual) renderCharts();
@@ -1237,10 +1238,89 @@ function startApp() {
 function setSplashMsg(t) { const el = document.querySelector("#splash .splash-tag"); if (el) el.textContent = t; }
 function hideSplash() {
   const sp = document.getElementById("splash");
-  if (sp && !sp.classList.contains("gone")) { sp.classList.add("gone"); setTimeout(() => { try { sp.remove(); } catch (e) {} }, 560); }
+  if (sp && !sp.classList.contains("gone")) { sp.classList.add("gone"); setTimeout(() => { try { sp.remove(); } catch (e) {} stopMobius3D(); }, 560); }
 }
 // rede de segurança: nunca deixar o splash preso
 window.addEventListener("load", () => setTimeout(hideSplash, 5000));
+
+/* ---------- Fundo: chuva de números/cifras (estilo Matrix, sutil) ---------- */
+(function rainFX() {
+  const cv = document.getElementById("rain"); if (!cv) return;
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { cv.style.display = "none"; return; }
+  const ctx = cv.getContext("2d");
+  const glyphs = "0123456789$€£¥₹₽¢₩₪₫₴₦฿₲₱".split(""); // dígitos + cifras de vários países
+  const font = 16;
+  let W, H, cols, drops;
+  function resize() { W = cv.width = innerWidth; H = cv.height = innerHeight; cols = Math.ceil(W / font); drops = Array(cols).fill(0).map(() => Math.random() * -H / font); }
+  resize(); addEventListener("resize", resize);
+  function palette() {
+    const dark = document.documentElement.classList.contains("theme-dark") ||
+      (!document.documentElement.classList.contains("theme-light") && matchMedia("(prefers-color-scheme: dark)").matches);
+    return dark ? { fade: "rgba(8,17,13,0.15)", g: "rgba(70,210,150,0.55)", head: "rgba(160,255,205,0.85)" }
+                : { fade: "rgba(238,241,240,0.16)", g: "rgba(20,120,80,0.32)", head: "rgba(15,150,90,0.55)" };
+  }
+  let last = 0;
+  function frame(t) {
+    requestAnimationFrame(frame);
+    if (document.hidden) return;
+    if (t - last < 55) return; last = t;            // ~18fps → queda estilo "matrix"
+    const c = palette();
+    ctx.fillStyle = c.fade; ctx.fillRect(0, 0, W, H);
+    ctx.font = font + "px ui-monospace, monospace";
+    for (let i = 0; i < cols; i++) {
+      const g = glyphs[(Math.random() * glyphs.length) | 0];
+      const y = drops[i] * font;
+      ctx.fillStyle = (Math.random() < 0.05) ? c.head : c.g;
+      ctx.fillText(g, i * font, y);
+      if (y > H && Math.random() > 0.975) drops[i] = Math.random() * -20;
+      drops[i]++;
+    }
+  }
+  requestAnimationFrame(frame);
+})();
+
+/* ---------- Splash: fita de Möbius 3D (canvas, parametrização real) ---------- */
+let _mobRAF = null;
+function startMobius3D() {
+  const cv = document.getElementById("mobCanvas"); if (!cv) return;
+  const ctx = cv.getContext("2d"); const W = cv.width, H = cv.height;
+  const US = 110, VS = 7, R = 1.15, halfW = 0.42, tiltX = 0.6;
+  const grid = [];
+  for (let i = 0; i <= US; i++) {
+    const u = i / US * 2 * Math.PI, cu = Math.cos(u), su = Math.sin(u), c2 = Math.cos(u / 2), s2 = Math.sin(u / 2), row = [];
+    for (let j = 0; j <= VS; j++) { const v = (j / VS - 0.5) * 2 * halfW; row.push([(R + v * c2) * cu, (R + v * c2) * su, v * s2]); }
+    grid.push(row);
+  }
+  const rotY = (p, a) => { const x = p[0] * Math.cos(a) + p[2] * Math.sin(a), z = -p[0] * Math.sin(a) + p[2] * Math.cos(a); return [x, p[1], z]; };
+  const rotX = (p, a) => { const y = p[1] * Math.cos(a) - p[2] * Math.sin(a), z = p[1] * Math.sin(a) + p[2] * Math.cos(a); return [p[0], y, z]; };
+  const proj = (p) => { const d = 4.4, f = H * 0.66, s = f / (d - p[2]); return [W / 2 + p[0] * s, H / 2 + p[1] * s, p[2]]; };
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  function normal(a, b, c) { const u = [b[0]-a[0], b[1]-a[1], b[2]-a[2]], v = [c[0]-a[0], c[1]-a[1], c[2]-a[2]];
+    let n = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]]; const L = Math.hypot(n[0],n[1],n[2]) || 1; return [n[0]/L,n[1]/L,n[2]/L]; }
+  let ang = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const quads = [];
+    for (let i = 0; i < US; i++) for (let j = 0; j < VS; j++) {
+      const a = rotX(rotY(grid[i][j], ang), tiltX), b = rotX(rotY(grid[i+1][j], ang), tiltX),
+            c = rotX(rotY(grid[i+1][j+1], ang), tiltX), e = rotX(rotY(grid[i][j+1], ang), tiltX);
+      quads.push({ p: [a, b, c, e], z: (a[2]+b[2]+c[2]+e[2]) / 4, u: i / US });
+    }
+    quads.sort((p, q) => p.z - q.z);
+    for (const q of quads) {
+      const P = q.p.map(proj), n = normal(q.p[0], q.p[1], q.p[2]);
+      const light = Math.max(0.18, Math.min(1, Math.abs(n[2]) * 0.7 + 0.45));
+      const col = mix([42, 245, 160], [18, 199, 255], q.u);
+      ctx.fillStyle = `rgba(${(col[0]*light)|0},${(col[1]*light)|0},${(col[2]*light)|0},0.96)`;
+      ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]); ctx.lineTo(P[1][0], P[1][1]); ctx.lineTo(P[2][0], P[2][1]); ctx.lineTo(P[3][0], P[3][1]); ctx.closePath(); ctx.fill();
+    }
+  }
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { draw(); return; }
+  let last = 0;
+  function loop(t) { _mobRAF = requestAnimationFrame(loop); if (t - last < 33) return; last = t; ang += 0.022; draw(); }
+  _mobRAF = requestAnimationFrame(loop);
+}
+function stopMobius3D() { if (_mobRAF) { cancelAnimationFrame(_mobRAF); _mobRAF = null; } }
 /* Auto-configura a sincronização a partir de um link (#cfg=base64).
    Lê do fragmento (#) — que NÃO é enviado a servidores — salva e limpa
    o token da barra de endereço/histórico na hora. Uso: abrir 1x o link. */
