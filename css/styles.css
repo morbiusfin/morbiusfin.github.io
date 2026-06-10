@@ -412,13 +412,12 @@ html.theme-dark #aurora span { opacity: .5; }
 #splash { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
   background: linear-gradient(160deg, #0b3d2e 0%, #105a3f 55%, #12734d 100%); transition: opacity .5s ease; }
 #splash.gone { opacity: 0; pointer-events: none; }
-#splash .splash-logo { width: 104px; height: 104px; border-radius: 26px; box-shadow: 0 16px 40px rgba(0,0,0,.35);
-  animation: splashPop .6s cubic-bezier(.2,.9,.2,1.2) both; }
-#splash .splash-name { color: #fff; font-weight: 800; font-size: 21px; letter-spacing: .3px; opacity: 0; animation: splashFade .5s ease .25s forwards; }
-#splash .splash-bar { width: 120px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.2); overflow: hidden; opacity: 0; animation: splashFade .5s ease .35s forwards; }
-#splash .splash-bar i { display: block; height: 100%; width: 40%; border-radius: 99px; background: #fff; animation: splashLoad 1s ease-in-out infinite; }
-@keyframes splashPop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+#splash .mob-box { width: 270px; max-width: 82vw; animation: splashPop .6s cubic-bezier(.2,.9,.2,1.2) both; filter: drop-shadow(0 12px 34px rgba(0,0,0,.45)); }
+#splash .mob { width: 100%; height: auto; display: block; }
+#splash .mob text { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+#splash .splash-name { color: #fff; font-weight: 800; font-size: 25px; letter-spacing: .6px; opacity: 0; animation: splashFade .5s ease .3s forwards; }
+#splash .splash-tag { color: rgba(255,255,255,.62); font-weight: 600; font-size: 12.5px; letter-spacing: .3px; margin-top: -8px; opacity: 0; animation: splashFade .5s ease .48s forwards; }
+@keyframes splashPop { from { transform: scale(.6) rotate(-6deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
 @keyframes splashFade { to { opacity: 1; } }
-@keyframes splashLoad { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
 
 .hidden { display: none !important; }

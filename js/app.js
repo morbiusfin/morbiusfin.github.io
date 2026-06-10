@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.3.0";
-const VERSION_NOTES = "🌌 Fundo animado (aurora) · 🎬 animações no medidor, sobra e insights · 🧪 simulador \"vale a pena comprar?\" · 🎯 destaque das contas a vencer · ⚡ sincroniza sozinho ao abrir (sem barra)";
+const APP_VERSION = "3.4.0";
+const VERSION_NOTES = "♾️ Agora é MorbiusFin! Abertura com fita de Möbius de números e cifrões · 🧪 simulador agora com PARCELAS e gráfico que se mexe junto · novo ícone";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -263,9 +263,13 @@ function renderResumo(view) {
 
     <div class="section-card sim-card"><h3>🧪 Vale a pena comprar?</h3>
       <div class="sim-body">
-        <label class="field" style="margin:0"><span>Quero gastar agora (R$)</span>
-          <input id="simInput" type="number" step="0.01" inputmode="decimal" placeholder="0,00" /></label>
-        <div id="simVerdict" class="sim-verdict hint">Digite um valor para simular — eu te digo se vale a pena, antes de lançar.</div>
+        <div class="field-row">
+          <label class="field" style="margin:0;flex:2"><span>Quero gastar (R$)</span>
+            <input id="simInput" type="number" step="0.01" inputmode="decimal" placeholder="0,00" /></label>
+          <label class="field" style="margin:0;flex:1"><span>Parcelas</span>
+            <input id="simN" type="number" min="1" max="48" inputmode="numeric" value="1" /></label>
+        </div>
+        <div id="simVerdict" class="sim-verdict hint">Digite um valor (e nº de parcelas) — eu simulo no gráfico e digo se vale a pena, antes de lançar.</div>
       </div>
     </div>
 
@@ -304,23 +308,35 @@ function focarVencimentos() {
   setTimeout(() => { card.classList.remove("focus-pulse"); rows.forEach(r => { r.classList.remove("focus-row"); r.style.animationDelay = ""; }); }, 4800);
 }
 
-/* ---------- Simulador "vale a pena comprar?" ---------- */
-let simBuy = 0;
+/* ---------- Simulador "vale a pena comprar?" (à vista ou parcelado) ---------- */
+let simBuy = 0, simN = 1;
 function bindSimulador(m) {
-  const inp = $("#simInput"); if (!inp) return;
+  const inp = $("#simInput"), inpN = $("#simN"); if (!inp) return;
   inp.value = simBuy ? simBuy : "";
-  inp.oninput = () => { simBuy = parseFloat(inp.value) || 0; updateSimVerdict(m); updateSimOverlay(); };
+  if (inpN) inpN.value = simN || 1;
+  const upd = () => { simBuy = parseFloat(inp.value) || 0; simN = Math.max(1, parseInt(inpN && inpN.value) || 1); updateSimVerdict(m); updateSimOverlay(); };
+  inp.oninput = upd; if (inpN) inpN.oninput = upd;
   updateSimVerdict(m);
+}
+// saldo simulado mês a mês (subtrai as parcelas já pagas até cada mês)
+function simBalArray() {
+  const m = curMonth, parcela = simBuy / Math.max(1, simN);
+  return MESES.map((_, k) => { const pagas = Math.max(0, Math.min(simN, k - m + 1)); return sobraMes(k) - parcela * pagas; });
 }
 function updateSimVerdict(m) {
   const el = $("#simVerdict"); if (!el) return;
-  if (!simBuy || simBuy <= 0) { el.className = "sim-verdict hint"; el.innerHTML = "Digite um valor para simular — eu te digo se vale a pena, antes de lançar."; return; }
-  const cur = disponivelMes(m) - despesaMes(m);
-  const apos = cur - simBuy, rec = receitaMes(m) || 1;
+  if (!simBuy || simBuy <= 0) { el.className = "sim-verdict hint"; el.innerHTML = "Digite um valor (e nº de parcelas) — eu simulo no gráfico e digo se vale a pena, antes de lançar."; return; }
+  const parcela = simBuy / simN;
+  const bal = simBalArray();
+  let minBal = Infinity, worst = m;
+  for (let k = m; k < 12; k++) { if (bal[k] < minBal) { minBal = bal[k]; worst = k; } }
+  const rec = receitaMes(m) || 1;
+  const ondePior = (worst !== m || simN > 1) ? ` (mês mais apertado: ${MESES[worst]})` : "";
+  const comoPaga = simN > 1 ? `${simN}× de <b>${brl(parcela)}</b>` : `à vista`;
   let cls, icon, txt;
-  if (apos < 0) { cls = "bad"; icon = "⛔"; txt = `Não recomendo. Sua sobra ficaria <b>${brl(apos)}</b> — no vermelho.`; }
-  else if (apos < rec * 0.1) { cls = "warn"; icon = "🟡"; txt = `Dá, mas aperta: sobraria só <b>${brl(apos)}</b> em ${MESES[m]}.`; }
-  else { cls = "good"; icon = "✅"; txt = `Pode comprar! Ainda sobraria <b>${brl(apos)}</b> em ${MESES[m]}.`; }
+  if (minBal < 0) { cls = "bad"; icon = "⛔"; txt = `Não recomendo (${comoPaga}). No pior caso${ondePior} faltaria <b>${brl(minBal)}</b>.`; }
+  else if (minBal < rec * 0.1) { cls = "warn"; icon = "🟡"; txt = `Dá, mas aperta (${comoPaga}). No pior mês${ondePior} sobra só <b>${brl(minBal)}</b>.`; }
+  else { cls = "good"; icon = "✅"; txt = `Pode comprar! (${comoPaga}) No pior mês${ondePior} ainda sobra <b>${brl(minBal)}</b>.`; }
   el.className = "sim-verdict " + cls;
   el.innerHTML = `<span class="sim-ic">${icon}</span><span>${txt}</span>`;
 }
@@ -329,8 +345,8 @@ function updateSimOverlay() {
   const ds = charts.line.data.datasets;
   const i = ds.findIndex(d => d._sim); if (i >= 0) ds.splice(i, 1);
   if (simBuy > 0) {
-    const m = curMonth, bal = MESES.map((_, k) => sobraMes(k) - (k >= m ? simBuy : 0));
-    ds.push({ _sim: true, label: "Se eu comprar", data: bal, borderColor: "#f5a623", borderWidth: 2, borderDash: [5, 4], backgroundColor: "transparent", fill: false, tension: .38, pointRadius: 0 });
+    ds.push({ _sim: true, label: simN > 1 ? `Se comprar (${simN}×)` : "Se eu comprar", data: simBalArray(),
+      borderColor: "#f5a623", borderWidth: 2, borderDash: [5, 4], backgroundColor: "transparent", fill: false, tension: .38, pointRadius: 0 });
   }
   try { charts.line.update(); } catch (e) {}
 }
@@ -1207,14 +1223,15 @@ function startApp() {
     setSplashMsg("Sincronizando suas finanças…");
     startLiveSync();
     const p = pullSync(window.__syncFromLink ? true : false);
-    p.then(r => { if (r && !r.ok && r.reason !== "sem-config") setTimeout(() => toast("Não consegui baixar da web — toque 🔄"), 1700); });
-    Promise.race([p, new Promise(res => setTimeout(res, 4000))]).then(() => fecharSplash(1600));
+    p.then(r => { if (r && !r.ok && r.reason !== "sem-config") setTimeout(() => toast("Não consegui baixar da web — toque 🔄"), 2200); });
+    // mostra a animação por no mín. 2s e no máx. ~4,5s (sempre ≤ 5s)
+    Promise.race([p, new Promise(res => setTimeout(res, 3800))]).then(() => fecharSplash(2000));
   } else {
-    fecharSplash(1300);
+    fecharSplash(2000);
   }
   if (window.__syncFromLink) { toast("Sincronização ativada ⚡"); window.__syncFromLink = false; }
 }
-function setSplashMsg(t) { const el = document.querySelector("#splash .splash-name"); if (el) el.textContent = t; }
+function setSplashMsg(t) { const el = document.querySelector("#splash .splash-tag"); if (el) el.textContent = t; }
 function hideSplash() {
   const sp = document.getElementById("splash");
   if (sp && !sp.classList.contains("gone")) { sp.classList.add("gone"); setTimeout(() => { try { sp.remove(); } catch (e) {} }, 560); }

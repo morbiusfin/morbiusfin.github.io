@@ -1,7 +1,7 @@
 {
-  "name": "Finanças 2026",
-  "short_name": "Finanças",
-  "description": "Controle financeiro pessoal",
+  "name": "MorbiusFin",
+  "short_name": "MorbiusFin",
+  "description": "Suas finanças em movimento — controle financeiro pessoal",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
