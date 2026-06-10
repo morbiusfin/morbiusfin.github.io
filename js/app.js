@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.7.0";
-const VERSION_NOTES = "💫 Veredito do simulador com faixa de luz circulando a borda (sem parar) e transição suave verde↔vermelho";
+const APP_VERSION = "3.8.0";
+const VERSION_NOTES = "🔔 Aviso de contas a vencer agora é um pop-up no meio da tela com botão OK · 💡 insights com sugestão de economia e alertas de cuidado";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -71,11 +71,8 @@ function checkAndNotify() {
   if (!isMesAtual()) return;
   const alertas = vencimentos(curMonth).filter(v => v.naJanela);
   if (!alertas.length) return;
-  // 1) AVISO DENTRO DO APP — funciona sem instalar e sem permissão (qualquer aparelho)
-  const n = alertas.length;
-  const prox = alertas[0];
-  const quando = prox.daysLeft === 0 ? "vence hoje" : "vence em " + prox.daysLeft + "d";
-  setTimeout(() => toast(`🔔 ${n} conta(s) a vencer · ${prox.desc} ${quando}`), 600);
+  // 1) AVISO DENTRO DO APP — pop-up no MEIO da tela com botão OK (sem instalar/permissão)
+  setTimeout(() => showBillAlert(alertas), 500);
   // 2) NOTIFICAÇÃO DO SISTEMA — só onde o navegador deixa (PC/Android, ou PWA instalado no iPhone)
   if (("Notification" in window) && Notification.permission === "granted") {
     const linhas = alertas.map(v => `• ${v.desc} — ${brl(v.val)} (${v.daysLeft === 0 ? "vence hoje" : "vence em " + v.daysLeft + "d"})`).join("\n");
@@ -83,6 +80,22 @@ function checkAndNotify() {
       new Notification("💸 Contas a pagar", { body: linhas, icon: "icons/icon-192.png", tag: "vencimentos" });
     } catch (e) {}
   }
+}
+// Pop-up CENTRALIZADO de contas a vencer (com botão OK)
+function showBillAlert(alertas) {
+  const modal = $("#alertModal"); if (!modal) return;
+  const total = alertas.reduce((s, v) => s + (Number(v.val) || 0), 0);
+  $("#alertTitle").textContent = `${alertas.length} conta(s) a vencer`;
+  $("#alertBody").innerHTML = alertas.map(v => {
+    const q = v.daysLeft === 0 ? `<span class="venc-badge hoje">vence hoje</span>`
+      : v.daysLeft > 0 ? `<span class="venc-badge perto">em ${v.daysLeft}d</span>`
+      : `<span class="venc-badge atras">atrasada</span>`;
+    return `<div class="alert-line"><div><div class="al-desc">${esc(v.desc)}</div><div class="al-sub">dia ${v.venc} ${q}</div></div><span class="al-val">${brl(v.val)}</span></div>`;
+  }).join("") + `<div class="alert-total"><span>Total a pagar</span><b>${brl(total)}</b></div>`;
+  modal.classList.remove("hidden");
+  const close = () => modal.classList.add("hidden");
+  $("#alertOk").onclick = close;
+  $("#alertVer").onclick = () => { close(); focarVencimentos(); };
 }
 function pedirNotificacao() {
   if (!("Notification" in window)) {
@@ -181,6 +194,13 @@ function computeInsights(m) {
       ? { ic: "🟢", tone: "good", text: `Você guardou <b>${taxa}%</b> do que recebeu em ${MESES[m]}.` }
       : { ic: "🔴", tone: "bad", text: `Gastou <b>${Math.abs(taxa)}%</b> a mais do que recebeu em ${MESES[m]}.` });
   }
+  // 🚨 Cuidado: sobra do mês negativa
+  if (sobra < 0) out.push({ ic: "🚨", tone: "bad", text: `Cuidado: a sobra de ${MESES[m]} está <b>negativa (${brl(sobra)})</b>. Segure os gastos não essenciais.` });
+  // 💰 Onde economizar: maior despesa fixa (recorrente) do mês — corte de maior impacto
+  let topFix = null;
+  (DATA.fixas || []).forEach(l => { const v = Number(l.vals[m]) || 0; if (v > 0 && (!topFix || v > topFix.val)) topFix = { desc: l.desc, val: v }; });
+  if (topFix && topFix.val > 0)
+    out.push({ ic: "💰", tone: "info", text: `Pra economizar: <b>${esc(topFix.desc)}</b> custa ${brl(topFix.val)}/mês (~${brl(topFix.val * 12)}/ano). Revisar ou cancelar é seu maior corte.` });
   if (isMesAtual()) {
     const hoje = REAL_TODAY.getDate(), diasNoMes = new Date(DATA.year, m + 1, 0).getDate();
     const gastoAteAgora = pago(m);
@@ -210,7 +230,7 @@ function computeInsights(m) {
     if (med > 0 && atual > med * 1.3)
       out.push({ ic: "👀", tone: "warn", text: `Cartão <b>${_pct(atual - med, med)}%</b> acima da média dos últimos 3 meses.` });
   }
-  return out.slice(0, 4);
+  return out.slice(0, 6);
 }
 function renderInsights(m) {
   const ins = computeInsights(m);

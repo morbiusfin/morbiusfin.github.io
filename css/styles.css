@@ -267,6 +267,22 @@ html.theme-dark .tab.active { color: var(--accent); }
 #notifWrap > .hint { display: block; }
 .hint { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.5; }
 
+/* ===== Pop-up centralizado (contas a vencer) ===== */
+.modal.center { align-items: center; padding: 24px; }
+.modal.center .modal-card { width: 100%; max-width: 360px; border-radius: 22px; border-bottom: 1px solid var(--line);
+  text-align: center; animation: popIn .26s cubic-bezier(.2,.9,.2,1.2) both; }
+.alert-emoji { font-size: 42px; line-height: 1; animation: bellRing 1.2s ease-in-out 2; transform-origin: 50% 0; }
+@keyframes bellRing { 0%,100% { transform: rotate(0); } 20% { transform: rotate(12deg); } 40% { transform: rotate(-10deg); } 60% { transform: rotate(6deg); } 80% { transform: rotate(-4deg); } }
+.alert-card h2 { text-align: center; margin: 10px 0 6px; }
+.alert-body { text-align: left; margin: 4px 0 8px; }
+.alert-line { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); }
+.alert-line:last-child { border-bottom: 0; }
+.al-desc { font-weight: 700; font-size: 14.5px; }
+.al-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.al-val { font-weight: 800; white-space: nowrap; }
+.alert-total { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 12px; border-top: 2px solid var(--line); font-size: 15px; font-weight: 700; }
+.alert-total b { font-size: 19px; color: var(--accent); letter-spacing: -.3px; }
+
 /* ===== TOAST ===== */
 .toast { position: fixed; bottom: calc(94px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
   background: var(--ink); color: var(--bg); padding: 13px 22px; border-radius: 24px; font-size: 14px; font-weight: 700; z-index: 200;
