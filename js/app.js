@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.1.0";
-const VERSION_NOTES = "✨ Visual profissional novo: fonte Manrope, modo escuro, animações · 🧠 Saúde financeira + Insights inteligentes (calculados no próprio aparelho)";
+const APP_VERSION = "3.2.0";
+const VERSION_NOTES = "💳 Cadastro de cartões (fechamento/vencimento) + parcelas que caem no mês certo · 🔁 recorrente por nº de meses · 🧮 aviso \"posso gastar?\" · 📈 projeção de saldo · ✨ splash + sem barra de scroll";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -158,7 +158,7 @@ function renderHealth(m) {
     <div class="health-body">
       <svg class="gauge" viewBox="0 0 180 110" width="170">
         <path d="M16 96 A 74 74 0 0 1 164 96" fill="none" stroke="var(--line)" stroke-width="14" stroke-linecap="round"/>
-        <path d="M16 96 A 74 74 0 0 1 164 96" fill="none" stroke="${meta.c}" stroke-width="14" stroke-linecap="round"
+        <path class="g-arc" d="M16 96 A 74 74 0 0 1 164 96" fill="none" stroke="${meta.c}" stroke-width="14" stroke-linecap="round"
           stroke-dasharray="${len.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/>
         <text x="90" y="84" text-anchor="middle" class="gauge-num">${s}</text>
         <text x="90" y="103" text-anchor="middle" class="gauge-of">de 100</text>
@@ -247,6 +247,8 @@ function renderResumo(view) {
   view.innerHTML = `
     ${alertas.length ? `<div class="alert-banner" id="goVenc">🔔 <b>${alertas.length}</b> conta(s) a vencer — toque para ver</div>` : ""}
 
+    ${alertas.length ? `<div class="section-card fade-in" id="vencCard"><h3>📌 Próximas contas</h3><div id="vencList"></div></div>` : ""}
+
     ${renderHealth(m)}
 
     <div class="flow-card fade-in">
@@ -264,8 +266,6 @@ function renderResumo(view) {
       ${barPrevReal("Despesas", pago(m), aPagar(m), "pago", "a pagar")}
     </div>
 
-    ${alertas.length ? `<div class="section-card" id="vencCard"><h3>Próximas contas</h3><div id="vencList"></div></div>` : ""}
-
     <div class="section-card"><h3>Composição das despesas</h3>
       <div class="chart-wrap"><canvas id="doughChart" height="170"></canvas></div>
       <div id="catList"></div></div>
@@ -275,13 +275,21 @@ function renderResumo(view) {
     <div class="section-card"><h3>Receitas × Despesas (ano)</h3>
       <div class="chart-wrap"><canvas id="barChart" height="190"></canvas></div></div>
 
-    <div class="section-card"><h3>Saldo acumulado (ano)</h3>
-      <div class="chart-wrap"><canvas id="lineChart" height="170"></canvas></div></div>
+    <div class="section-card"><h3>Projeção do saldo (ano) <i class="h3-sub">— realizado + provisão dos próximos meses</i></h3>
+      <div class="chart-wrap"><canvas id="lineChart" height="180"></canvas></div></div>
   `;
   if (alertas.length) renderVencList();
   renderCatList(m);
   renderCharts();
-  const gv = $("#goVenc"); if (gv) gv.onclick = () => $("#vencCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const gv = $("#goVenc"); if (gv) gv.onclick = () => scrollToEl("#vencCard");
+}
+
+// Rola até um elemento descontando a altura do cabeçalho fixo (não joga "longe demais").
+function scrollToEl(sel) {
+  const el = $(sel); if (!el) return;
+  const head = $(".app-header"), off = (head ? head.offsetHeight : 0) + 12;
+  const y = el.getBoundingClientRect().top + window.scrollY - off;
+  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
 }
 
 function barPrevReal(label, real, prev, lblReal, lblPrev) {
@@ -408,11 +416,51 @@ function renderCharts() {
       { label: "Despesas", data: MESES.map((_, i) => despesaMes(i)), backgroundColor: "#e5484d", borderRadius: 4 }] },
     options: chartOpts(true) });
   const lc = $("#lineChart");
-  if (lc) charts.line = new Chart(lc, { type: "line",
-    data: { labels: MESES_CURTO, datasets: [{ label: "Saldo acumulado", data: MESES.map((_, i) => sobraMes(i)),
-      borderColor: "#0b3d2e", backgroundColor: "rgba(11,61,46,.1)", fill: true, tension: .35, pointRadius: 3 }] },
-    options: chartOpts(false) });
+  if (lc) {
+    const bal = MESES.map((_, i) => sobraMes(i));
+    const nowM = (DATA.year === REAL_TODAY.getFullYear()) ? REAL_TODAY.getMonth() : 11; // até aqui = realizado; depois = projeção
+    const ctx = lc.getContext("2d");
+    const grad = ctx.createLinearGradient(0, 0, 0, 200);
+    grad.addColorStop(0, "rgba(21,194,102,.30)");
+    grad.addColorStop(1, "rgba(21,194,102,.02)");
+    charts.line = new Chart(lc, { type: "line",
+      data: { labels: MESES_CURTO, datasets: [{
+        label: "Saldo projetado", data: bal,
+        borderColor: "#15c266", borderWidth: 2.6, backgroundColor: grad, fill: true, tension: .38,
+        pointRadius: bal.map((_, i) => i === nowM ? 5 : 3),
+        pointBackgroundColor: bal.map((_, i) => i > nowM ? "rgba(21,194,102,.15)" : "#15c266"),
+        pointBorderColor: "#15c266", pointBorderWidth: 2,
+        segment: {
+          borderDash: c => c.p0DataIndex >= nowM ? [6, 5] : undefined,
+          borderColor: c => c.p0DataIndex >= nowM ? "#7fc6a3" : "#15c266"
+        }
+      }] },
+      options: { ...chartOpts(false),
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: {
+            title: items => MESES[items[0].dataIndex] + (items[0].dataIndex > nowM ? " (projeção)" : ""),
+            label: c => `Saldo: ${brl(c.raw)}`,
+            afterLabel: c => { const i = c.dataIndex; const arr = [`No mês: ${brl(receitaMes(i) - despesaMes(i))}`]; if (i > nowM) arr.push("⏳ provisão"); return arr; }
+          } } } } });
+  }
+  startResumoAnim();
 }
+/* Animação contínua suave (gira o donut devagar) — pausa fora do Resumo / app oculto / reduced-motion. */
+let _animRAF = null, _animLast = 0, _doughRot = 0;
+function startResumoAnim() {
+  stopResumoAnim();
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const loop = (ts) => {
+    _animRAF = requestAnimationFrame(loop);
+    if (document.hidden || curTab !== "resumo" || annual || !charts.dough) return;
+    if (ts - _animLast < 70) return;                 // ~14 fps, leve
+    _animLast = ts;
+    _doughRot = (_doughRot + 0.45) % 360;
+    try { charts.dough.options.rotation = _doughRot; charts.dough.update("none"); } catch (e) {}
+  };
+  _animRAF = requestAnimationFrame(loop);
+}
+function stopResumoAnim() { if (_animRAF) { cancelAnimationFrame(_animRAF); _animRAF = null; } }
 function renderSobraChart() {
   if (typeof Chart === "undefined") return;
   applyChartTheme();
@@ -439,9 +487,11 @@ function renderLista(view) {
     .filter(x => x.l.vals[curMonth] > 0 || x.l.sts[curMonth] !== "vazio")
     .sort((a, b) => b.l.vals[curMonth] - a.l.vals[curMonth]);
   view.innerHTML = `
+    ${curTab === "cartao" ? renderCardsSection() : ""}
     <div class="list-header"><span class="lbl">${rows.length} lançamento(s) em ${MESES[curMonth]}</span><span class="total">${brl(total)}</span></div>
     <div class="list">${rows.length ? rows.map(({ l, idx }) => lineRow(l, idx)).join("") : empty()}</div>`;
   bindRows(view);
+  if (curTab === "cartao") bindCardsSection(view);
 }
 
 function renderReceitas(view) {
@@ -510,6 +560,106 @@ function toggleStatus(tab, idx) {
 
 const empty = (msg) => `<div class="empty">${msg || "Nada lançado neste mês."}<br>Toque em + para adicionar.</div>`;
 
+/* ---------- Cartões cadastrados (fechamento/vencimento) ---------- */
+function renderCardsSection() {
+  const cs = DATA.cartoes || [];
+  const itens = cs.map((c, i) => `<div class="card-line" data-cidx="${i}">
+      <div class="card-ic">💳</div>
+      <div class="desc"><div class="name">${esc(c.nome || "Cartão")}</div>
+        <div class="sub">fecha dia <b>${c.fechamento || "—"}</b> · vence dia <b>${c.vencimento || "—"}</b></div></div>
+      <span class="card-edit">editar ›</span></div>`).join("");
+  return `<div class="section-card fade-in"><h3>💳 Meus cartões</h3>
+    ${cs.length ? `<div class="card-list">${itens}</div>`
+      : `<div class="empty" style="padding:20px 18px">Nenhum cartão cadastrado.<br>Cadastre com o dia do <b>fechamento</b> e do <b>vencimento</b> para lançar compras sem erro.</div>`}
+    <div class="card-add"><button class="btn ghost" id="btnAddCard">＋ Cadastrar cartão</button></div></div>`;
+}
+function bindCardsSection(view) {
+  const add = $("#btnAddCard", view); if (add) add.onclick = () => openCardModal(null);
+  $$("[data-cidx]", view).forEach(r => r.onclick = () => openCardModal(+r.dataset.cidx));
+}
+function openCardModal(idx) {
+  const isNew = idx == null, c = isNew ? null : DATA.cartoes[idx];
+  $("#modalTitle").textContent = isNew ? "Cadastrar cartão" : "Editar cartão";
+  $("#entryForm").innerHTML = `
+    <label class="field"><span>Nome do cartão</span><input id="c_nome" type="text" value="${isNew ? "" : esc(c.nome || "")}" placeholder="Ex.: Mercado Pago" required /></label>
+    <div class="field-row">
+      <label class="field"><span>Fecha a fatura (dia)</span><input id="c_fech" type="number" min="1" max="31" inputmode="numeric" value="${isNew || !c.fechamento ? "" : c.fechamento}" placeholder="ex.: 29" /></label>
+      <label class="field"><span>Vence / paga (dia)</span><input id="c_venc" type="number" min="1" max="31" inputmode="numeric" value="${isNew || !c.vencimento ? "" : c.vencimento}" placeholder="ex.: 7" /></label>
+    </div>
+    <p class="hint" style="text-align:left">Compras feitas <b>até o dia do fechamento</b> entram na fatura do mês; depois disso, vão para o mês seguinte.</p>`;
+  $("#btnDelete").classList.toggle("hidden", isNew);
+  $("#btnDelete").onclick = () => { DATA.cartoes.splice(idx, 1); persist(); closeModal(); toast("Cartão removido"); };
+  $("#entryForm").onsubmit = (e) => {
+    e.preventDefault();
+    const o = { nome: $("#c_nome").value.trim() || "Cartão", fechamento: parseInt($("#c_fech").value) || null, vencimento: parseInt($("#c_venc").value) || null };
+    if (isNew) DATA.cartoes.push({ id: uid(), ...o }); else Object.assign(c, o);
+    persist(); closeModal(); toast(isNew ? "Cartão cadastrado ✓" : "Cartão salvo ✓");
+  };
+  showModal("#modal");
+}
+
+/* ---------- Compra no cartão: parcelas caem no mês certo pela data de fechamento ---------- */
+function parcelaStartMonth(purchaseMonth, purchaseDay, fechamento) {
+  if (!fechamento || !purchaseDay) return purchaseMonth;
+  return purchaseDay <= fechamento ? purchaseMonth : purchaseMonth + 1;
+}
+function openCartaoModal() {
+  const cs = DATA.cartoes || [];
+  $("#modalTitle").textContent = "Nova compra no cartão";
+  const cardOpts = cs.map(c => `<option value="${c.id}">${esc(c.nome)} (fecha ${c.fechamento || "?"})</option>`).join("");
+  $("#entryForm").innerHTML = `
+    ${cs.length ? "" : `<p class="hint" style="text-align:left;margin-bottom:10px">💡 Cadastre seu cartão (com o dia do fechamento) em <b>Meus cartões</b> para as parcelas caírem no mês certo.</p>`}
+    <label class="field"><span>Descrição</span><input id="f_desc" type="text" required placeholder="Ex.: Tênis" /></label>
+    <label class="field"><span>Cartão</span><select id="f_card">${cardOpts}<option value="">Outro (sem cadastro)</option></select></label>
+    <div class="field-row">
+      <label class="field"><span>Valor de cada parcela</span><input id="f_val" type="number" step="0.01" inputmode="decimal" placeholder="0,00" required /></label>
+      <label class="field"><span>Nº de parcelas</span><input id="f_n" type="number" min="1" max="48" inputmode="numeric" value="1" /></label>
+    </div>
+    <label class="field"><span>Dia da compra (em ${MESES[curMonth]})</span><input id="f_dia" type="number" min="1" max="31" inputmode="numeric" placeholder="ex.: 25" /></label>
+    <div id="f_parc_prev" class="impact"></div>`;
+  ["f_val", "f_n", "f_dia", "f_card"].forEach(id => { const el = $("#" + id); if (el) { el.oninput = updateParcelaPreview; el.onchange = updateParcelaPreview; } });
+  updateParcelaPreview();
+  $("#btnDelete").classList.add("hidden");
+  $("#entryForm").onsubmit = (e) => {
+    e.preventDefault();
+    const valor = parseFloat($("#f_val").value) || 0;
+    const n = Math.max(1, parseInt($("#f_n").value) || 1);
+    const dia = parseInt($("#f_dia").value) || null;
+    const card = cs.find(c => c.id === $("#f_card").value) || null;
+    const start = parcelaStartMonth(curMonth, dia, card ? card.fechamento : null);
+    const paidUntil = (DATA.year === REAL_TODAY.getFullYear()) ? REAL_TODAY.getMonth() : 11;
+    const line = { id: uid(), desc: $("#f_desc").value.trim(), cartao: card ? card.nome : "", parcAtual: 1, parcTotal: n > 1 ? n : null, dia: card ? card.vencimento : dia, vals: Array(12).fill(0), sts: Array(12).fill("vazio") };
+    let postas = 0;
+    for (let k = 0; k < n; k++) { const mo = start + k; if (mo < 0 || mo > 11) continue; line.vals[mo] = valor; line.sts[mo] = mo <= paidUntil ? "pago" : "programado"; postas++; }
+    DATA.cartao.push(line);
+    persist(); closeModal();
+    toast(n > 1 ? `Compra lançada ✓ ${n}× (${postas} neste ano)` : "Compra lançada ✓");
+  };
+  showModal("#modal");
+}
+function updateParcelaPreview() {
+  const el = $("#f_parc_prev"); if (!el) return;
+  const valor = parseFloat($("#f_val") && $("#f_val").value) || 0;
+  const n = Math.max(1, parseInt($("#f_n") && $("#f_n").value) || 1);
+  const dia = parseInt($("#f_dia") && $("#f_dia").value) || null;
+  const cs = DATA.cartoes || [];
+  const card = cs.find(c => c.id === ($("#f_card") && $("#f_card").value)) || null;
+  const start = parcelaStartMonth(curMonth, dia, card ? card.fechamento : null);
+  const fim = Math.min(11, start + n - 1);
+  el.className = "impact ok";
+  let txt = `<div class="impact-row"><span>${n > 1 ? n + "× de " + brl(valor) : "Compra"}</span><b>${brl(valor * n)}</b></div>`;
+  if (card && card.fechamento && dia) {
+    const mesmoMes = dia <= card.fechamento;
+    txt += `<div class="impact-sub">${mesmoMes
+      ? `Compra dia ${dia} entra na fatura de <b>${MESES[curMonth]}</b>`
+      : `Compra dia ${dia} (após fechar dia ${card.fechamento}) entra em <b>${MESES[start] || "ano que vem"}</b>`}`
+      + (n > 1 ? ` · parcelas de <b>${MESES[start]}</b> a <b>${MESES[fim]}</b>` : "") + `</div>`;
+  } else if (n > 1) {
+    txt += `<div class="impact-sub">Parcelas de <b>${MESES[start]}</b> a <b>${MESES[fim]}</b>. Selecione um cartão cadastrado para usar a data de fechamento.</div>`;
+  }
+  el.innerHTML = txt;
+}
+
 /* ---------- MODAIS ---------- */
 function openEntryModal(tab, idx) {
   const isNew = idx == null, l = isNew ? null : DATA[tab][idx], isReceita = tab === "receitas";
@@ -534,9 +684,18 @@ function openEntryModal(tab, idx) {
       <label class="field"><span>${tab === "fixas" ? "Vencimento (dia)" : "Dia"}</span><input id="f_dia" type="number" min="1" max="31" value="${isNew || !l.dia ? "" : l.dia}" placeholder="--" /></label>
     </div>
     <label class="field"><span>Situação</span><select id="f_st">${stOpts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></label>
-    <label class="field row-check"><input id="f_all" type="checkbox" /><span>Aplicar este valor a todos os meses (recorrente)</span></label>`;
+    <label class="field row-check"><input id="f_all" type="checkbox" /><span>Repetir nos próximos meses</span></label>
+    <label class="field" id="f_rep_wrap" style="display:none"><span>Por quantos meses? (a partir de ${MESES[curMonth]})</span>
+      <input id="f_rep" type="number" min="1" max="${12 - curMonth}" inputmode="numeric" value="${12 - curMonth}" /></label>`;
   if (!isNew) { if (isReceita) $("#f_tipo").value = l.tipo || "Ativa"; $("#f_st").value = l.sts[curMonth] || "vazio"; }
   else $("#f_st").value = isReceita ? "recebido" : "pago";
+  $("#f_all").onchange = () => { $("#f_rep_wrap").style.display = $("#f_all").checked ? "block" : "none"; };
+
+  // Aviso inteligente: mostra a sobra do mês DEPOIS deste lançamento (em tempo real).
+  const isExpenseE = tab !== "receitas", oldValE = isNew ? 0 : (Number(l.vals[curMonth]) || 0);
+  $("#entryForm").insertAdjacentHTML("beforeend", `<div id="f_impact" class="impact"></div>`);
+  const fv = $("#f_val"); if (fv) fv.oninput = () => updateImpact(isExpenseE, oldValE);
+  updateImpact(isExpenseE, oldValE);
 
   $("#btnDelete").classList.toggle("hidden", isNew);
   $("#btnDelete").onclick = () => { if (confirm("Excluir este lançamento (todos os meses)?")) { DATA[tab].splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
@@ -549,12 +708,30 @@ function openEntryModal(tab, idx) {
     if (isReceita) line.tipo = $("#f_tipo").value;
     if (tab === "fixas") { line.aviso = parseInt($("#f_aviso").value) || null; line.meta = parseFloat($("#f_meta").value) || null; }
     if (tab === "cartao") { line.parcAtual = parseInt($("#f_pa").value) || null; line.parcTotal = parseInt($("#f_pt").value) || null; line.cartao = $("#f_cartao").value.trim(); }
-    if (all) { line.vals = Array(12).fill(val); line.sts = Array(12).fill(val > 0 ? st : "vazio"); }
-    else { line.vals[curMonth] = val; line.sts[curMonth] = val > 0 ? st : "vazio"; }
+    if (all) {
+      const q = Math.min(12 - curMonth, Math.max(1, parseInt($("#f_rep").value) || (12 - curMonth)));
+      for (let k = 0; k < q; k++) { const mo = curMonth + k; line.vals[mo] = val; line.sts[mo] = val > 0 ? st : "vazio"; }
+    } else { line.vals[curMonth] = val; line.sts[curMonth] = val > 0 ? st : "vazio"; }
     if (isNew) DATA[tab].push(line);
-    persist(); closeModal(); toast(isNew ? "Adicionado" : "Salvo");
+    persist(); closeModal();
+    const sa = disponivelMes(curMonth) - despesaMes(curMonth);
+    if (isExpenseE && val > 0 && sa < 0) toast(`⚠️ ${MESES[curMonth]} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
+    else toast(isNew ? "Adicionado ✓" : "Salvo ✓");
   };
   showModal("#modal");
+}
+
+// Atualiza a linha "sobra do mês após este lançamento" (verde = ok, vermelho = vai faltar).
+function updateImpact(isExpense, oldVal) {
+  const el = $("#f_impact"); if (!el) return;
+  const m = curMonth, cur = disponivelMes(m) - despesaMes(m);
+  const novo = parseFloat($("#f_val") && $("#f_val").value) || 0;
+  const delta = novo - (oldVal || 0);
+  const apos = isExpense ? cur - delta : cur + delta;
+  const neg = apos < 0;
+  el.className = "impact " + (neg ? "bad" : "ok");
+  el.innerHTML = `<div class="impact-row"><span>${isExpense ? "Sobra do mês após este gasto" : "Sobra do mês após"}</span><b>${brl(apos)}</b></div>`
+    + (neg ? `<div class="impact-warn">⚠️ Isso deixa <b>${MESES[m]}</b> no vermelho. Você pode salvar, mas reveja o gasto.</div>` : "");
 }
 
 function openDiariaModal(idx) {
@@ -568,14 +745,22 @@ function openDiariaModal(idx) {
       <label class="field"><span>Valor</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : d.valor}" placeholder="0,00" required /></label>
       <label class="field"><span>Dia</span><input id="f_dia" type="number" min="1" max="31" value="${isNew || !d.dia ? "" : d.dia}" placeholder="--" /></label>
     </div><p class="hint">Mês: ${MESES[curMonth]}</p>`;
+  const oldValD = isNew ? 0 : (Number(d.valor) || 0);
+  $("#entryForm").insertAdjacentHTML("beforeend", `<div id="f_impact" class="impact"></div>`);
+  const fvd = $("#f_val"); if (fvd) fvd.oninput = () => updateImpact(true, oldValD);
+  updateImpact(true, oldValD);
   $("#btnDelete").classList.toggle("hidden", isNew);
   $("#btnDelete").onclick = () => { if (confirm("Excluir esta compra?")) { DATA.diaria.splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
-    const o = { desc: $("#f_desc").value.trim(), valor: parseFloat($("#f_val").value) || 0, dia: parseInt($("#f_dia").value) || null, categoria: $("#f_cat").value.trim() || "Geral" };
+    const val = parseFloat($("#f_val").value) || 0;
+    const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, categoria: $("#f_cat").value.trim() || "Geral" };
     if (isNew) DATA.diaria.push({ id: uid(), mes: curMonth, ...o });
     else Object.assign(d, o);
-    persist(); closeModal(); toast(isNew ? "Adicionado" : "Salvo");
+    persist(); closeModal();
+    const sa = disponivelMes(curMonth) - despesaMes(curMonth);
+    if (val > 0 && sa < 0) toast(`⚠️ ${MESES[curMonth]} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
+    else toast(isNew ? "Adicionado ✓" : "Salvo ✓");
   };
   showModal("#modal");
 }
@@ -609,7 +794,7 @@ let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.
 
 /* ---------- Eventos ---------- */
 $$(".tab").forEach(t => t.onclick = () => { $$(".tab").forEach(x => x.classList.remove("active")); t.classList.add("active"); curTab = t.dataset.tab; if (curTab !== "resumo") annual = false; render(); });
-$("#fab").onclick = () => curTab === "diaria" ? openDiariaModal(null) : openEntryModal(curTab, null);
+$("#fab").onclick = () => curTab === "diaria" ? openDiariaModal(null) : curTab === "cartao" ? openCartaoModal() : openEntryModal(curTab, null);
 $("#btnUndo").onclick = undo;
 { const br = $("#btnRefresh"); if (br) br.onclick = syncNow; }
 { const rd = $("#btnRedo"); if (rd) rd.onclick = redo; }
@@ -636,10 +821,25 @@ $("#btnReset").onclick = () => { if (confirm("Apagar tudo e voltar aos dados de 
 const VAPID_PUBLIC = "BC1EnbsN2qolEkoNvMqsAuqjqrPUfNlslzCnoRIOgWvCthh0ytYXzbUrP9iSzNgNswcS9H121de7cCANXGhuSz4";
 let PUSH_API = ""; // preenchido após publicar o Worker
 function urlB64ToU8(b64) { const pad = "=".repeat((4 - b64.length % 4) % 4); const s = (b64 + pad).replace(/-/g, "+").replace(/_/g, "/"); const raw = atob(s); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); }
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
 async function ativarPush() {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) { toast("Push não suportado aqui (use o app instalado no iPhone)"); return; }
-  const perm = await Notification.requestPermission();
-  if (perm !== "granted") { toast("Permissão negada"); return; }
+  // iPhone: notificação/push exigem o app instalado na tela de início (regra da Apple)
+  if (isIOS() && !isStandalone()) {
+    toast("📲 No iPhone, instale primeiro: Compartilhar ⬆️ → Adicionar à Tela de Início. Depois abra pelo ÍCONE e ative aqui.");
+    return;
+  }
+  if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    toast("Este navegador não suporta push. No iPhone, abra pelo app instalado na tela de início.");
+    return;
+  }
+  let perm = Notification.permission;
+  if (perm === "default") perm = await Notification.requestPermission();
+  if (perm === "denied") {
+    toast("🔕 Notificações bloqueadas. Ative nos Ajustes (Notificações deste app/site) e tente de novo.");
+    return;
+  }
+  if (perm !== "granted") { toast("Sem permissão de notificação."); return; }
   try {
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
@@ -648,9 +848,13 @@ async function ativarPush() {
     const bills = DATA.fixas.filter(l => l.dia).map(l => ({ desc: l.desc, dia: l.dia, aviso: l.aviso || 0 }));
     if (PUSH_API) {
       await fetch(PUSH_API + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub, bills }) });
-      toast("Push ativado no celular ✅");
-    } else { toast("Inscrição criada ✅ (servidor em configuração)"); }
-  } catch (e) { toast("Falha ao ativar push: " + e.message); }
+      toast("✅ Push ativado — você será avisado mesmo com o app fechado.");
+    } else {
+      // notificação local já funciona; o aviso com app FECHADO precisa do servidor de push
+      toast("✅ Notificações ligadas. (Aviso com app fechado precisa ligar o servidor — falo com você sobre isso.)");
+      enviarTeste();
+    }
+  } catch (e) { toast("Falha ao ativar: " + ((e && e.message) || e)); }
   render();
 }
 
@@ -943,7 +1147,14 @@ function startApp() {
     startLiveSync();
   }
   if (window.__syncFromLink) { toast("Sincronização ativada ⚡"); window.__syncFromLink = false; }
+  setTimeout(hideSplash, 850);
 }
+function hideSplash() {
+  const sp = document.getElementById("splash");
+  if (sp && !sp.classList.contains("gone")) { sp.classList.add("gone"); setTimeout(() => { try { sp.remove(); } catch (e) {} }, 560); }
+}
+// rede de segurança: nunca deixar o splash preso
+window.addEventListener("load", () => setTimeout(hideSplash, 1800));
 /* Auto-configura a sincronização a partir de um link (#cfg=base64).
    Lê do fragmento (#) — que NÃO é enviado a servidores — salva e limpa
    o token da barra de endereço/histórico na hora. Uso: abrir 1x o link. */

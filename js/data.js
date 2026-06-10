@@ -71,7 +71,12 @@ function buildSeed() {
 
   const metas = { fixas: 2200, cartao: 900, diaria: 500 };
 
-  return { year: 2026, saldoInicial: 0, receitas, fixas, cartao, diaria, metas };
+  const cartoes = [
+    { id: uid(), nome: "Mercado Pago", fechamento: 29, vencimento: 7 },
+    { id: uid(), nome: "Nubank", fechamento: 3, vencimento: 10 },
+  ];
+
+  return { year: 2026, saldoInicial: 0, receitas, fixas, cartao, diaria, metas, cartoes };
 }
 
 function rec(desc, tipo, dia, r)            { return { id: uid(), desc, tipo, dia: dia ?? null, vals: r.vals, sts: r.sts }; }
@@ -85,6 +90,7 @@ const STORE_KEY = "financas2026.v2";
 function migrate(d) {
   // garante campos novos em dados antigos
   d.metas = d.metas || { fixas: 0, cartao: 0, diaria: 0 };
+  d.cartoes = d.cartoes || [];   // cartões cadastrados: { id, nome, fechamento, vencimento }
   (d.fixas || []).forEach(l => { if (l.aviso === undefined) l.aviso = null; if (l.meta === undefined) l.meta = null; });
   (d.cartao || []).forEach(l => { if (l.cartao === undefined) l.cartao = ""; if (l.parcAtual === undefined) l.parcAtual = null; if (l.parcTotal === undefined) l.parcTotal = null; });
   (d.diaria || []).forEach(l => { if (l.categoria === undefined) l.categoria = "Geral"; });

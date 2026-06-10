@@ -58,7 +58,8 @@ html, body { margin: 0; padding: 0; }
 body {
   font-family: var(--font);
   background:
-    radial-gradient(1200px 600px at 100% -10%, rgba(21,194,102,.06), transparent 60%),
+    radial-gradient(900px 520px at 100% -8%, rgba(21,194,102,.10), transparent 58%),
+    radial-gradient(800px 500px at -10% 102%, rgba(18,115,77,.08), transparent 55%),
     linear-gradient(180deg, var(--bg-grad-1), var(--bg-grad-2));
   background-attachment: fixed;
   color: var(--ink);
@@ -94,9 +95,9 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
   box-shadow: 0 6px 22px rgba(8,40,28,.28);
   border-bottom: 1px solid rgba(255,255,255,.06);
 }
-.header-row { display: flex; align-items: center; justify-content: space-between; }
-.app-header h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.3px; }
-.header-actions { display: flex; align-items: center; gap: 8px; }
+.header-row { display: flex; align-items: center; justify-content: space-between; min-height: 40px; }
+.app-header h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.3px; line-height: 40px; }
+.header-actions { display: flex; align-items: center; gap: 9px; }
 .icon-btn {
   background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.10); color: #fff;
   font-size: 17px; width: 38px; height: 38px; border-radius: 12px;
@@ -250,9 +251,16 @@ html.theme-dark .tab.active { color: var(--accent); }
 .btn.primary { background: linear-gradient(135deg, var(--green-2), var(--green)); color: #fff; box-shadow: 0 6px 16px rgba(11,61,46,.28); }
 .btn.primary:hover { filter: brightness(1.06); }
 .btn.ghost { background: var(--card-2); color: var(--ink); border: 1px solid var(--line); }
+.btn.ghost:hover { transform: translateY(-1px); box-shadow: var(--shadow); border-color: var(--accent); }
 .btn.danger { background: rgba(229,72,77,.12); color: var(--red); }
-.settings-buttons { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 12px; }
-.settings-buttons .btn { width: 100%; }
+.btn.danger:hover { background: rgba(229,72,77,.18); }
+/* Botões das configurações: largos, centralizados, com ícone alinhado */
+.settings-buttons { display: flex; flex-direction: column; gap: 11px; margin: 10px 0 14px; }
+.settings-buttons .btn, #notifWrap .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 15px; }
+#notifWrap .btn { margin: 0; }
+#settingsModal .modal-card h2 { text-align: center; }
+#settingsModal .field span, #notifWrap .hint { text-align: center; }
+#notifWrap > .hint { display: block; }
 .hint { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.5; }
 
 /* ===== TOAST ===== */
@@ -310,5 +318,57 @@ html.theme-dark .tab.active { color: var(--accent); }
 .sync-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius: 999px; transition: width .35s ease; }
 @keyframes syncPulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
 .sync-fill.indet { animation: syncPulse 1s ease-in-out infinite; }
+
+/* ===== Sem barras de scroll (mantém o scroll funcionando) ===== */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* ===== Meus cartões ===== */
+.card-list { padding: 2px 0; }
+.card-line { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line); transition: background .15s ease; }
+.card-line:last-child { border-bottom: 0; }
+.card-line:active { background: var(--card-2); }
+.card-ic { width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--green-2), var(--green)); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 19px; flex: 0 0 auto; box-shadow: 0 4px 12px rgba(11,61,46,.25); }
+.card-line .desc { flex: 1; min-width: 0; }
+.card-line .name { font-weight: 700; font-size: 15px; }
+.card-line .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.card-line .sub b { color: var(--ink); font-weight: 800; }
+.card-edit { font-size: 12px; color: var(--accent); font-weight: 800; }
+.card-add { padding: 12px 16px 16px; }
+.card-add .btn { width: 100%; }
+.impact-sub { margin-top: 9px; font-size: 12.5px; color: var(--muted); font-weight: 600; line-height: 1.45; }
+.impact-sub b { color: var(--ink); font-weight: 800; }
+
+/* ===== Subtítulo de seção ===== */
+.h3-sub { font-style: normal; font-weight: 600; color: var(--muted); font-size: 11.5px; }
+
+/* ===== Medidor: pulsação suave contínua ===== */
+@keyframes gaugePulse { 0%,100% { opacity: 1; } 50% { opacity: .72; } }
+.g-arc { animation: gaugePulse 2.6s ease-in-out infinite; }
+
+/* ===== Impacto do lançamento (posso gastar?) ===== */
+.impact { margin-top: 6px; padding: 13px 14px; border-radius: 14px; background: var(--card-2); border: 1px solid var(--line);
+  animation: popIn .2s ease both; }
+.impact-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; }
+.impact-row b { font-size: 17px; letter-spacing: -.3px; }
+.impact.ok .impact-row b { color: var(--accent); }
+.impact.bad { background: rgba(229,72,77,.09); border-color: rgba(229,72,77,.45); }
+.impact.bad .impact-row b { color: var(--red); }
+.impact-warn { margin-top: 9px; font-size: 12.5px; color: var(--red); font-weight: 700; line-height: 1.45; }
+.impact-warn b { font-weight: 800; }
+
+/* ===== Splash de abertura ===== */
+#splash { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: linear-gradient(160deg, #0b3d2e 0%, #105a3f 55%, #12734d 100%); transition: opacity .5s ease; }
+#splash.gone { opacity: 0; pointer-events: none; }
+#splash .splash-logo { width: 104px; height: 104px; border-radius: 26px; box-shadow: 0 16px 40px rgba(0,0,0,.35);
+  animation: splashPop .6s cubic-bezier(.2,.9,.2,1.2) both; }
+#splash .splash-name { color: #fff; font-weight: 800; font-size: 21px; letter-spacing: .3px; opacity: 0; animation: splashFade .5s ease .25s forwards; }
+#splash .splash-bar { width: 120px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.2); overflow: hidden; opacity: 0; animation: splashFade .5s ease .35s forwards; }
+#splash .splash-bar i { display: block; height: 100%; width: 40%; border-radius: 99px; background: #fff; animation: splashLoad 1s ease-in-out infinite; }
+@keyframes splashPop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes splashFade { to { opacity: 1; } }
+@keyframes splashLoad { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
 
 .hidden { display: none !important; }
