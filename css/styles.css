@@ -312,9 +312,19 @@ html.theme-dark .tab.active { color: var(--accent); }
 .pr-fill.over { background: linear-gradient(90deg, #ff6b6f, var(--red)); }
 .pr-legend { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 600; }
 
-.venc-badge { font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 10px; margin-left: 6px; background: var(--card-2); color: var(--muted); }
-.venc-badge.hoje, .venc-badge.perto { background: rgba(245,166,35,.2); color: #b9760a; }
-.venc-badge.atras { background: rgba(229,72,77,.16); color: var(--red); }
+.venc-badge { font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 10px; margin-left: 6px; background: var(--card-2); color: var(--muted);
+  display: inline-block; transition: box-shadow .3s ease, background .3s ease, color .3s ease; }
+/* Cor por proximidade: quanto mais perto, mais "quente". Não é vermelho sangue — é de atenção. */
+.venc-badge.d0    { background: rgba(229,72,77,.16); color: #e5484d; animation: vbRed 1.7s ease-in-out infinite; }
+.venc-badge.atras { background: rgba(229,72,77,.22); color: #ff5d62; animation: vbRed 1.3s ease-in-out infinite; }
+.venc-badge.d1    { background: rgba(245,166,35,.20); color: #cf8400; animation: vbAmber 2.2s ease-in-out infinite; }
+.venc-badge.d3    { background: rgba(245,193,35,.18); color: #b9760a; }
+.venc-badge.d7    { background: rgba(120,190,60,.16);  color: #5f8f1e; }
+.venc-badge.dlong { background: rgba(21,194,102,.14);  color: #1a8f57; }
+.venc-badge.hoje  { background: rgba(229,72,77,.16); color: #e5484d; }   /* retrocompat */
+.venc-badge.perto { background: rgba(245,166,35,.20); color: #cf8400; }
+@keyframes vbRed   { 0%,100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); }  50% { box-shadow: 0 0 0 3px rgba(229,72,77,.18); } }
+@keyframes vbAmber { 0%,100% { box-shadow: 0 0 0 0 rgba(245,166,35,0); } 50% { box-shadow: 0 0 0 3px rgba(245,166,35,.16); } }
 .mini-btn { background: linear-gradient(135deg, var(--green-2), var(--green)); color: #fff; border: 0; border-radius: 11px; padding: 8px 14px; font-size: 12px; font-weight: 800; transition: transform .12s ease; }
 .mini-btn:active { transform: scale(.93); }
 
@@ -469,3 +479,67 @@ html.theme-dark #rain { opacity: .7; }
 @keyframes splashFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 .hidden { display: none !important; }
+
+/* ============================================================
+   v3.9.0 — pop-up de contas, selos por proximidade, multi-ano
+   ============================================================ */
+
+/* ----- "Pagar": linha esvaece e a lista encolhe (≤ ~0,7s) ----- */
+.list-row { overflow: hidden; }
+.list-row.paying { animation: payOut .6s cubic-bezier(.4,0,.2,1) forwards; pointer-events: none; }
+@keyframes payOut {
+  0%   { opacity: 1; transform: translateX(0);    max-height: 90px; }
+  45%  { opacity: 0; transform: translateX(46px);  max-height: 90px; }
+  100% { opacity: 0; transform: translateX(46px);  max-height: 0; padding-top: 0; padding-bottom: 0; margin: 0; border-width: 0; }
+}
+
+/* ----- Separador de ano na barra de meses (Jan/27 em diante) ----- */
+.month-chip.yr { margin-left: 16px; position: relative; }
+.month-chip.yr::before { content: ""; position: absolute; left: -9px; top: 18%; height: 64%; width: 2px; border-radius: 2px;
+  background: rgba(255,255,255,.28); }
+
+/* ----- Checkbox "necessário" (fica fora da dica de economia) ----- */
+.nec-check { align-items: flex-start; padding: 11px 12px; background: var(--card-2); border: 1px solid var(--line); border-radius: 13px; }
+.nec-check input { margin-top: 1px; width: 18px; height: 18px; accent-color: var(--accent); flex: 0 0 auto; }
+.nec-check span { font-size: 12.5px; color: var(--muted); font-weight: 700; line-height: 1.4; text-align: left; }
+
+/* ======================== POP-UP de contas ======================== */
+/* saída com animação (esvaece + encolhe) */
+.modal.center.closing { animation: ovOut .28s ease forwards; }
+.modal.center.closing .modal-card { animation: cardOut .26s cubic-bezier(.4,0,.2,1) forwards; }
+@keyframes ovOut   { to { opacity: 0; } }
+@keyframes cardOut { to { opacity: 0; transform: scale(.9) translateY(10px); } }
+
+/* a caixa: borda suave girando + permite botões saltarem pra fora */
+.alert-card { position: relative; overflow: visible; padding-bottom: 34px; }
+.alert-card::before {
+  content: ""; position: absolute; inset: -1.5px; border-radius: inherit; padding: 1.5px; pointer-events: none; z-index: 0;
+  background: conic-gradient(from var(--simang), transparent 0deg, rgba(21,194,102,.55) 70deg, rgba(18,199,255,.5) 120deg, transparent 200deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+  animation: simSpin 5s linear infinite; opacity: .85;
+}
+.alert-card > * { position: relative; z-index: 1; }
+
+/* sino: balança sem parar + sombra "3D" pulsando atrás */
+.alert-emoji { font-size: 46px; line-height: 1; display: inline-block; position: relative; transform-origin: 50% 8%;
+  animation: bellSwing 2.4s ease-in-out infinite; filter: drop-shadow(0 7px 9px rgba(0,0,0,.30)); }
+.alert-emoji::after { content: ""; position: absolute; left: 50%; bottom: -9px; width: 48px; height: 13px; transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.30), transparent 70%); border-radius: 50%; z-index: -1;
+  animation: bellShadow 2.4s ease-in-out infinite; }
+@keyframes bellSwing { 0%,100% { transform: rotate(0); } 14% { transform: rotate(15deg); } 30% { transform: rotate(-12deg); }
+  46% { transform: rotate(8deg); } 62% { transform: rotate(-5deg); } 78% { transform: rotate(2deg); } }
+@keyframes bellShadow { 0%,100% { transform: translateX(-50%) scaleX(1);   opacity: .5; }
+  50% { transform: translateX(-50%) scaleX(.66); opacity: .28; } }
+
+/* botões "saltados" pra fora da caixa, com sombra forte e toque tátil */
+.alert-card .modal-actions { margin: 18px 6px -26px; gap: 12px; }
+.alert-card .modal-actions .btn { border-radius: 16px; padding: 15px 14px; box-shadow: 0 12px 26px rgba(8,40,28,.30);
+  transition: transform .14s ease, box-shadow .2s ease, filter .2s ease; }
+.alert-card .modal-actions .btn.primary { box-shadow: 0 14px 30px rgba(11,61,46,.45); }
+.alert-card .modal-actions .btn.ghost { box-shadow: 0 12px 24px rgba(8,40,28,.16); }
+.alert-card .modal-actions .btn:hover { transform: translateY(-2px); }
+.alert-card .modal-actions .btn:active { transform: translateY(2px) scale(.97); }
+@media (prefers-reduced-motion: reduce) {
+  .alert-emoji, .alert-emoji::after, .alert-card::before, .venc-badge { animation: none !important; }
+}

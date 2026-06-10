@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.8.0";
-const VERSION_NOTES = "🔔 Aviso de contas a vencer agora é um pop-up no meio da tela com botão OK · 💡 insights com sugestão de economia e alertas de cuidado";
+const APP_VERSION = "3.9.0";
+const VERSION_NOTES = "📅 Agora acompanha dívidas/parcelas que passam de 2026 (2027, 2028…) · 📊 valor em cada barra (R$1,2k) e sem eixo Y · 🔔 aviso mais bonito · 🟡🔴 cores por proximidade do vencimento · 🔒 marque contas necessárias pra ficarem fora da dica de economia";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -17,6 +17,78 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const brl = (n) => (n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const REAL_TODAY = new Date();
 const isMesAtual = () => DATA.year === REAL_TODAY.getFullYear() && curMonth === REAL_TODAY.getMonth();
+
+/* ---------- Horizonte dinâmico (multi-ano) ----------
+   Os meses são índices ABSOLUTOS a partir de Jan/2026 (0=Jan/26, 12=Jan/27…).
+   Se uma parcela/recorrência passa de Dez/26, os arrays vals/sts crescem e
+   TUDO (gráficos, cálculos, simulador, barra de meses) acompanha. */
+function horizonLen() {
+  let n = 12;
+  [DATA.receitas, DATA.fixas, DATA.cartao].forEach(arr => (arr || []).forEach(l => {
+    if (l.vals && l.vals.length > n) n = l.vals.length;
+  }));
+  (DATA.diaria || []).forEach(d => { if ((d.mes || 0) + 1 > n) n = (d.mes || 0) + 1; });
+  return Math.ceil(n / 12) * 12;            // sempre anos completos: 12, 24, 36…
+}
+const yearOf  = (i) => DATA.year + Math.floor(i / 12);
+const mLong   = (i) => MESES[((i % 12) + 12) % 12] + (i >= 12 ? " " + yearOf(i) : "");
+const mLabel  = (i) => MESES_CURTO[((i % 12) + 12) % 12] + (i >= 12 ? "/" + String(yearOf(i)).slice(2) : "");
+const diasNoMesAbs = (i) => new Date(yearOf(i), (i % 12) + 1, 0).getDate();
+// garante que vals/sts da linha cubram pelo menos `len` meses (preenche com 0/"vazio")
+function ensureLen(line, len) {
+  if (!Array.isArray(line.vals)) line.vals = [];
+  if (!Array.isArray(line.sts)) line.sts = [];
+  while (line.vals.length < len) line.vals.push(0);
+  while (line.sts.length < len) line.sts.push("vazio");
+}
+// rótulo curto de valor pra dentro do gráfico: ≥1000 vira "R$ 1,2k"; abaixo, valor cheio
+function fmtBar(v) {
+  const neg = v < 0, a = Math.abs(v);
+  if (a >= 1000) { const k = a / 1000, s = (k >= 10 ? Math.round(k) : Math.round(k * 10) / 10); return (neg ? "-R$ " : "R$ ") + String(s).replace(".", ",") + "k"; }
+  return (neg ? "-R$ " : "R$ ") + Math.round(a);
+}
+
+/* Plugin Chart.js: escreve o valor (R$1,2k) em cada barra/ponto, centralizado e
+   com fonte que cabe na barra. Fica DESLIGADO por padrão; cada gráfico liga com
+   plugins:{ valueLabels:{ on:true } }. Não afeta a rosca (que não liga). */
+const ValueLabels = {
+  id: "valueLabels",
+  afterDatasetsDraw(chart, _a, opts) {
+    if (!opts || opts.on === false) return;
+    const ctx = chart.ctx, isLine = chart.config.type === "line";
+    const ink = (getComputedStyle(document.documentElement).getPropertyValue("--ink") || "#11201a").trim();
+    const fam = Chart.defaults.font.family || "sans-serif";
+    // 1) coleta candidatos (valor de cada barra/ponto), com fonte que cabe na barra
+    const cand = [];
+    chart.data.datasets.forEach((ds, di) => {
+      if (ds._sim) return;                                   // não rotula a linha tracejada do simulador
+      const meta = chart.getDatasetMeta(di);
+      if (!meta || meta.hidden) return;
+      (meta.data || []).forEach((el, i) => {
+        const raw = ds.data[i];
+        if (raw == null || raw === 0) return;
+        const txt = fmtBar(raw);
+        let fs = 11;
+        if (!isLine && el.width) fs = Math.max(8, Math.min(11.5, (el.width * 1.6) / (txt.length * 0.6)));
+        const neg = raw < 0;
+        const y = isLine ? el.y - 8 : (neg ? el.y + fs + 5 : el.y - 5);
+        cand.push({ x: el.x, y, txt, fs, w: txt.length * fs * 0.6 });
+      });
+    });
+    // 2) desenha da esquerda p/ direita, pulando o que sobreporia o vizinho (fica limpo de 7 a 24+ meses)
+    cand.sort((a, b) => a.x - b.x);
+    ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = ink;
+    let lastRight = -Infinity;
+    cand.forEach(c => {
+      if (c.x - c.w / 2 < lastRight + 3) return;            // sobreporia → pula
+      ctx.font = "800 " + c.fs.toFixed(1) + "px " + fam;
+      ctx.fillText(c.txt, c.x, c.y);
+      lastRight = c.x + c.w / 2;
+    });
+    ctx.restore();
+  }
+};
+if (typeof Chart !== "undefined") Chart.register(ValueLabels);
 
 /* ---------- Engine (regras da planilha) ---------- */
 const sumMonth = (lines, m) => lines.reduce((s, l) => s + (Number(l.vals[m]) || 0), 0);
@@ -66,6 +138,19 @@ function vencimentos(m) {
 }
 const contasAlerta = (m) => vencimentos(m).filter(v => v.naJanela || (isMesAtual() && !v.pago && v.daysLeft >= 0));
 
+/* ---------- Selo de vencimento: cor/efeito por proximidade ----------
+   Quanto mais perto, mais "quente" (vermelho de atenção). 1 dia = "Amanhã" (amarelo). */
+function vencBadge(daysLeft) {
+  if (daysLeft == null) return { cls: "", txt: "" };
+  if (daysLeft < 0)  return { cls: "atras", txt: `atrasada ${-daysLeft}d` };
+  if (daysLeft === 0) return { cls: "d0", txt: "vence hoje" };
+  if (daysLeft === 1) return { cls: "d1", txt: "Amanhã" };
+  if (daysLeft <= 3)  return { cls: "d3", txt: `em ${daysLeft}d` };
+  if (daysLeft <= 7)  return { cls: "d7", txt: `em ${daysLeft}d` };
+  return { cls: "dlong", txt: `em ${daysLeft}d` };
+}
+const vencBadgeHTML = (daysLeft) => { const b = vencBadge(daysLeft); return b.txt ? `<span class="venc-badge ${b.cls}">${b.txt}</span>` : ""; };
+
 /* ---------- Notificação local (replica o aviso do Apps Script) ---------- */
 function checkAndNotify() {
   if (!isMesAtual()) return;
@@ -86,16 +171,18 @@ function showBillAlert(alertas) {
   const modal = $("#alertModal"); if (!modal) return;
   const total = alertas.reduce((s, v) => s + (Number(v.val) || 0), 0);
   $("#alertTitle").textContent = `${alertas.length} conta(s) a vencer`;
-  $("#alertBody").innerHTML = alertas.map(v => {
-    const q = v.daysLeft === 0 ? `<span class="venc-badge hoje">vence hoje</span>`
-      : v.daysLeft > 0 ? `<span class="venc-badge perto">em ${v.daysLeft}d</span>`
-      : `<span class="venc-badge atras">atrasada</span>`;
-    return `<div class="alert-line"><div><div class="al-desc">${esc(v.desc)}</div><div class="al-sub">dia ${v.venc} ${q}</div></div><span class="al-val">${brl(v.val)}</span></div>`;
-  }).join("") + `<div class="alert-total"><span>Total a pagar</span><b>${brl(total)}</b></div>`;
-  modal.classList.remove("hidden");
-  const close = () => modal.classList.add("hidden");
-  $("#alertOk").onclick = close;
-  $("#alertVer").onclick = () => { close(); focarVencimentos(); };
+  $("#alertBody").innerHTML = alertas.map(v =>
+    `<div class="alert-line"><div><div class="al-desc">${esc(v.desc)}</div><div class="al-sub">dia ${v.venc} ${vencBadgeHTML(v.daysLeft)}</div></div><span class="al-val">${brl(v.val)}</span></div>`
+  ).join("") + `<div class="alert-total"><span>Total a pagar</span><b>${brl(total)}</b></div>`;
+  modal.classList.remove("hidden", "closing");
+  $("#alertOk").onclick = closeBillAlert;
+  $("#alertVer").onclick = () => { closeBillAlert(); focarVencimentos(); };
+}
+// fecha o pop-up com animação de saída (esvaece + encolhe)
+function closeBillAlert() {
+  const m = $("#alertModal"); if (!m) return;
+  m.classList.add("closing");
+  setTimeout(() => { m.classList.add("hidden"); m.classList.remove("closing"); }, 280);
 }
 function pedirNotificacao() {
   if (!("Notification" in window)) {
@@ -114,9 +201,13 @@ function pedirNotificacao() {
 /* ---------- Barra de meses ---------- */
 function renderMonthBar() {
   const bar = $("#monthBar");
-  bar.innerHTML = MESES_CURTO.map((mc, i) =>
-    `<button class="month-chip ${!annual && i === curMonth ? "active" : ""}" data-m="${i}">${mc}</button>`
-  ).join("") + `<button class="month-chip ano ${annual ? "active" : ""}" data-m="ano">Ano</button>`;
+  const H = horizonLen();
+  let html = "";
+  for (let i = 0; i < H; i++) {
+    const yr = i > 0 && i % 12 === 0;     // 1º mês de um novo ano: ganha separador
+    html += `<button class="month-chip ${yr ? "yr" : ""} ${!annual && i === curMonth ? "active" : ""}" data-m="${i}">${mLabel(i)}</button>`;
+  }
+  bar.innerHTML = html + `<button class="month-chip ano ${annual ? "active" : ""}" data-m="ano">Ano</button>`;
   $$(".month-chip", bar).forEach(b => b.onclick = () => {
     if (b.dataset.m === "ano") { annual = true; }
     else { annual = false; curMonth = +b.dataset.m; }
@@ -128,6 +219,7 @@ function renderMonthBar() {
 
 /* ---------- Render principal ---------- */
 function render() {
+  const H = horizonLen(); if (curMonth >= H) curMonth = H - 1; if (curMonth < 0) curMonth = 0;
   renderMonthBar();
   const ub = $("#btnUndo"); if (ub) { ub.disabled = !history.length; ub.style.opacity = history.length ? "1" : ".35"; }
   const rb = $("#btnRedo"); if (rb) { rb.disabled = !redoStack.length; rb.style.opacity = redoStack.length ? "1" : ".35"; }
@@ -167,7 +259,7 @@ function renderHealth(m) {
   const s = healthScore(m), meta = healthMeta(s);
   const taxa = rec > 0 ? Math.round((rec - desp) / rec * 100) : 0;
   const len = Math.PI * 74, off = len * (1 - s / 100);
-  return `<div class="section-card health fade-in"><h3>Saúde financeira — ${MESES[m]}</h3>
+  return `<div class="section-card health fade-in"><h3>Saúde financeira — ${mLong(m)}</h3>
     <div class="health-body">
       <svg class="gauge" viewBox="0 0 180 110" width="170">
         <path d="M16 96 A 74 74 0 0 1 164 96" fill="none" stroke="var(--line)" stroke-width="14" stroke-linecap="round"/>
@@ -191,18 +283,19 @@ function computeInsights(m) {
   if (rec > 0) {
     const taxa = Math.round((rec - desp) / rec * 100);
     out.push(taxa >= 0
-      ? { ic: "🟢", tone: "good", text: `Você guardou <b>${taxa}%</b> do que recebeu em ${MESES[m]}.` }
-      : { ic: "🔴", tone: "bad", text: `Gastou <b>${Math.abs(taxa)}%</b> a mais do que recebeu em ${MESES[m]}.` });
+      ? { ic: "🟢", tone: "good", text: `Você guardou <b>${taxa}%</b> do que recebeu em ${mLong(m)}.` }
+      : { ic: "🔴", tone: "bad", text: `Gastou <b>${Math.abs(taxa)}%</b> a mais do que recebeu em ${mLong(m)}.` });
   }
   // 🚨 Cuidado: sobra do mês negativa
-  if (sobra < 0) out.push({ ic: "🚨", tone: "bad", text: `Cuidado: a sobra de ${MESES[m]} está <b>negativa (${brl(sobra)})</b>. Segure os gastos não essenciais.` });
-  // 💰 Onde economizar: maior despesa fixa (recorrente) do mês — corte de maior impacto
+  if (sobra < 0) out.push({ ic: "🚨", tone: "bad", text: `Cuidado: a sobra de ${mLong(m)} está <b>negativa (${brl(sobra)})</b>. Segure os gastos não essenciais.` });
+  // 💰 Onde economizar: maior despesa do mês entre Fixas e Cartão — pulando o que está marcado como "necessário"
   let topFix = null;
-  (DATA.fixas || []).forEach(l => { const v = Number(l.vals[m]) || 0; if (v > 0 && (!topFix || v > topFix.val)) topFix = { desc: l.desc, val: v }; });
+  const scanEco = (arr) => (arr || []).forEach(l => { if (l.nec) return; const v = Number(l.vals[m]) || 0; if (v > 0 && (!topFix || v > topFix.val)) topFix = { desc: l.desc, val: v }; });
+  scanEco(DATA.fixas); scanEco(DATA.cartao);
   if (topFix && topFix.val > 0)
     out.push({ ic: "💰", tone: "info", text: `Pra economizar: <b>${esc(topFix.desc)}</b> custa ${brl(topFix.val)}/mês (~${brl(topFix.val * 12)}/ano). Revisar ou cancelar é seu maior corte.` });
   if (isMesAtual()) {
-    const hoje = REAL_TODAY.getDate(), diasNoMes = new Date(DATA.year, m + 1, 0).getDate();
+    const hoje = REAL_TODAY.getDate(), diasNoMes = diasNoMesAbs(m);
     const gastoAteAgora = pago(m);
     if (hoje >= 3 && gastoAteAgora > 0) {
       const proj = gastoAteAgora / hoje * diasNoMes, projSobra = disp - proj;
@@ -215,7 +308,7 @@ function computeInsights(m) {
     if (ant > 0 && desp > 0) {
       const d = Math.round((desp - ant) / ant * 100);
       if (Math.abs(d) >= 5) out.push({ ic: d > 0 ? "⬆️" : "⬇️", tone: d > 0 ? "warn" : "good",
-        text: `Despesas ${d > 0 ? "subiram" : "caíram"} <b>${Math.abs(d)}%</b> vs ${MESES[m - 1]} (${brl(ant)} → ${brl(desp)}).` });
+        text: `Despesas ${d > 0 ? "subiram" : "caíram"} <b>${Math.abs(d)}%</b> vs ${mLong(m - 1)} (${brl(ant)} → ${brl(desp)}).` });
     }
   }
   const cats = [{ n: "Cartão", v: cartaoMes(m) }, { n: "Despesas Fixas", v: fixasMes(m) }, { n: "Dia a dia", v: diariaMes(m) }].sort((a, b) => b.v - a.v);
@@ -294,7 +387,7 @@ function renderResumo(view) {
       </div>
     </div>
 
-    <div class="section-card"><h3>Previsto × Realizado — ${MESES[m]}</h3>
+    <div class="section-card"><h3>Previsto × Realizado — ${mLong(m)}</h3>
       ${barPrevReal("Receitas", recebido(m), aReceber(m), "recebido", "a receber")}
       ${barPrevReal("Despesas", pago(m), aPagar(m), "pago", "a pagar")}
     </div>
@@ -344,17 +437,20 @@ function bindSimulador(m) {
 }
 function updateSim(m) { updateSimVerdict(m); updateSimOverlay(); updateSimChart(m); }
 
+// horizonte do simulador: cobre o que já existe E o alcance das parcelas simuladas
+const simHorizon = (start, n) => Math.max(horizonLen(), start + n);
 // saldo simulado mês a mês: subtrai as parcelas já pagas até cada mês (começando em `start`)
 function simBalForStart(total, n, start) {
-  const parcela = total / Math.max(1, n);
-  return MESES.map((_, k) => { const pagas = Math.max(0, Math.min(n, k - start + 1)); return sobraMes(k) - parcela * pagas; });
+  const parcela = total / Math.max(1, n), H = simHorizon(start, n), out = [];
+  for (let k = 0; k < H; k++) { const pagas = Math.max(0, Math.min(n, k - start + 1)); out.push(sobraMes(k) - parcela * pagas); }
+  return out;
 }
 const simBalArray = () => simBalForStart(simBuy, simN, curMonth);
-function minFrom(arr, from) { let mn = Infinity, idx = from; for (let k = from; k < 12; k++) if (arr[k] < mn) { mn = arr[k]; idx = k; } return { mn, idx }; }
-// menor mês a partir do qual a compra (no mesmo parcelamento) cabe sem ficar negativo
-function earliestFeasibleMonth(total, n) { for (let s = curMonth; s < 12; s++) if (minFrom(simBalForStart(total, n, s), s).mn >= 0) return s; return null; }
+function minFrom(arr, from) { let mn = Infinity, idx = from; for (let k = from; k < arr.length; k++) if (arr[k] < mn) { mn = arr[k]; idx = k; } return { mn, idx }; }
+// menor mês a partir do qual a compra (no mesmo parcelamento) cabe sem ficar negativo (busca até ~3 anos à frente)
+function earliestFeasibleMonth(total, n) { const lim = curMonth + 36; for (let s = curMonth; s < lim; s++) if (minFrom(simBalForStart(total, n, s), s).mn >= 0) return s; return null; }
 // menor nº de parcelas que cabe JÁ neste mês com folga (>=10% da receita)
-function suggestParcelas(total) { const rec = receitaMes(curMonth) || 1; for (let n = 1; n <= 24; n++) if (minFrom(simBalForStart(total, n, curMonth), curMonth).mn >= rec * 0.1) return n; return null; }
+function suggestParcelas(total) { const rec = receitaMes(curMonth) || 1; for (let n = 1; n <= 48; n++) if (minFrom(simBalForStart(total, n, curMonth), curMonth).mn >= rec * 0.1) return n; return null; }
 
 function updateSimVerdict(m) {
   const el = $("#simVerdict"); if (!el) return;
@@ -365,20 +461,20 @@ function updateSimVerdict(m) {
   let cls, icon, head, extra = "";
   if (mn < 0) {
     cls = "bad"; icon = "⛔";
-    head = `Agora não cabe (${comoPaga}). No pior mês (<b>${MESES[idx]}</b>) faltaria <b>${brl(mn)}</b>.`;
+    head = `Agora não cabe (${comoPaga}). No pior mês (<b>${mLong(idx)}</b>) faltaria <b>${brl(mn)}</b>.`;
     const e = earliestFeasibleMonth(total, n), sug = suggestParcelas(total), parts = [];
-    if (e !== null && e > m) parts.push(`📅 Dá pra comprar a partir de <b>${MESES[e]}</b> (no mesmo parcelamento).`);
-    if (sug !== null) parts.push(`💳 Ou parcele em <b>${sug}×</b> de ${brl(total / sug)} pra caber já em ${MESES[m]} sem se afogar.`);
-    if (!parts.length) parts.push(`Essa compra não cabe neste ano sem apertar muito — considere reduzir o valor.`);
+    if (e !== null && e > m) parts.push(`📅 Dá pra comprar a partir de <b>${mLong(e)}</b> (no mesmo parcelamento).`);
+    if (sug !== null) parts.push(`💳 Ou parcele em <b>${sug}×</b> de ${brl(total / sug)} pra caber já em ${mLong(m)} sem se afogar.`);
+    if (!parts.length) parts.push(`Essa compra não cabe nem parcelando bastante — considere reduzir o valor.`);
     extra = parts.join("<br>");
   } else if (mn < comfort) {
     cls = "warn"; icon = "🟡";
-    head = `Dá pra comprar (${comoPaga}), mas aperta: no pior mês (<b>${MESES[idx]}</b>) sobra só <b>${brl(mn)}</b>.`;
+    head = `Dá pra comprar (${comoPaga}), mas aperta: no pior mês (<b>${mLong(idx)}</b>) sobra só <b>${brl(mn)}</b>.`;
     const sug = suggestParcelas(total);
     if (sug !== null && sug > n) extra = `💳 Pra ficar tranquilo, parcele em <b>${sug}×</b> de ${brl(total / sug)}.`;
   } else {
     cls = "good"; icon = "✅";
-    head = `Pode comprar! (${comoPaga}) No pior mês (<b>${MESES[idx]}</b>) ainda sobra <b>${brl(mn)}</b>.`;
+    head = `Pode comprar! (${comoPaga}) No pior mês (<b>${mLong(idx)}</b>) ainda sobra <b>${brl(mn)}</b>.`;
   }
   el.className = "sim-verdict " + cls;
   el.innerHTML = `<span class="sim-ic">${icon}</span><span>${head}${extra ? `<span class="sim-extra">${extra}</span>` : ""}</span>`;
@@ -387,8 +483,11 @@ function updateSimVerdict(m) {
 function updateSimOverlay() {
   if (!charts.line) return;
   const ds = charts.line.data.datasets, i = ds.findIndex(d => d._sim); if (i >= 0) ds.splice(i, 1);
-  if (simBuy > 0) ds.push({ _sim: true, label: simN > 1 ? `Se comprar (${simN}×)` : "Se eu comprar", data: simBalArray(),
-    borderColor: "#f5a623", borderWidth: 2, borderDash: [5, 4], backgroundColor: "transparent", fill: false, tension: .38, pointRadius: 0 });
+  if (simBuy > 0) {
+    const len = charts.line.data.labels.length;        // casa com os meses do gráfico de projeção
+    ds.push({ _sim: true, label: simN > 1 ? `Se comprar (${simN}×)` : "Se eu comprar", data: simBalArray().slice(0, len),
+      borderColor: "#f5a623", borderWidth: 2, borderDash: [5, 4], backgroundColor: "transparent", fill: false, tension: .38, pointRadius: 0 });
+  }
   try { charts.line.update(); } catch (e) {}
 }
 // gráfico de barras: sobra de cada mês COM a compra (verde=bem, amarelo=aperta, vermelho=mal)
@@ -397,15 +496,15 @@ function updateSimChart(m) {
   if (!simBuy || simBuy <= 0) { wrap.classList.add("hidden"); if (charts.sim) { try { charts.sim.destroy(); } catch (e) {} charts.sim = null; } return; }
   wrap.classList.remove("hidden");
   const rec = receitaMes(m) || 1, comfort = rec * 0.1;
-  const bal = simBalForStart(simBuy, simN, m), labels = [], data = [], colors = [];
-  for (let k = m; k < 12; k++) { labels.push(MESES_CURTO[k]); data.push(Math.round(bal[k])); colors.push(bal[k] < 0 ? "#e5484d" : bal[k] < comfort ? "#f5a623" : "#15c266"); }
+  const bal = simBalForStart(simBuy, simN, m), H = bal.length, labels = [], data = [], colors = [];
+  for (let k = m; k < H; k++) { labels.push(mLabel(k)); data.push(Math.round(bal[k])); colors.push(bal[k] < 0 ? "#e5484d" : bal[k] < comfort ? "#f5a623" : "#15c266"); }
   if (charts.sim) { charts.sim.data.labels = labels; charts.sim.data.datasets[0].data = data; charts.sim.data.datasets[0].backgroundColor = colors; charts.sim.update(); return; }
   applyChartTheme();
   charts.sim = new Chart(cv, { type: "bar",
     data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 5 }] },
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => "Sobra: " + brl(c.raw) } } },
-      scales: { y: { ticks: { callback: v => "R$" + (v / 1000).toFixed(0) + "k", font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } } });
+    options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18, bottom: 4 } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => "Sobra: " + brl(c.raw) } }, valueLabels: { on: true } },
+      scales: { y: { display: false, grace: "18%" }, x: { grid: { display: false }, ticks: { font: { size: 10 }, autoSkip: true, maxRotation: 0 } } } } });
 }
 
 /* ---------- Animações de entrada (count-up + medidor) ---------- */
@@ -450,19 +549,20 @@ function barPrevReal(label, real, prev, lblReal, lblPrev) {
 function renderVencList() {
   const el = $("#vencList"); if (!el) return;
   const vs = contasAlerta(curMonth);
-  el.innerHTML = vs.map(v => {
-    const tag = v.daysLeft === 0 ? `<span class="venc-badge hoje">vence hoje</span>`
-      : v.daysLeft > 0 ? `<span class="venc-badge ${v.daysLeft <= (v.aviso || 2) ? "perto" : ""}">vence em ${v.daysLeft}d</span>`
-      : `<span class="venc-badge atras">atrasada ${-v.daysLeft}d</span>`;
-    return `<div class="list-row">
-      <div class="desc"><div class="name">${esc(v.desc)}</div><div class="sub">dia ${v.venc} ${tag}</div></div>
+  el.innerHTML = vs.map(v =>
+    `<div class="list-row">
+      <div class="desc"><div class="name">${esc(v.desc)}</div><div class="sub">dia ${v.venc} ${vencBadgeHTML(v.daysLeft)}</div></div>
       <span class="amount">${brl(v.val)}</span>
       <button class="mini-btn" data-pay="${v.id}">Pagar</button>
-    </div>`;
-  }).join("");
+    </div>`
+  ).join("");
+  // Pagar: a linha esvaece e a lista encolhe (≤ ~0,7s) antes de salvar
   $$("[data-pay]", el).forEach(b => b.onclick = () => {
-    const l = DATA.fixas.find(x => x.id === b.dataset.pay);
-    if (l) { l.sts[curMonth] = "pago"; persist(); toast("Marcado como pago ✅"); }
+    const id = b.dataset.pay, row = b.closest(".list-row");
+    const pagar = () => { const l = DATA.fixas.find(x => x.id === id); if (l) { l.sts[curMonth] = "pago"; persist(); toast("Pago ✅"); } };
+    if (row && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+      row.classList.add("paying"); setTimeout(pagar, 620);
+    } else pagar();
   });
 }
 
@@ -500,25 +600,24 @@ function renderMetas(m) {
 
 /* ---------- RESUMO ANUAL ---------- */
 function renderAnual(view) {
-  const totRec = MESES.reduce((s, _, i) => s + receitaMes(i), 0);
-  const totDesp = MESES.reduce((s, _, i) => s + despesaMes(i), 0);
+  const H = horizonLen();
+  const range = (fn) => { let s = 0; for (let i = 0; i < H; i++) s += fn(i); return s; };
+  const totRec = range(receitaMes);
+  const totDesp = range(despesaMes);
   const sobraAno = totRec - totDesp;
-  const cat = {
-    fixas: MESES.reduce((s, _, i) => s + fixasMes(i), 0),
-    cartao: MESES.reduce((s, _, i) => s + cartaoMes(i), 0),
-    diaria: MESES.reduce((s, _, i) => s + diariaMes(i), 0),
-  };
+  const multiAno = H > 12, periodo = multiAno ? `${DATA.year}–${yearOf(H - 1)}` : String(DATA.year);
+  const cat = { fixas: range(fixasMes), cartao: range(cartaoMes), diaria: range(diariaMes) };
   // top linhas fixas no ano
   const linhasAno = DATA.fixas.map(l => ({ desc: l.desc, tot: l.vals.reduce((s, v) => s + (Number(v) || 0), 0) }))
     .filter(x => x.tot > 0).sort((a, b) => b.tot - a.tot).slice(0, 8);
 
   view.innerHTML = `
     <div class="kpi-grid">
-      <div class="kpi"><div class="label">Receitas no ano</div><div class="value pos">${brl(totRec)}</div></div>
-      <div class="kpi"><div class="label">Despesas no ano</div><div class="value neg">${brl(totDesp)}</div></div>
-      <div class="kpi big"><div class="label">Sobra no ano</div><div class="value ${sobraAno >= 0 ? "pos" : "neg"}">${brl(sobraAno)}</div></div>
+      <div class="kpi"><div class="label">Receitas (${periodo})</div><div class="value pos">${brl(totRec)}</div></div>
+      <div class="kpi"><div class="label">Despesas (${periodo})</div><div class="value neg">${brl(totDesp)}</div></div>
+      <div class="kpi big"><div class="label">Sobra ${multiAno ? "do período" : "no ano"}</div><div class="value ${sobraAno >= 0 ? "pos" : "neg"}">${brl(sobraAno)}</div></div>
     </div>
-    <div class="section-card"><h3>Despesas por categoria (ano)</h3>
+    <div class="section-card"><h3>Despesas por categoria (${periodo})</h3>
       <div class="cat-line"><span class="dot" style="background:#0b3d2e"></span><span class="cname">Despesas Fixas</span><span class="cval">${brl(cat.fixas)}</span></div>
       <div class="cat-line"><span class="dot" style="background:#1db954"></span><span class="cname">Cartão Mercado Pago</span><span class="cval">${brl(cat.cartao)}</span></div>
       <div class="cat-line"><span class="dot" style="background:#f5a623"></span><span class="cname">Débitos Dia a Dia</span><span class="cval">${brl(cat.diaria)}</span></div>
@@ -556,22 +655,24 @@ function renderCharts() {
         plugins: { legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true, pointStyle: "circle", font: { size: 11 }, padding: 14 } },
           tooltip: { callbacks: { label: c => `${c.label}: ${brl(c.raw)} (${tc ? (c.raw / tc * 100).toFixed(1) : 0}%)` } } } } });
   }
+  const H = horizonLen();
+  const labelsH = Array.from({ length: H }, (_, i) => mLabel(i));
   const bc = $("#barChart");
   if (bc) charts.bar = new Chart(bc, { type: "bar",
-    data: { labels: MESES_CURTO, datasets: [
-      { label: "Receitas", data: MESES.map((_, i) => receitaMes(i)), backgroundColor: "#1db954", borderRadius: 4 },
-      { label: "Despesas", data: MESES.map((_, i) => despesaMes(i)), backgroundColor: "#e5484d", borderRadius: 4 }] },
+    data: { labels: labelsH, datasets: [
+      { label: "Receitas", data: labelsH.map((_, i) => receitaMes(i)), backgroundColor: "#1db954", borderRadius: 4 },
+      { label: "Despesas", data: labelsH.map((_, i) => despesaMes(i)), backgroundColor: "#e5484d", borderRadius: 4 }] },
     options: chartOpts(true) });
   const lc = $("#lineChart");
   if (lc) {
-    const bal = MESES.map((_, i) => sobraMes(i));
+    const bal = labelsH.map((_, i) => sobraMes(i));
     const nowM = (DATA.year === REAL_TODAY.getFullYear()) ? REAL_TODAY.getMonth() : 11; // até aqui = realizado; depois = projeção
     const ctx = lc.getContext("2d");
     const grad = ctx.createLinearGradient(0, 0, 0, 200);
     grad.addColorStop(0, "rgba(21,194,102,.30)");
     grad.addColorStop(1, "rgba(21,194,102,.02)");
     charts.line = new Chart(lc, { type: "line",
-      data: { labels: MESES_CURTO, datasets: [{
+      data: { labels: labelsH, datasets: [{
         label: "Saldo projetado", data: bal,
         borderColor: "#15c266", borderWidth: 2.6, backgroundColor: grad, fill: true, tension: .38,
         pointRadius: bal.map((_, i) => i === nowM ? 5 : 3),
@@ -583,9 +684,9 @@ function renderCharts() {
         }
       }] },
       options: { ...chartOpts(false),
-        plugins: { legend: { display: false },
+        plugins: { legend: { display: false }, valueLabels: { on: true },
           tooltip: { callbacks: {
-            title: items => MESES[items[0].dataIndex] + (items[0].dataIndex > nowM ? " (projeção)" : ""),
+            title: items => mLong(items[0].dataIndex) + (items[0].dataIndex > nowM ? " (projeção)" : ""),
             label: c => `Saldo: ${brl(c.raw)}`,
             afterLabel: c => { const i = c.dataIndex; const arr = [`No mês: ${brl(receitaMes(i) - despesaMes(i))}`]; if (i > nowM) arr.push("⏳ provisão"); return arr; }
           } } } } });
@@ -613,16 +714,18 @@ function renderSobraChart() {
   if (typeof Chart === "undefined") return;
   applyChartTheme();
   if (charts.sobra) charts.sobra.destroy();
-  const data = MESES.map((_, i) => receitaMes(i) - despesaMes(i));
+  const H = horizonLen(), labelsH = Array.from({ length: H }, (_, i) => mLabel(i));
+  const data = labelsH.map((_, i) => receitaMes(i) - despesaMes(i));
   charts.sobra = new Chart($("#sobraChart"), { type: "bar",
-    data: { labels: MESES_CURTO, datasets: [{ data, backgroundColor: data.map(v => v >= 0 ? "#1d6fe5" : "#e5484d"), borderRadius: 4 }] },
-    options: { ...chartOpts(false), plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => brl(c.raw) } } } } });
+    data: { labels: labelsH, datasets: [{ data, backgroundColor: data.map(v => v >= 0 ? "#1d6fe5" : "#e5484d"), borderRadius: 4 }] },
+    options: { ...chartOpts(false), plugins: { legend: { display: false }, valueLabels: { on: true }, tooltip: { callbacks: { label: c => brl(c.raw) } } } } });
 }
 function chartOpts(legend) {
-  return { responsive: true, maintainAspectRatio: false,
+  return { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20, bottom: 4 } },
     plugins: { legend: { display: legend, position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
-      tooltip: { callbacks: { label: c => `${c.dataset.label || ""}: ${brl(c.raw)}` } } },
-    scales: { y: { ticks: { callback: v => "R$" + (v / 1000).toFixed(0) + "k", font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } };
+      tooltip: { callbacks: { label: c => `${c.dataset.label || ""}: ${brl(c.raw)}` } },
+      valueLabels: { on: true } },
+    scales: { y: { display: false, grace: "16%" }, x: { grid: { display: false }, ticks: { font: { size: 10 }, autoSkip: true, maxRotation: 0 } } } };
 }
 
 /* ---------- LISTAS ---------- */
@@ -632,11 +735,11 @@ function renderLista(view) {
   const lines = DATA[curTab];
   const total = sumMonth(lines, curMonth);
   const rows = lines.map((l, idx) => ({ l, idx }))
-    .filter(x => x.l.vals[curMonth] > 0 || x.l.sts[curMonth] !== "vazio")
+    .filter(x => x.l.vals[curMonth] > 0 || (x.l.sts[curMonth] || "vazio") !== "vazio")
     .sort((a, b) => b.l.vals[curMonth] - a.l.vals[curMonth]);
   view.innerHTML = `
     ${curTab === "cartao" ? renderCardsSection() : ""}
-    <div class="list-header"><span class="lbl">${rows.length} lançamento(s) em ${MESES[curMonth]}</span><span class="total">${brl(total)}</span></div>
+    <div class="list-header"><span class="lbl">${rows.length} lançamento(s) em ${mLong(curMonth)}</span><span class="total">${brl(total)}</span></div>
     <div class="list">${rows.length ? rows.map(({ l, idx }) => lineRow(l, idx)).join("") : empty()}</div>`;
   bindRows(view);
   if (curTab === "cartao") bindCardsSection(view);
@@ -648,7 +751,7 @@ function renderReceitas(view) {
   let html = `<div class="list-header"><span class="lbl">Recebido ${brl(recebido(m))} · a receber ${brl(aReceber(m))}</span><span class="total">${brl(receitaMes(m))}</span></div>`;
   groups.forEach(([tipo, titulo]) => {
     const rows = DATA.receitas.map((l, idx) => ({ l, idx }))
-      .filter(x => x.l.tipo === tipo && (x.l.vals[m] > 0 || x.l.sts[m] !== "vazio"))
+      .filter(x => x.l.tipo === tipo && (x.l.vals[m] > 0 || (x.l.sts[m] || "vazio") !== "vazio"))
       .sort((a, b) => b.l.vals[m] - a.l.vals[m]);
     if (!rows.length) return;
     const sub = DATA.receitas.filter(l => l.tipo === tipo).reduce((s, l) => s + (Number(l.vals[m]) || 0), 0);
@@ -678,7 +781,7 @@ function renderDiaria(view) {
   // agrupa por categoria
   const cats = {};
   rows.forEach(({ d, idx }) => { (cats[d.categoria || "Geral"] = cats[d.categoria || "Geral"] || []).push({ d, idx }); });
-  let html = `<div class="list-header"><span class="lbl">${rows.length} compra(s) em ${MESES[m]}</span><span class="total">${brl(total)}</span></div>`;
+  let html = `<div class="list-header"><span class="lbl">${rows.length} compra(s) em ${mLong(m)}</span><span class="total">${brl(total)}</span></div>`;
   if (!rows.length) html += `<div class="list">${empty("Nenhuma compra no débito.")}</div>`;
   Object.keys(cats).sort().forEach(cat => {
     const sub = cats[cat].reduce((s, x) => s + (Number(x.d.valor) || 0), 0);
@@ -763,7 +866,8 @@ function openCartaoModal() {
       <label class="field"><span>Valor de cada parcela</span><input id="f_val" type="number" step="0.01" inputmode="decimal" placeholder="0,00" required /></label>
       <label class="field"><span>Nº de parcelas</span><input id="f_n" type="number" min="1" max="48" inputmode="numeric" value="1" /></label>
     </div>
-    <label class="field"><span>Dia da compra (em ${MESES[curMonth]})</span><input id="f_dia" type="number" min="1" max="31" inputmode="numeric" placeholder="ex.: 25" /></label>
+    <label class="field"><span>Dia da compra (em ${mLong(curMonth)})</span><input id="f_dia" type="number" min="1" max="31" inputmode="numeric" placeholder="ex.: 25" /></label>
+    <label class="field row-check nec-check"><input id="f_nec" type="checkbox" /><span>🔒 Necessário — não posso deixar de pagar (fica fora da dica de economia)</span></label>
     <div id="f_parc_prev" class="impact"></div>`;
   ["f_val", "f_n", "f_dia", "f_card"].forEach(id => { const el = $("#" + id); if (el) { el.oninput = updateParcelaPreview; el.onchange = updateParcelaPreview; } });
   updateParcelaPreview();
@@ -776,12 +880,15 @@ function openCartaoModal() {
     const card = cs.find(c => c.id === $("#f_card").value) || null;
     const start = parcelaStartMonth(curMonth, dia, card ? card.fechamento : null);
     const paidUntil = (DATA.year === REAL_TODAY.getFullYear()) ? REAL_TODAY.getMonth() : 11;
-    const line = { id: uid(), desc: $("#f_desc").value.trim(), cartao: card ? card.nome : "", parcAtual: 1, parcTotal: n > 1 ? n : null, dia: card ? card.vencimento : dia, vals: Array(12).fill(0), sts: Array(12).fill("vazio") };
-    let postas = 0;
-    for (let k = 0; k < n; k++) { const mo = start + k; if (mo < 0 || mo > 11) continue; line.vals[mo] = valor; line.sts[mo] = mo <= paidUntil ? "pago" : "programado"; postas++; }
+    const nec = $("#f_nec") ? $("#f_nec").checked : false;
+    const last = Math.max(start + n - 1, 11);
+    const line = { id: uid(), desc: $("#f_desc").value.trim(), cartao: card ? card.nome : "", parcAtual: 1, parcTotal: n > 1 ? n : null, dia: card ? card.vencimento : dia, nec, vals: Array(12).fill(0), sts: Array(12).fill("vazio") };
+    ensureLen(line, last + 1);                                 // estende os meses se a última parcela passa de Dez/26
+    for (let k = 0; k < n; k++) { const mo = start + k; if (mo < 0) continue; line.vals[mo] = valor; line.sts[mo] = mo <= paidUntil ? "pago" : "programado"; }
     DATA.cartao.push(line);
     persist(); closeModal();
-    toast(n > 1 ? `Compra lançada ✓ ${n}× (${postas} neste ano)` : "Compra lançada ✓");
+    const fim = start + n - 1;
+    toast(n > 1 ? `Compra lançada ✓ ${n}× (até ${mLong(fim)})` : "Compra lançada ✓");
   };
   showModal("#modal");
 }
@@ -793,17 +900,17 @@ function updateParcelaPreview() {
   const cs = DATA.cartoes || [];
   const card = cs.find(c => c.id === ($("#f_card") && $("#f_card").value)) || null;
   const start = parcelaStartMonth(curMonth, dia, card ? card.fechamento : null);
-  const fim = Math.min(11, start + n - 1);
+  const fim = start + n - 1;
   el.className = "impact ok";
   let txt = `<div class="impact-row"><span>${n > 1 ? n + "× de " + brl(valor) : "Compra"}</span><b>${brl(valor * n)}</b></div>`;
   if (card && card.fechamento && dia) {
     const mesmoMes = dia <= card.fechamento;
     txt += `<div class="impact-sub">${mesmoMes
-      ? `Compra dia ${dia} entra na fatura de <b>${MESES[curMonth]}</b>`
-      : `Compra dia ${dia} (após fechar dia ${card.fechamento}) entra em <b>${MESES[start] || "ano que vem"}</b>`}`
-      + (n > 1 ? ` · parcelas de <b>${MESES[start]}</b> a <b>${MESES[fim]}</b>` : "") + `</div>`;
+      ? `Compra dia ${dia} entra na fatura de <b>${mLong(curMonth)}</b>`
+      : `Compra dia ${dia} (após fechar dia ${card.fechamento}) entra em <b>${mLong(start)}</b>`}`
+      + (n > 1 ? ` · parcelas de <b>${mLong(start)}</b> a <b>${mLong(fim)}</b>` : "") + `</div>`;
   } else if (n > 1) {
-    txt += `<div class="impact-sub">Parcelas de <b>${MESES[start]}</b> a <b>${MESES[fim]}</b>. Selecione um cartão cadastrado para usar a data de fechamento.</div>`;
+    txt += `<div class="impact-sub">Parcelas de <b>${mLong(start)}</b> a <b>${mLong(fim)}</b>. Selecione um cartão cadastrado para usar a data de fechamento.</div>`;
   }
   el.innerHTML = txt;
 }
@@ -815,26 +922,27 @@ function openEntryModal(tab, idx) {
                            : [["pago", "Pago"], ["programado", "Programado"], ["vazio", "—"]];
   $("#modalTitle").textContent = (isNew ? "Novo " : "Editar ") + ({ receitas: "receita", fixas: "despesa fixa", cartao: "item do cartão" })[tab];
   let extra = "";
+  const necCheck = `<label class="field row-check nec-check"><input id="f_nec" type="checkbox" ${(!isNew && l && l.nec) ? "checked" : ""}/><span>🔒 Necessário — não posso deixar de pagar (fica fora da dica de economia)</span></label>`;
   if (isReceita) extra = `<label class="field"><span>Tipo de renda</span><select id="f_tipo"><option value="Ativa">Ativa (recorrente)</option><option value="Extra">Extra (avulsa)</option></select></label>`;
   else if (tab === "fixas") extra = `<div class="field-row">
       <label class="field"><span>Avisar (dias antes)</span><input id="f_aviso" type="number" min="0" max="15" value="${isNew || !l.aviso ? "" : l.aviso}" placeholder="ex.: 3" /></label>
-      <label class="field"><span>Meta/mês (opcional)</span><input id="f_meta" type="number" step="0.01" value="${isNew || !l.meta ? "" : l.meta}" placeholder="R$" /></label></div>`;
+      <label class="field"><span>Meta/mês (opcional)</span><input id="f_meta" type="number" step="0.01" value="${isNew || !l.meta ? "" : l.meta}" placeholder="R$" /></label></div>` + necCheck;
   else if (tab === "cartao") extra = `<div class="field-row">
       <label class="field"><span>Parcela atual</span><input id="f_pa" type="number" min="1" value="${isNew || !l.parcAtual ? "" : l.parcAtual}" placeholder="--" /></label>
       <label class="field"><span>de (total)</span><input id="f_pt" type="number" min="1" value="${isNew || !l.parcTotal ? "" : l.parcTotal}" placeholder="--" /></label>
-      <label class="field"><span>Cartão</span><input id="f_cartao" type="text" value="${isNew || !l.cartao ? "" : esc(l.cartao)}" placeholder="final" /></label></div>`;
+      <label class="field"><span>Cartão</span><input id="f_cartao" type="text" value="${isNew || !l.cartao ? "" : esc(l.cartao)}" placeholder="final" /></label></div>` + necCheck;
 
   $("#entryForm").innerHTML = `
     <label class="field"><span>Descrição</span><input id="f_desc" type="text" value="${isNew ? "" : esc(l.desc)}" required placeholder="Ex.: ${isReceita ? "Salário" : "Aluguel"}" /></label>
     ${extra}
     <div class="field-row">
-      <label class="field"><span>Valor (${MESES[curMonth]})</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : (l.vals[curMonth] || "")}" placeholder="0,00" /></label>
+      <label class="field"><span>Valor (${mLong(curMonth)})</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : (l.vals[curMonth] || "")}" placeholder="0,00" /></label>
       <label class="field"><span>${tab === "fixas" ? "Vencimento (dia)" : "Dia"}</span><input id="f_dia" type="number" min="1" max="31" value="${isNew || !l.dia ? "" : l.dia}" placeholder="--" /></label>
     </div>
     <label class="field"><span>Situação</span><select id="f_st">${stOpts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></label>
     <label class="field row-check"><input id="f_all" type="checkbox" /><span>Repetir nos próximos meses</span></label>
-    <label class="field" id="f_rep_wrap" style="display:none"><span>Por quantos meses? (a partir de ${MESES[curMonth]})</span>
-      <input id="f_rep" type="number" min="1" max="${12 - curMonth}" inputmode="numeric" value="${12 - curMonth}" /></label>`;
+    <label class="field" id="f_rep_wrap" style="display:none"><span>Por quantos meses? (a partir de ${mLong(curMonth)} — pode passar de 2026)</span>
+      <input id="f_rep" type="number" min="1" max="120" inputmode="numeric" value="12" /></label>`;
   if (!isNew) { if (isReceita) $("#f_tipo").value = l.tipo || "Ativa"; $("#f_st").value = l.sts[curMonth] || "vazio"; }
   else $("#f_st").value = isReceita ? "recebido" : "pago";
   $("#f_all").onchange = () => { $("#f_rep_wrap").style.display = $("#f_all").checked ? "block" : "none"; };
@@ -851,19 +959,22 @@ function openEntryModal(tab, idx) {
     e.preventDefault();
     const val = parseFloat($("#f_val").value) || 0, st = $("#f_st").value, all = $("#f_all").checked;
     let line = isNew ? { id: uid(), desc: "", vals: Array(12).fill(0), sts: Array(12).fill("vazio") } : l;
+    ensureLen(line, curMonth + 1);
     line.desc = $("#f_desc").value.trim();
     line.dia = parseInt($("#f_dia").value) || null;
     if (isReceita) line.tipo = $("#f_tipo").value;
     if (tab === "fixas") { line.aviso = parseInt($("#f_aviso").value) || null; line.meta = parseFloat($("#f_meta").value) || null; }
     if (tab === "cartao") { line.parcAtual = parseInt($("#f_pa").value) || null; line.parcTotal = parseInt($("#f_pt").value) || null; line.cartao = $("#f_cartao").value.trim(); }
+    if (tab === "fixas" || tab === "cartao") { const ne = $("#f_nec"); line.nec = ne ? ne.checked : (line.nec || false); }
     if (all) {
-      const q = Math.min(12 - curMonth, Math.max(1, parseInt($("#f_rep").value) || (12 - curMonth)));
+      const q = Math.max(1, Math.min(120, parseInt($("#f_rep").value) || 12));
+      ensureLen(line, curMonth + q);                            // recorrência pode passar de Dez/26 → estende os meses
       for (let k = 0; k < q; k++) { const mo = curMonth + k; line.vals[mo] = val; line.sts[mo] = val > 0 ? st : "vazio"; }
     } else { line.vals[curMonth] = val; line.sts[curMonth] = val > 0 ? st : "vazio"; }
     if (isNew) DATA[tab].push(line);
     persist(); closeModal();
     const sa = disponivelMes(curMonth) - despesaMes(curMonth);
-    if (isExpenseE && val > 0 && sa < 0) toast(`⚠️ ${MESES[curMonth]} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
+    if (isExpenseE && val > 0 && sa < 0) toast(`⚠️ ${mLong(curMonth)} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
     else toast(isNew ? "Adicionado ✓" : "Salvo ✓");
   };
   showModal("#modal");
@@ -879,7 +990,7 @@ function updateImpact(isExpense, oldVal) {
   const neg = apos < 0;
   el.className = "impact " + (neg ? "bad" : "ok");
   el.innerHTML = `<div class="impact-row"><span>${isExpense ? "Sobra do mês após este gasto" : "Sobra do mês após"}</span><b>${brl(apos)}</b></div>`
-    + (neg ? `<div class="impact-warn">⚠️ Isso deixa <b>${MESES[m]}</b> no vermelho. Você pode salvar, mas reveja o gasto.</div>` : "");
+    + (neg ? `<div class="impact-warn">⚠️ Isso deixa <b>${mLong(m)}</b> no vermelho. Você pode salvar, mas reveja o gasto.</div>` : "");
 }
 
 function openDiariaModal(idx) {
@@ -892,7 +1003,7 @@ function openDiariaModal(idx) {
     <div class="field-row">
       <label class="field"><span>Valor</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : d.valor}" placeholder="0,00" required /></label>
       <label class="field"><span>Dia</span><input id="f_dia" type="number" min="1" max="31" value="${isNew || !d.dia ? "" : d.dia}" placeholder="--" /></label>
-    </div><p class="hint">Mês: ${MESES[curMonth]}</p>`;
+    </div><p class="hint">Mês: ${mLong(curMonth)}</p>`;
   const oldValD = isNew ? 0 : (Number(d.valor) || 0);
   $("#entryForm").insertAdjacentHTML("beforeend", `<div id="f_impact" class="impact"></div>`);
   const fvd = $("#f_val"); if (fvd) fvd.oninput = () => updateImpact(true, oldValD);
@@ -907,7 +1018,7 @@ function openDiariaModal(idx) {
     else Object.assign(d, o);
     persist(); closeModal();
     const sa = disponivelMes(curMonth) - despesaMes(curMonth);
-    if (val > 0 && sa < 0) toast(`⚠️ ${MESES[curMonth]} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
+    if (val > 0 && sa < 0) toast(`⚠️ ${mLong(curMonth)} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
     else toast(isNew ? "Adicionado ✓" : "Salvo ✓");
   };
   showModal("#modal");

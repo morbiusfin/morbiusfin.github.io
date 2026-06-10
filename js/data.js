@@ -91,8 +91,8 @@ function migrate(d) {
   // garante campos novos em dados antigos
   d.metas = d.metas || { fixas: 0, cartao: 0, diaria: 0 };
   d.cartoes = d.cartoes || [];   // cartões cadastrados: { id, nome, fechamento, vencimento }
-  (d.fixas || []).forEach(l => { if (l.aviso === undefined) l.aviso = null; if (l.meta === undefined) l.meta = null; });
-  (d.cartao || []).forEach(l => { if (l.cartao === undefined) l.cartao = ""; if (l.parcAtual === undefined) l.parcAtual = null; if (l.parcTotal === undefined) l.parcTotal = null; });
+  (d.fixas || []).forEach(l => { if (l.aviso === undefined) l.aviso = null; if (l.meta === undefined) l.meta = null; if (l.nec === undefined) l.nec = false; });
+  (d.cartao || []).forEach(l => { if (l.cartao === undefined) l.cartao = ""; if (l.parcAtual === undefined) l.parcAtual = null; if (l.parcTotal === undefined) l.parcTotal = null; if (l.nec === undefined) l.nec = false; });
   (d.diaria || []).forEach(l => { if (l.categoria === undefined) l.categoria = "Geral"; });
   (d.receitas || []).forEach(l => { if (l.tipo === undefined) l.tipo = "Ativa"; });
   return d;
