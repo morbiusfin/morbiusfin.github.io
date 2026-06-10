@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.4.1";
-const VERSION_NOTES = "✨ Abertura e logo repaginados (mais premium) · 🍩 gráfico de rosca mais redondo e elegante";
+const APP_VERSION = "3.4.2";
+const VERSION_NOTES = "↺ Botão limpar no simulador (zera valor e parcelas)";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -261,7 +261,7 @@ function renderResumo(view) {
 
     ${renderInsights(m)}
 
-    <div class="section-card sim-card"><h3>🧪 Vale a pena comprar?</h3>
+    <div class="section-card sim-card"><h3>🧪 Vale a pena comprar? <button type="button" id="simClear" class="sim-clear">↺ limpar</button></h3>
       <div class="sim-body">
         <div class="field-row">
           <label class="field" style="margin:0;flex:2"><span>Quero gastar (R$)</span>
@@ -316,6 +316,8 @@ function bindSimulador(m) {
   if (inpN) inpN.value = simN || 1;
   const upd = () => { simBuy = parseFloat(inp.value) || 0; simN = Math.max(1, parseInt(inpN && inpN.value) || 1); updateSimVerdict(m); updateSimOverlay(); };
   inp.oninput = upd; if (inpN) inpN.oninput = upd;
+  const clr = $("#simClear");
+  if (clr) clr.onclick = () => { simBuy = 0; simN = 1; inp.value = ""; if (inpN) inpN.value = "1"; updateSimVerdict(m); updateSimOverlay(); inp.focus(); };
   updateSimVerdict(m);
 }
 // saldo simulado mês a mês (subtrai as parcelas já pagas até cada mês)
