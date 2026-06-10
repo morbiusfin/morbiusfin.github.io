@@ -409,15 +409,19 @@ html.theme-dark #aurora span { opacity: .5; }
 .impact-warn b { font-weight: 800; }
 
 /* ===== Splash de abertura ===== */
-#splash { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-  background: linear-gradient(160deg, #0b3d2e 0%, #105a3f 55%, #12734d 100%); transition: opacity .5s ease; }
+#splash { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: radial-gradient(72% 58% at 50% 38%, #0e4a36 0%, #08231a 56%, #05110c 100%); transition: opacity .5s ease; }
 #splash.gone { opacity: 0; pointer-events: none; }
-#splash .mob-box { width: 270px; max-width: 82vw; animation: splashPop .6s cubic-bezier(.2,.9,.2,1.2) both; filter: drop-shadow(0 12px 34px rgba(0,0,0,.45)); }
+#splash .mob-box { width: 268px; max-width: 80vw; animation: splashPop .6s cubic-bezier(.2,.9,.2,1.2) both; }
 #splash .mob { width: 100%; height: auto; display: block; }
-#splash .mob text { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
-#splash .splash-name { color: #fff; font-weight: 800; font-size: 25px; letter-spacing: .6px; opacity: 0; animation: splashFade .5s ease .3s forwards; }
-#splash .splash-tag { color: rgba(255,255,255,.62); font-weight: 600; font-size: 12.5px; letter-spacing: .3px; margin-top: -8px; opacity: 0; animation: splashFade .5s ease .48s forwards; }
-@keyframes splashPop { from { transform: scale(.6) rotate(-6deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
-@keyframes splashFade { to { opacity: 1; } }
+#splash .mob-draw { stroke-dasharray: 900; stroke-dashoffset: 900;
+  animation: mobDraw 1.7s cubic-bezier(.65,0,.25,1) .15s forwards, mobPulse 2.6s ease-in-out 1.9s infinite; }
+@keyframes mobDraw { to { stroke-dashoffset: 0; } }
+@keyframes mobPulse { 0%,100% { opacity: 1; } 50% { opacity: .82; } }
+#splash .mob-nums { fill: rgba(150,235,255,.20); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-weight: 700; }
+#splash .splash-name { color: #fff; font-weight: 800; font-size: 26px; letter-spacing: 1.2px; opacity: 0; animation: splashFade .6s ease .9s forwards; }
+#splash .splash-tag { color: rgba(255,255,255,.58); font-weight: 600; font-size: 12.5px; letter-spacing: .4px; margin-top: -6px; opacity: 0; animation: splashFade .6s ease 1.1s forwards; }
+@keyframes splashPop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes splashFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 .hidden { display: none !important; }

@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.4.0";
-const VERSION_NOTES = "♾️ Agora é MorbiusFin! Abertura com fita de Möbius de números e cifrões · 🧪 simulador agora com PARCELAS e gráfico que se mexe junto · novo ícone";
+const APP_VERSION = "3.4.1";
+const VERSION_NOTES = "✨ Abertura e logo repaginados (mais premium) · 🍩 gráfico de rosca mais redondo e elegante";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -493,9 +493,10 @@ function renderCharts() {
     const tc = comp.reduce((a, b) => a + b, 0);
     charts.dough = new Chart(dough, { type: "doughnut",
       data: { labels: ["Despesas Fixas", "Cartão Mercado Pago", "Débitos Dia a Dia"],
-        datasets: [{ data: tc ? comp : [1, 0, 0], backgroundColor: ["#0b3d2e", "#1db954", "#f5a623"], borderWidth: 0 }] },
-      options: { responsive: true, maintainAspectRatio: false, cutout: "62%",
-        plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+        datasets: [{ data: tc ? comp : [1, 0, 0], backgroundColor: ["#0b3d2e", "#15c266", "#f5a623"],
+          borderWidth: 0, borderRadius: tc ? 14 : 0, spacing: tc ? 3 : 0, hoverOffset: 7 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: "72%", layout: { padding: 6 },
+        plugins: { legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true, pointStyle: "circle", font: { size: 11 }, padding: 14 } },
           tooltip: { callbacks: { label: c => `${c.label}: ${brl(c.raw)} (${tc ? (c.raw / tc * 100).toFixed(1) : 0}%)` } } } } });
   }
   const bc = $("#barChart");
