@@ -96,11 +96,12 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
   border-bottom: 1px solid rgba(255,255,255,.06);
 }
 .header-row { display: flex; align-items: center; justify-content: space-between; min-height: 40px; }
-.app-header h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.3px; line-height: 40px; }
-.header-actions { display: flex; align-items: center; gap: 9px; }
+.app-header h1 { font-size: 21px; font-weight: 800; margin: 0; letter-spacing: -.3px; line-height: 36px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.header-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .icon-btn {
   background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.10); color: #fff;
-  font-size: 17px; width: 38px; height: 38px; border-radius: 12px;
+  font-size: 15px; width: 33px; height: 33px; border-radius: 10px;
   display: inline-flex; align-items: center; justify-content: center;
   transition: transform .12s ease, background .2s ease; backdrop-filter: blur(4px);
 }
@@ -284,9 +285,11 @@ html.theme-dark .tab.active { color: var(--accent); }
 .alert-total b { font-size: 19px; color: var(--accent); letter-spacing: -.3px; }
 
 /* ===== TOAST ===== */
-.toast { position: fixed; bottom: calc(94px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
+.toast { position: fixed; bottom: calc(96px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
   background: var(--ink); color: var(--bg); padding: 13px 22px; border-radius: 24px; font-size: 14px; font-weight: 700; z-index: 200;
-  box-shadow: var(--shadow-lg); max-width: 88%; text-align: center; animation: popIn .22s ease both; }
+  box-shadow: var(--shadow-lg); max-width: 88%; text-align: center; animation: toastIn .26s cubic-bezier(.2,.8,.2,1) both; }
+/* mantém o translateX(-50%) DURANTE a animação (senão o toast desloca pro lado) */
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .toast.hidden { display: none; }
 
 /* ===== Fluxo de caixa ===== */
@@ -543,3 +546,14 @@ html.theme-dark #rain { opacity: .7; }
 @media (prefers-reduced-motion: reduce) {
   .alert-emoji, .alert-emoji::after, .alert-card::before, .venc-badge { animation: none !important; }
 }
+
+/* ----- Pagar sem "piscar": no próximo render, blocos não re-animam a entrada ----- */
+#view.no-anim > *, #view.no-anim .insights .insight { animation: none !important; }
+
+/* ----- Seletor de ano no Resumo (multi-ano) ----- */
+.year-pick { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.yr-chip { flex: 0 0 auto; background: var(--card); color: var(--muted); border: 1px solid var(--line); border-radius: 999px;
+  padding: 9px 18px; font-size: 14px; font-weight: 800; font-family: var(--font); letter-spacing: .2px;
+  transition: transform .14s ease, background .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.yr-chip:active { transform: scale(.94); }
+.yr-chip.active { background: linear-gradient(135deg, var(--green-2), var(--green)); color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(11,61,46,.3); }

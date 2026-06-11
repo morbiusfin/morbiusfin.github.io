@@ -1,14 +1,14 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.9.0";
-const VERSION_NOTES = "📅 Agora acompanha dívidas/parcelas que passam de 2026 (2027, 2028…) · 📊 valor em cada barra (R$1,2k) e sem eixo Y · 🔔 aviso mais bonito · 🟡🔴 cores por proximidade do vencimento · 🔒 marque contas necessárias pra ficarem fora da dica de economia";
+const APP_VERSION = "3.9.1";
+const VERSION_NOTES = "🗓️ escolha o ANO no Resumo (2026/2027/2028…) · 🧹 gráficos sem R$ e sem número no meio da rosca (menos poluído) · 🎛️ botões do topo menores · ✅ ao pagar, some suave sem piscar · 🔔 aviso centralizado";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
 const HISTORY_MAX = 50;
 let curMonth = (new Date().getFullYear() === DATA.year) ? new Date().getMonth() : 4;
-let annual = false;
+let annual = false, annualYear = 0;
 let curTab = "resumo";
 let charts = {};
 
@@ -44,8 +44,8 @@ function ensureLen(line, len) {
 // rótulo curto de valor pra dentro do gráfico: ≥1000 vira "R$ 1,2k"; abaixo, valor cheio
 function fmtBar(v) {
   const neg = v < 0, a = Math.abs(v);
-  if (a >= 1000) { const k = a / 1000, s = (k >= 10 ? Math.round(k) : Math.round(k * 10) / 10); return (neg ? "-R$ " : "R$ ") + String(s).replace(".", ",") + "k"; }
-  return (neg ? "-R$ " : "R$ ") + Math.round(a);
+  if (a >= 1000) { const k = a / 1000, s = (k >= 10 ? Math.round(k) : Math.round(k * 10) / 10); return (neg ? "-" : "") + String(s).replace(".", ",") + "k"; }
+  return (neg ? "-" : "") + Math.round(a);
 }
 
 /* Plugin Chart.js: escreve o valor (R$1,2k) em cada barra/ponto, centralizado e
@@ -54,7 +54,7 @@ function fmtBar(v) {
 const ValueLabels = {
   id: "valueLabels",
   afterDatasetsDraw(chart, _a, opts) {
-    if (!opts || opts.on === false) return;
+    if (!opts || opts.on !== true) return;          // só desenha onde o gráfico pediu (não na rosca)
     const ctx = chart.ctx, isLine = chart.config.type === "line";
     const ink = (getComputedStyle(document.documentElement).getPropertyValue("--ink") || "#11201a").trim();
     const fam = Chart.defaults.font.family || "sans-serif";
@@ -218,20 +218,25 @@ function renderMonthBar() {
 }
 
 /* ---------- Render principal ---------- */
+let suppressNextAnim = false;       // pula as animações de ENTRADA no próximo render (ex.: ao pagar, pra não "piscar")
 function render() {
   const H = horizonLen(); if (curMonth >= H) curMonth = H - 1; if (curMonth < 0) curMonth = 0;
+  const nYears = Math.ceil(H / 12); if (annualYear >= nYears) annualYear = nYears - 1; if (annualYear < 0) annualYear = 0;
+  const noAnim = suppressNextAnim; suppressNextAnim = false;
   renderMonthBar();
   const ub = $("#btnUndo"); if (ub) { ub.disabled = !history.length; ub.style.opacity = history.length ? "1" : ".35"; }
   const rb = $("#btnRedo"); if (rb) { rb.disabled = !redoStack.length; rb.style.opacity = redoStack.length ? "1" : ".35"; }
-  $("#screenTitle").textContent = annual && curTab === "resumo" ? "Resumo do ano" : ({
+  $("#screenTitle").textContent = annual && curTab === "resumo" ? "Resumo " + yearOf(annualYear * 12) : ({
     resumo: "Resumo", receitas: "Receitas", fixas: "Despesas Fixas",
     cartao: "Cartão Mercado Pago", diaria: "Débitos Dia a Dia"
   })[curTab];
   $("#fab").classList.toggle("hidden", curTab === "resumo");
   const view = $("#view");
+  view.classList.toggle("no-anim", noAnim);
   view.innerHTML = "";
-  if (curTab === "resumo") return annual ? renderAnual(view) : renderResumo(view);
-  renderLista(view);
+  if (curTab === "resumo") { if (annual) renderAnual(view); else renderResumo(view); }
+  else renderLista(view);
+  if (noAnim) requestAnimationFrame(() => requestAnimationFrame(() => { const v = $("#view"); if (v) v.classList.remove("no-anim"); }));
 }
 
 /* ---------- Inteligência local (insights + saúde) — NADA sai do aparelho ---------- */
@@ -559,7 +564,7 @@ function renderVencList() {
   // Pagar: a linha esvaece e a lista encolhe (≤ ~0,7s) antes de salvar
   $$("[data-pay]", el).forEach(b => b.onclick = () => {
     const id = b.dataset.pay, row = b.closest(".list-row");
-    const pagar = () => { const l = DATA.fixas.find(x => x.id === id); if (l) { l.sts[curMonth] = "pago"; persist(); toast("Pago ✅"); } };
+    const pagar = () => { const l = DATA.fixas.find(x => x.id === id); if (l) { l.sts[curMonth] = "pago"; suppressNextAnim = true; persist(); toast("Pago ✅"); } };
     if (row && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) {
       row.classList.add("paying"); setTimeout(pagar, 620);
     } else pagar();
@@ -600,33 +605,37 @@ function renderMetas(m) {
 
 /* ---------- RESUMO ANUAL ---------- */
 function renderAnual(view) {
-  const H = horizonLen();
-  const range = (fn) => { let s = 0; for (let i = 0; i < H; i++) s += fn(i); return s; };
-  const totRec = range(receitaMes);
-  const totDesp = range(despesaMes);
-  const sobraAno = totRec - totDesp;
-  const multiAno = H > 12, periodo = multiAno ? `${DATA.year}–${yearOf(H - 1)}` : String(DATA.year);
+  const H = horizonLen(), nYears = Math.ceil(H / 12);
+  const yi0 = annualYear * 12, yi1 = Math.min(H, yi0 + 12), ano = yearOf(yi0);
+  const range = (fn) => { let s = 0; for (let i = yi0; i < yi1; i++) s += fn(i); return s; };
+  const totRec = range(receitaMes), totDesp = range(despesaMes), sobraAno = totRec - totDesp;
   const cat = { fixas: range(fixasMes), cartao: range(cartaoMes), diaria: range(diariaMes) };
-  // top linhas fixas no ano
-  const linhasAno = DATA.fixas.map(l => ({ desc: l.desc, tot: l.vals.reduce((s, v) => s + (Number(v) || 0), 0) }))
+  // maiores despesas fixas SÓ do ano selecionado
+  const linhasAno = DATA.fixas.map(l => ({ desc: l.desc, tot: (l.vals || []).slice(yi0, yi1).reduce((s, v) => s + (Number(v) || 0), 0) }))
     .filter(x => x.tot > 0).sort((a, b) => b.tot - a.tot).slice(0, 8);
+  // seletor de ano (só aparece quando há mais de um ano com dados)
+  const yearPick = nYears > 1
+    ? `<div class="year-pick">${Array.from({ length: nYears }, (_, y) => `<button class="yr-chip ${y === annualYear ? "active" : ""}" data-yr="${y}">${DATA.year + y}</button>`).join("")}</div>`
+    : "";
 
   view.innerHTML = `
+    ${yearPick}
     <div class="kpi-grid">
-      <div class="kpi"><div class="label">Receitas (${periodo})</div><div class="value pos">${brl(totRec)}</div></div>
-      <div class="kpi"><div class="label">Despesas (${periodo})</div><div class="value neg">${brl(totDesp)}</div></div>
-      <div class="kpi big"><div class="label">Sobra ${multiAno ? "do período" : "no ano"}</div><div class="value ${sobraAno >= 0 ? "pos" : "neg"}">${brl(sobraAno)}</div></div>
+      <div class="kpi"><div class="label">Receitas (${ano})</div><div class="value pos">${brl(totRec)}</div></div>
+      <div class="kpi"><div class="label">Despesas (${ano})</div><div class="value neg">${brl(totDesp)}</div></div>
+      <div class="kpi big"><div class="label">Sobra em ${ano}</div><div class="value ${sobraAno >= 0 ? "pos" : "neg"}">${brl(sobraAno)}</div></div>
     </div>
-    <div class="section-card"><h3>Despesas por categoria (${periodo})</h3>
+    <div class="section-card"><h3>Despesas por categoria (${ano})</h3>
       <div class="cat-line"><span class="dot" style="background:#0b3d2e"></span><span class="cname">Despesas Fixas</span><span class="cval">${brl(cat.fixas)}</span></div>
       <div class="cat-line"><span class="dot" style="background:#1db954"></span><span class="cname">Cartão Mercado Pago</span><span class="cval">${brl(cat.cartao)}</span></div>
       <div class="cat-line"><span class="dot" style="background:#f5a623"></span><span class="cname">Débitos Dia a Dia</span><span class="cval">${brl(cat.diaria)}</span></div>
     </div>
-    <div class="section-card"><h3>Sobra por mês</h3>
+    <div class="section-card"><h3>Sobra por mês (${ano})</h3>
       <div class="chart-wrap"><canvas id="sobraChart" height="190"></canvas></div></div>
-    <div class="section-card"><h3>Maiores despesas fixas (ano)</h3>
+    <div class="section-card"><h3>Maiores despesas fixas (${ano})</h3>
       ${linhasAno.map(x => `<div class="cat-line"><span class="cname">${esc(x.desc)}</span><span class="cval">${brl(x.tot)}</span></div>`).join("") || `<div class="empty">Sem dados.</div>`}
     </div>`;
+  $$(".yr-chip", view).forEach(b => b.onclick = () => { annualYear = +b.dataset.yr; render(); });
   renderSobraChart();
 }
 
@@ -714,8 +723,9 @@ function renderSobraChart() {
   if (typeof Chart === "undefined") return;
   applyChartTheme();
   if (charts.sobra) charts.sobra.destroy();
-  const H = horizonLen(), labelsH = Array.from({ length: H }, (_, i) => mLabel(i));
-  const data = labelsH.map((_, i) => receitaMes(i) - despesaMes(i));
+  const H = horizonLen(), yi0 = annualYear * 12, yi1 = Math.min(H, yi0 + 12);
+  const labelsH = [], data = [];
+  for (let i = yi0; i < yi1; i++) { labelsH.push(mLabel(i)); data.push(receitaMes(i) - despesaMes(i)); }
   charts.sobra = new Chart($("#sobraChart"), { type: "bar",
     data: { labels: labelsH, datasets: [{ data, backgroundColor: data.map(v => v >= 0 ? "#1d6fe5" : "#e5484d"), borderRadius: 4 }] },
     options: { ...chartOpts(false), plugins: { legend: { display: false }, valueLabels: { on: true }, tooltip: { callbacks: { label: c => brl(c.raw) } } } } });
@@ -867,7 +877,7 @@ function openCartaoModal() {
       <label class="field"><span>Nº de parcelas</span><input id="f_n" type="number" min="1" max="48" inputmode="numeric" value="1" /></label>
     </div>
     <label class="field"><span>Dia da compra (em ${mLong(curMonth)})</span><input id="f_dia" type="number" min="1" max="31" inputmode="numeric" placeholder="ex.: 25" /></label>
-    <label class="field row-check nec-check"><input id="f_nec" type="checkbox" /><span>🔒 Necessário — não posso deixar de pagar (fica fora da dica de economia)</span></label>
+    <label class="field row-check nec-check"><input id="f_nec" type="checkbox" /><span>🔒 Necessário — não posso deixar de pagar</span></label>
     <div id="f_parc_prev" class="impact"></div>`;
   ["f_val", "f_n", "f_dia", "f_card"].forEach(id => { const el = $("#" + id); if (el) { el.oninput = updateParcelaPreview; el.onchange = updateParcelaPreview; } });
   updateParcelaPreview();
@@ -922,7 +932,7 @@ function openEntryModal(tab, idx) {
                            : [["pago", "Pago"], ["programado", "Programado"], ["vazio", "—"]];
   $("#modalTitle").textContent = (isNew ? "Novo " : "Editar ") + ({ receitas: "receita", fixas: "despesa fixa", cartao: "item do cartão" })[tab];
   let extra = "";
-  const necCheck = `<label class="field row-check nec-check"><input id="f_nec" type="checkbox" ${(!isNew && l && l.nec) ? "checked" : ""}/><span>🔒 Necessário — não posso deixar de pagar (fica fora da dica de economia)</span></label>`;
+  const necCheck = `<label class="field row-check nec-check"><input id="f_nec" type="checkbox" ${(!isNew && l && l.nec) ? "checked" : ""}/><span>🔒 Necessário — não posso deixar de pagar</span></label>`;
   if (isReceita) extra = `<label class="field"><span>Tipo de renda</span><select id="f_tipo"><option value="Ativa">Ativa (recorrente)</option><option value="Extra">Extra (avulsa)</option></select></label>`;
   else if (tab === "fixas") extra = `<div class="field-row">
       <label class="field"><span>Avisar (dias antes)</span><input id="f_aviso" type="number" min="0" max="15" value="${isNew || !l.aviso ? "" : l.aviso}" placeholder="ex.: 3" /></label>
