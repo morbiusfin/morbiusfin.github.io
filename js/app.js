@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.10.0";
-const VERSION_NOTES = "🗓️ seletor de ANO no topo (escolhe 2026/2027/2028… e MUDA O APP INTEIRO) · 📐 todas as telas preenchem a altura igual ao Resumo (sem buraco preto no Receitas/Débito)";
+const APP_VERSION = "3.10.1";
+const VERSION_NOTES = "♾️ ícone novo estilo Livelo — fundo preto e a fita ∞ centralizada e limpa (também na notificação)";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
