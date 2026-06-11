@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.9.5";
-const VERSION_NOTES = "🟢 fundo (chuva de números) refeito — leve, uniforme e calmo, sem aquela faixa feia · ✨ trocar de aba ficou instantâneo, sem os blocos subindo";
+const APP_VERSION = "3.9.6";
+const VERSION_NOTES = "🔔 PUSH COM APP FECHADO no ar! Vá em ⚙️ → Ativar push pra receber aviso das contas mesmo sem abrir o app (todo dia 8h) · 🟢 fundo mais leve · ✨ troca de aba sem subir";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -1088,7 +1088,7 @@ $("#btnReset").onclick = () => { if (confirm("Apagar tudo e voltar aos dados de 
 
 // ===== Web Push (servidor: Cloudflare Worker) =====
 const VAPID_PUBLIC = "BC1EnbsN2qolEkoNvMqsAuqjqrPUfNlslzCnoRIOgWvCthh0ytYXzbUrP9iSzNgNswcS9H121de7cCANXGhuSz4";
-let PUSH_API = ""; // preenchido após publicar o Worker
+let PUSH_API = "https://financas-push.kaickjhon.workers.dev"; // Worker de push (Cloudflare) — avisa com app fechado
 function urlB64ToU8(b64) { const pad = "=".repeat((4 - b64.length % 4) % 4); const s = (b64 + pad).replace(/-/g, "+").replace(/_/g, "/"); const raw = atob(s); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); }
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const isStandalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
