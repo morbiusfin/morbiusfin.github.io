@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.4";
+const APP_VERSION = "3.11.5";
 const VERSION_NOTES = "🔔 \"Próximas contas\" agora mostra só as que estão PERTO de vencer (na janela de aviso ou 5 dias) + atrasadas — não a lista do mês todo";
 let history = [];
 let redoStack = [];
@@ -1064,7 +1064,7 @@ function renderDiaria(view) {
   Object.keys(cats).sort().forEach(cat => {
     const sub = cats[cat].reduce((s, x) => s + (Number(x.d.valor) || 0), 0);
     html += `<div class="group-head">${esc(cat)} <span>${brl(sub)}</span></div><div class="list">${cats[cat].map(({ d, idx }) =>
-      `<div class="list-row" data-didx="${idx}"><div class="desc"><div class="name">${esc(d.desc || "—")}</div>${d.dia ? `<div class="sub">dia ${d.dia}</div>` : ""}</div><span class="amount">${brl(d.valor)}</span></div>`).join("")}</div>`;
+      `<div class="list-row" data-didx="${idx}"><div class="desc"><div class="name">${esc(d.desc || "—")}</div>${(() => { const met = d.metodo === "pix" ? `<span class="met-pill pix">⚡ PIX</span>` : d.metodo === "debito" ? `<span class="met-pill debito">💳 Débito</span>` : ""; const dia = d.dia ? `dia ${d.dia}` : ""; return (met || dia) ? `<div class="sub">${[dia, met].filter(Boolean).join(" · ")}</div>` : ""; })()}</div><span class="amount">${brl(d.valor)}</span></div>`).join("")}</div>`;
   });
   view.innerHTML = html;
   $$("[data-didx]", view).forEach(r => r.onclick = () => openDiariaModal(+r.dataset.didx));
@@ -1261,7 +1261,7 @@ function openEntryModal(tab, idx) {
 // Atualiza a linha "sobra do mês após este lançamento" (verde = ok, vermelho = vai faltar).
 function updateImpact(isExpense, oldVal) {
   const el = $("#f_impact"); if (!el) return;
-  const m = curMonth, cur = disponivelMes(m) - despesaMes(m);
+  const fm = $("#f_mes"), m = fm ? (+fm.value) : curMonth, cur = disponivelMes(m) - despesaMes(m);
   const novo = parseFloat($("#f_val") && $("#f_val").value) || 0;
   const delta = novo - (oldVal || 0);
   const apos = isExpense ? cur - delta : cur + delta;
@@ -1271,33 +1271,83 @@ function updateImpact(isExpense, oldVal) {
     + (neg ? `<div class="impact-warn">⚠️ Isso deixa <b>${mLong(m)}</b> no vermelho. Você pode salvar, mas reveja o gasto.</div>` : "");
 }
 
-function openDiariaModal(idx) {
+// mês absoluto de HOJE (índice a partir de Jan do DATA.year)
+const realMesAbs = () => (REAL_TODAY.getFullYear() - DATA.year) * 12 + REAL_TODAY.getMonth();
+const metLabel = (mt) => mt === "pix" ? "⚡ PIX" : "💳 Débito";
+
+// Balão acima do "+" (Dia a Dia): escolhe PIX ou Débito antes de abrir o form.
+function openDiariaChooser() {
+  let pop = $("#methodPop");
+  if (!pop) {
+    pop = document.createElement("div");
+    pop.id = "methodPop"; pop.className = "method-pop hidden";
+    pop.innerHTML = `<div class="mp-title">Como você pagou?</div>
+      <button type="button" class="mp-opt pix" data-m="pix"><span class="mp-ic">⚡</span><span class="mp-txt"><b>PIX</b><i>caiu na hora</i></span></button>
+      <button type="button" class="mp-opt debito" data-m="debito"><span class="mp-ic">💳</span><span class="mp-txt"><b>Débito</b><i>direto da conta</i></span></button>`;
+    document.body.appendChild(pop);
+  }
+  pop.classList.remove("hidden");
+  requestAnimationFrame(() => pop.classList.add("show"));
+  const close = () => { pop.classList.remove("show"); setTimeout(() => pop.classList.add("hidden"), 200); document.removeEventListener("click", onDoc, true); };
+  const onDoc = (e) => { if (!pop.contains(e.target) && e.target.id !== "fab") close(); };
+  setTimeout(() => document.addEventListener("click", onDoc, true), 0);
+  $$(".mp-opt", pop).forEach(b => b.onclick = () => { close(); openDiariaModal(null, b.dataset.m); });
+}
+
+function openDiariaModal(idx, method) {
   const isNew = idx == null, d = isNew ? null : DATA.diaria[idx];
+  let metodo = method || (d && d.metodo) || "debito";
+  const mesSel = isNew ? curMonth : (d.mes != null ? d.mes : curMonth);
+  const maxM = yearsCount() * 12;
+  // meses agrupados por ano (picker nativo do iOS = roda de rolagem)
+  let monthOpts = "", lastY = -1;
+  for (let i = 0; i < maxM; i++) {
+    const y = yearOf(i);
+    if (y !== lastY) { if (lastY !== -1) monthOpts += `</optgroup>`; monthOpts += `<optgroup label="${y}">`; lastY = y; }
+    monthOpts += `<option value="${i}"${i === mesSel ? " selected" : ""}>${MESES[((i % 12) + 12) % 12]}</option>`;
+  }
+  monthOpts += `</optgroup>`;
   $("#modalTitle").textContent = (isNew ? "Nova " : "Editar ") + "compra no débito";
   $("#entryForm").innerHTML = `
+    <div id="f_metTag" class="method-tag ${metodo}"><span class="mt-label">${metLabel(metodo)}</span><button type="button" id="f_metToggle" class="met-switch">trocar ⇄</button></div>
     <label class="field"><span>Descrição</span><input id="f_desc" type="text" value="${isNew ? "" : esc(d.desc)}" required placeholder="Ex.: Mercado" /></label>
     <label class="field"><span>Categoria</span><input id="f_cat" type="text" list="catList" value="${isNew ? "" : esc(d.categoria || "")}" placeholder="Ex.: Alimentação" />
       <datalist id="catList"><option>Alimentação</option><option>Transporte</option><option>Lazer</option><option>Saúde</option><option>Casa</option><option>Outros</option></datalist></label>
+    <label class="field"><span>Valor (R$)</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : d.valor}" placeholder="0,00" required /></label>
     <div class="field-row">
-      <label class="field"><span>Valor</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : d.valor}" placeholder="0,00" required /></label>
-      <label class="field"><span>Dia</span><input id="f_dia" type="number" min="1" max="31" value="${isNew || !d.dia ? "" : d.dia}" placeholder="--" /></label>
-    </div><p class="hint">Mês: ${mLong(curMonth)}</p>`;
+      <label class="field"><span>Mês</span><select id="f_mes" class="sel">${monthOpts}</select></label>
+      <label class="field"><span>Dia</span><select id="f_dia" class="sel"></select></label>
+    </div>
+    <p class="hint" style="text-align:left">📌 Escolha o <b>mês</b> aqui — o gasto vai pro mês certo mesmo que você esteja vendo outro.</p>`;
+  // popula os dias conforme o mês (preserva a seleção ao trocar de mês)
+  const fillDays = (forceDia) => {
+    const mes = +$("#f_mes").value, n = diasNoMesAbs(mes);
+    const realM = realMesAbs();
+    const def = forceDia !== undefined ? forceDia
+      : (+($("#f_dia") && $("#f_dia").value) || (isNew ? (mes === realM ? REAL_TODAY.getDate() : null) : (d.dia || null)));
+    let opts = `<option value="">—</option>`;
+    for (let k = 1; k <= n; k++) opts += `<option value="${k}"${k === def ? " selected" : ""}>${k}</option>`;
+    $("#f_dia").innerHTML = opts;
+  };
+  fillDays(isNew ? undefined : (d.dia || null));
   const oldValD = isNew ? 0 : (Number(d.valor) || 0);
   $("#entryForm").insertAdjacentHTML("beforeend", `<div id="f_impact" class="impact"></div>`);
   const fvd = $("#f_val"); if (fvd) fvd.oninput = () => updateImpact(true, oldValD);
+  $("#f_mes").onchange = () => { fillDays(); updateImpact(true, oldValD); };
+  $("#f_metToggle").onclick = () => { metodo = metodo === "pix" ? "debito" : "pix"; const t = $("#f_metTag"); t.className = "method-tag " + metodo; t.querySelector(".mt-label").textContent = metLabel(metodo); };
   updateImpact(true, oldValD);
   $("#btnDelete").classList.toggle("hidden", isNew);
   $("#btnDelete").onclick = () => { if (confirm("Excluir esta compra?")) { DATA.diaria.splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
-    const val = parseFloat($("#f_val").value) || 0;
-    const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, categoria: $("#f_cat").value.trim() || "Geral" };
-    if (isNew) DATA.diaria.push({ id: uid(), mes: curMonth, ...o });
-    else Object.assign(d, o);
+    const val = parseFloat($("#f_val").value) || 0, mes = +$("#f_mes").value;
+    const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, categoria: $("#f_cat").value.trim() || "Geral", metodo };
+    if (isNew) DATA.diaria.push({ id: uid(), mes, ...o });
+    else { Object.assign(d, o); d.mes = mes; }
     persist(); closeModal();
-    const sa = disponivelMes(curMonth) - despesaMes(curMonth);
-    if (val > 0 && sa < 0) toast(`⚠️ ${mLong(curMonth)} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
-    else toast(isNew ? "Adicionado ✓" : "Salvo ✓");
+    const sa = disponivelMes(mes) - despesaMes(mes);
+    if (val > 0 && sa < 0) toast(`⚠️ ${mLong(mes)} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
+    else toast(`${isNew ? "Adicionado" : "Salvo"} em ${mLong(mes)} ✓`);
   };
   showModal("#modal");
 }
@@ -1331,7 +1381,7 @@ let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.
 
 /* ---------- Eventos ---------- */
 $$(".tab").forEach(t => t.onclick = () => { $$(".tab").forEach(x => x.classList.remove("active")); t.classList.add("active"); curTab = t.dataset.tab; if (curTab !== "resumo") annual = false; suppressNextAnim = true; window.scrollTo(0, 0); render(); });
-$("#fab").onclick = () => curTab === "diaria" ? openDiariaModal(null) : curTab === "cartao" ? openCartaoModal() : openEntryModal(curTab, null);
+$("#fab").onclick = () => curTab === "diaria" ? openDiariaChooser() : curTab === "cartao" ? openCartaoModal() : openEntryModal(curTab, null);
 $("#btnUndo").onclick = undo;
 { const br = $("#btnRefresh"); if (br) br.onclick = syncNow; }
 { const rd = $("#btnRedo"); if (rd) rd.onclick = redo; }

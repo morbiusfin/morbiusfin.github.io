@@ -241,6 +241,40 @@ body:has(#fab:not(.hidden)) main { padding-bottom: 104px; }
 .fab:active { transform: scale(.9); }
 .fab.hidden { display: none; }
 
+/* ===== Balão PIX / Débito (escolha de método no Dia a Dia) ===== */
+.method-pop { position: fixed; right: 18px; bottom: calc(150px + var(--safe-bottom)); z-index: 60; width: 234px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow-lg); padding: 12px;
+  transform: translateY(14px) scale(.9); opacity: 0; transform-origin: bottom right;
+  transition: transform .22s cubic-bezier(.34,1.56,.64,1), opacity .18s ease; }
+.method-pop.hidden { display: none; }
+.method-pop.show { transform: translateY(0) scale(1); opacity: 1; }
+.method-pop::after { content: ""; position: absolute; right: 28px; bottom: -8px; width: 16px; height: 16px; background: var(--card);
+  border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); border-radius: 0 0 4px 0; }
+.mp-title { font-size: 12px; font-weight: 800; color: var(--muted); margin: 2px 4px 10px; }
+.mp-opt { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--line); background: var(--card-2);
+  border-radius: 13px; padding: 11px 13px; margin-bottom: 8px; font-family: var(--font); text-align: left; color: var(--ink);
+  transition: transform .12s ease, border-color .15s ease, box-shadow .15s ease; }
+.mp-opt:last-child { margin-bottom: 0; }
+.mp-opt:active { transform: scale(.97); }
+.mp-opt.pix:active, .mp-opt.pix:hover { border-color: #19c6b3; box-shadow: 0 0 0 3px rgba(25,198,179,.18); }
+.mp-opt.debito:active, .mp-opt.debito:hover { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+.mp-ic { font-size: 21px; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 11px; background: var(--card); flex: 0 0 auto; }
+.mp-txt { display: flex; flex-direction: column; line-height: 1.2; }
+.mp-txt b { font-size: 15px; font-weight: 800; }
+.mp-txt i { font-style: normal; font-size: 11.5px; color: var(--muted); font-weight: 600; margin-top: 1px; }
+
+/* tag de método dentro do form + pílula na lista */
+.method-tag { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px;
+  padding: 10px 14px; border-radius: 13px; font-weight: 800; font-size: 15px; border: 1px solid var(--line); }
+.method-tag.pix { background: rgba(25,198,179,.12); border-color: rgba(25,198,179,.4); color: #19c6b3; }
+.method-tag.debito { background: rgba(21,194,102,.12); border-color: rgba(21,194,102,.4); color: var(--accent); }
+.met-switch { background: transparent; border: 0; color: var(--muted); font-family: var(--font); font-size: 12px; font-weight: 800; padding: 4px 6px; border-radius: 8px; }
+.met-switch:active { transform: scale(.95); }
+.met-pill { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 1px 7px; border-radius: 999px; vertical-align: middle; }
+.met-pill.pix { background: rgba(25,198,179,.16); color: #19c6b3; }
+.met-pill.debito { background: rgba(21,194,102,.16); color: var(--accent); }
+select.sel { cursor: pointer; }
+
 /* ===== TABBAR ===== */
 /* Fundo SÓLIDO e contínuo até a base (área da home indicator no iPhone vira parte da barra,
    não um bloco escuro destacado). Sem transparência = sem "salto" embaixo. */
