@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.2";
+const APP_VERSION = "3.11.3";
 const VERSION_NOTES = "🔔 \"Próximas contas\" agora mostra só as que estão PERTO de vencer (na janela de aviso ou 5 dias) + atrasadas — não a lista do mês todo";
 let history = [];
 let redoStack = [];
@@ -412,19 +412,6 @@ function renderResumo(view) {
 
     ${renderInsights(m)}
 
-    <div class="section-card sim-card"><h3>🧪 Vale a pena comprar? <button type="button" id="simClear" class="sim-clear">↺ limpar</button></h3>
-      <div class="sim-body">
-        <div class="field-row">
-          <label class="field" style="margin:0;flex:2"><span>Quero gastar (R$)</span>
-            <input id="simInput" type="number" step="0.01" inputmode="decimal" placeholder="0,00" /></label>
-          <label class="field" style="margin:0;flex:1"><span>Parcelas</span>
-            <input id="simN" type="number" min="1" max="48" inputmode="numeric" value="1" /></label>
-        </div>
-        <div id="simVerdict" class="sim-verdict hint">Digite um valor (e nº de parcelas) — eu simulo mês a mês e digo se/quando vale a pena, antes de lançar.</div>
-        <div id="simChartWrap" class="sim-chart hidden"><canvas id="simChart" height="150"></canvas></div>
-      </div>
-    </div>
-
     <div class="section-card"><h3>Previsto × Realizado — ${mLong(m)}</h3>
       ${barPrevReal("Receitas", recebido(m), aReceber(m), "recebido", "a receber")}
       ${barPrevReal("Despesas", pago(m), aPagar(m), "pago", "a pagar")}
@@ -444,7 +431,6 @@ function renderResumo(view) {
   `;
   if (alertas.length) renderVencList();
   renderCatList(m);
-  bindSimulador(m);
   renderCharts();
   animateResumo();
   bindViewToggle();
@@ -902,13 +888,19 @@ function updateGSim() {
 function detHTML(title, items, tot, color, sub) {
   if (!items.length) return `<div class="det-head">${esc(title)}</div><div class="g-empty">Nada lançado neste mês.</div>`;
   const max = Math.max.apply(null, items.map(i => i.val).concat([1]));
-  return `<div class="det-head">${esc(title)} <b>${brl(tot)}</b></div>` + items.map((it, i) => `
-    <div class="det-row" style="animation-delay:${(i * 0.045).toFixed(2)}s">
-      <span class="det-rank">${i + 1}</span>
+  const TOP = 5, medal = ["🥇", "🥈", "🥉"];
+  const rows = items.map((it, i) => `
+    <div class="det-row" style="animation-delay:${(Math.min(i, TOP) * 0.05).toFixed(2)}s">
+      <span class="det-rank${i < 3 ? " top" + (i + 1) : ""}">${i < 3 ? medal[i] : i + 1}</span>
       <div class="det-main"><div class="det-name">${esc(it.desc || "—")}${it.nec ? ` <span class="det-nec">✓</span>` : ""}</div>
         <div class="det-bar"><div class="det-fill" style="width:${Math.round(it.val / max * 100)}%;background:${color}"></div></div></div>
       <div class="det-val">${brl(it.val)}<span class="det-cat">${esc(it.cat)}</span></div>
-    </div>`).join("") + (sub || "");
+    </div>`).join("");
+  const more = items.length - TOP;
+  const head = `<div class="det-head">${esc(title)} <b>${brl(tot)}</b></div>`;
+  const hint = more > 0 ? `<div class="det-more-hint"><span>🏆 Top ${TOP}</span><em>role para ver +${more}</em></div>` : "";
+  const scrollable = items.length > TOP ? " scrollable" : "";
+  return head + hint + `<div class="det-scroll-wrap${scrollable}"><div class="det-scroll">${rows}</div></div>` + (sub || "");
 }
 function animDetail(id) { const el = $(id); if (!el) return; el.classList.remove("drill-in"); void el.offsetWidth; el.classList.add("drill-in"); }
 function highlightBar(id, color) { const c = charts[id]; if (!c) return; c.data.datasets[0].backgroundColor = barColors(color, 12); try { c.update("none"); } catch (e) {} }
