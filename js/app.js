@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.5";
+const APP_VERSION = "3.11.6";
 const VERSION_NOTES = "🔔 \"Próximas contas\" agora mostra só as que estão PERTO de vencer (na janela de aviso ou 5 dias) + atrasadas — não a lista do mês todo";
 let history = [];
 let redoStack = [];
@@ -1144,10 +1144,15 @@ function openCartaoModal() {
       <label class="field"><span>Valor de cada parcela</span><input id="f_val" type="number" step="0.01" inputmode="decimal" placeholder="0,00" required /></label>
       <label class="field"><span>Nº de parcelas</span><input id="f_n" type="number" min="1" max="48" inputmode="numeric" value="1" /></label>
     </div>
-    <label class="field"><span>Dia da compra (em ${mLong(curMonth)})</span><input id="f_dia" type="number" min="1" max="31" inputmode="numeric" placeholder="ex.: 25" /></label>
+    <div class="field-row">
+      <label class="field"><span>Mês da compra</span><select id="f_mes" class="sel">${monthOptionsHTML(curMonth)}</select></label>
+      <label class="field"><span>Dia da compra</span><select id="f_dia" class="sel"></select></label>
+    </div>
     <label class="field row-check nec-check"><input id="f_nec" type="checkbox" /><span>🔒 Necessário — não posso deixar de pagar</span></label>
     <div id="f_parc_prev" class="impact"></div>`;
+  fillDaySelect("f_dia", "f_mes", null);
   ["f_val", "f_n", "f_dia", "f_card"].forEach(id => { const el = $("#" + id); if (el) { el.oninput = updateParcelaPreview; el.onchange = updateParcelaPreview; } });
+  $("#f_mes").onchange = () => { fillDaySelect("f_dia", "f_mes"); updateParcelaPreview(); };
   updateParcelaPreview();
   $("#btnDelete").classList.add("hidden");
   $("#entryForm").onsubmit = (e) => {
@@ -1156,8 +1161,9 @@ function openCartaoModal() {
     const n = Math.max(1, parseInt($("#f_n").value) || 1);
     const dia = parseInt($("#f_dia").value) || null;
     const card = cs.find(c => c.id === $("#f_card").value) || null;
-    const start = parcelaStartMonth(curMonth, dia, card ? card.fechamento : null);
-    const paidUntil = (DATA.year === REAL_TODAY.getFullYear()) ? REAL_TODAY.getMonth() : 11;
+    const base = +$("#f_mes").value;
+    const start = parcelaStartMonth(base, dia, card ? card.fechamento : null);
+    const paidUntil = realMesAbs();
     const nec = $("#f_nec") ? $("#f_nec").checked : false;
     const last = Math.max(start + n - 1, 11);
     const line = { id: uid(), desc: $("#f_desc").value.trim(), cartao: card ? card.nome : "", parcAtual: 1, parcTotal: n > 1 ? n : null, dia: card ? card.vencimento : dia, nec, vals: Array(12).fill(0), sts: Array(12).fill("vazio") };
@@ -1177,14 +1183,15 @@ function updateParcelaPreview() {
   const dia = parseInt($("#f_dia") && $("#f_dia").value) || null;
   const cs = DATA.cartoes || [];
   const card = cs.find(c => c.id === ($("#f_card") && $("#f_card").value)) || null;
-  const start = parcelaStartMonth(curMonth, dia, card ? card.fechamento : null);
+  const base = $("#f_mes") ? (+$("#f_mes").value) : curMonth;
+  const start = parcelaStartMonth(base, dia, card ? card.fechamento : null);
   const fim = start + n - 1;
   el.className = "impact ok";
   let txt = `<div class="impact-row"><span>${n > 1 ? n + "× de " + brl(valor) : "Compra"}</span><b>${brl(valor * n)}</b></div>`;
   if (card && card.fechamento && dia) {
     const mesmoMes = dia <= card.fechamento;
     txt += `<div class="impact-sub">${mesmoMes
-      ? `Compra dia ${dia} entra na fatura de <b>${mLong(curMonth)}</b>`
+      ? `Compra dia ${dia} entra na fatura de <b>${mLong(base)}</b>`
       : `Compra dia ${dia} (após fechar dia ${card.fechamento}) entra em <b>${mLong(start)}</b>`}`
       + (n > 1 ? ` · parcelas de <b>${mLong(start)}</b> a <b>${mLong(fim)}</b>` : "") + `</div>`;
   } else if (n > 1) {
@@ -1213,31 +1220,42 @@ function openEntryModal(tab, idx) {
   $("#entryForm").innerHTML = `
     <label class="field"><span>Descrição</span><input id="f_desc" type="text" value="${isNew ? "" : esc(l.desc)}" required placeholder="Ex.: ${isReceita ? "Salário" : "Aluguel"}" /></label>
     ${extra}
+    <label class="field"><span id="f_valLbl">Valor (${mLong(curMonth)})</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : (l.vals[curMonth] || "")}" placeholder="0,00" /></label>
     <div class="field-row">
-      <label class="field"><span>Valor (${mLong(curMonth)})</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : (l.vals[curMonth] || "")}" placeholder="0,00" /></label>
-      <label class="field"><span>${tab === "fixas" ? "Vencimento (dia)" : "Dia"}</span><input id="f_dia" type="number" min="1" max="31" value="${isNew || !l.dia ? "" : l.dia}" placeholder="--" /></label>
+      <label class="field"><span>Mês${isNew ? " de início" : ""}</span><select id="f_mes" class="sel">${monthOptionsHTML(curMonth)}</select></label>
+      <label class="field"><span>${tab === "fixas" ? "Vencimento (dia)" : "Dia"}</span><select id="f_dia" class="sel"></select></label>
     </div>
     <label class="field"><span>Situação</span><select id="f_st">${stOpts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></label>
     <label class="field row-check"><input id="f_all" type="checkbox" /><span>Repetir nos próximos meses</span></label>
-    <label class="field" id="f_rep_wrap" style="display:none"><span>Por quantos meses? (a partir de ${mLong(curMonth)} — pode passar de 2026)</span>
+    <label class="field" id="f_rep_wrap" style="display:none"><span>Por quantos meses? (a partir do mês escolhido — pode passar de 2026)</span>
       <input id="f_rep" type="number" min="1" max="120" inputmode="numeric" value="12" /></label>`;
+  fillDaySelect("f_dia", "f_mes", isNew ? null : (l.dia || null));
   if (!isNew) { if (isReceita) $("#f_tipo").value = l.tipo || "Ativa"; $("#f_st").value = l.sts[curMonth] || "vazio"; }
   else $("#f_st").value = isReceita ? "recebido" : "pago";
   $("#f_all").onchange = () => { $("#f_rep_wrap").style.display = $("#f_all").checked ? "block" : "none"; };
 
   // Aviso inteligente: mostra a sobra do mês DEPOIS deste lançamento (em tempo real).
-  const isExpenseE = tab !== "receitas", oldValE = isNew ? 0 : (Number(l.vals[curMonth]) || 0);
+  const isExpenseE = tab !== "receitas";
+  const oldValAt = (m) => isNew ? 0 : (Number(l.vals[m]) || 0);
   $("#entryForm").insertAdjacentHTML("beforeend", `<div id="f_impact" class="impact"></div>`);
-  const fv = $("#f_val"); if (fv) fv.oninput = () => updateImpact(isExpenseE, oldValE);
-  updateImpact(isExpenseE, oldValE);
+  const fv = $("#f_val"); if (fv) fv.oninput = () => updateImpact(isExpenseE, oldValAt(+$("#f_mes").value));
+  $("#f_mes").onchange = () => {
+    const bm = +$("#f_mes").value;
+    fillDaySelect("f_dia", "f_mes");
+    const vl = $("#f_valLbl"); if (vl) vl.textContent = "Valor (" + mLong(bm) + ")";
+    if (!isNew) { ensureLen(l, bm + 1); $("#f_val").value = l.vals[bm] || ""; $("#f_st").value = l.sts[bm] || "vazio"; }
+    updateImpact(isExpenseE, oldValAt(bm));
+  };
+  updateImpact(isExpenseE, oldValAt(curMonth));
 
   $("#btnDelete").classList.toggle("hidden", isNew);
   $("#btnDelete").onclick = () => { if (confirm("Excluir este lançamento (todos os meses)?")) { DATA[tab].splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
     const val = parseFloat($("#f_val").value) || 0, st = $("#f_st").value, all = $("#f_all").checked;
+    const bm = +$("#f_mes").value;
     let line = isNew ? { id: uid(), desc: "", vals: Array(12).fill(0), sts: Array(12).fill("vazio") } : l;
-    ensureLen(line, curMonth + 1);
+    ensureLen(line, bm + 1);
     line.desc = $("#f_desc").value.trim();
     line.dia = parseInt($("#f_dia").value) || null;
     if (isReceita) line.tipo = $("#f_tipo").value;
@@ -1246,14 +1264,14 @@ function openEntryModal(tab, idx) {
     if (tab === "fixas" || tab === "cartao") { const ne = $("#f_nec"); line.nec = ne ? ne.checked : (line.nec || false); }
     if (all) {
       const q = Math.max(1, Math.min(120, parseInt($("#f_rep").value) || 12));
-      ensureLen(line, curMonth + q);                            // recorrência pode passar de Dez/26 → estende os meses
-      for (let k = 0; k < q; k++) { const mo = curMonth + k; line.vals[mo] = val; line.sts[mo] = val > 0 ? st : "vazio"; }
-    } else { line.vals[curMonth] = val; line.sts[curMonth] = val > 0 ? st : "vazio"; }
+      ensureLen(line, bm + q);                                  // recorrência pode passar de Dez/26 → estende os meses
+      for (let k = 0; k < q; k++) { const mo = bm + k; line.vals[mo] = val; line.sts[mo] = val > 0 ? st : "vazio"; }
+    } else { line.vals[bm] = val; line.sts[bm] = val > 0 ? st : "vazio"; }
     if (isNew) DATA[tab].push(line);
     persist(); closeModal();
-    const sa = disponivelMes(curMonth) - despesaMes(curMonth);
-    if (isExpenseE && val > 0 && sa < 0) toast(`⚠️ ${mLong(curMonth)} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
-    else toast(isNew ? "Adicionado ✓" : "Salvo ✓");
+    const sa = disponivelMes(bm) - despesaMes(bm);
+    if (isExpenseE && val > 0 && sa < 0) toast(`⚠️ ${mLong(bm)} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
+    else toast(`${isNew ? "Adicionado" : "Salvo"} em ${mLong(bm)} ✓`);
   };
   showModal("#modal");
 }
@@ -1274,6 +1292,29 @@ function updateImpact(isExpense, oldVal) {
 // mês absoluto de HOJE (índice a partir de Jan do DATA.year)
 const realMesAbs = () => (REAL_TODAY.getFullYear() - DATA.year) * 12 + REAL_TODAY.getMonth();
 const metLabel = (mt) => mt === "pix" ? "⚡ PIX" : "💳 Débito";
+
+// ---- Seletores de Mês/Dia (compartilhados por todos os formulários com "+") ----
+// meses agrupados por ano em <optgroup> → no iOS abre o picker nativo (roda)
+function monthOptionsHTML(sel) {
+  const maxM = yearsCount() * 12; let html = "", lastY = -1;
+  for (let i = 0; i < maxM; i++) {
+    const y = yearOf(i);
+    if (y !== lastY) { if (lastY !== -1) html += `</optgroup>`; html += `<optgroup label="${y}">`; lastY = y; }
+    html += `<option value="${i}"${i === sel ? " selected" : ""}>${MESES[((i % 12) + 12) % 12]}</option>`;
+  }
+  return html + `</optgroup>`;
+}
+function dayOptionsHTML(mesAbs, sel) {
+  const n = diasNoMesAbs(mesAbs); let html = `<option value="">—</option>`;
+  for (let k = 1; k <= n; k++) html += `<option value="${k}"${k === sel ? " selected" : ""}>${k}</option>`;
+  return html;
+}
+// repopula um <select> de dia conforme o mês escolhido (preserva a seleção atual quando cabe)
+function fillDaySelect(diaId, mesId, forceDia) {
+  const sel = $("#" + diaId), mes = +$("#" + mesId).value;
+  const prev = forceDia !== undefined ? forceDia : (+sel.value || null);
+  sel.innerHTML = dayOptionsHTML(mes, prev);
+}
 
 // Balão acima do "+" (Dia a Dia): escolhe PIX ou Débito antes de abrir o form.
 function openDiariaChooser() {
@@ -1298,15 +1339,6 @@ function openDiariaModal(idx, method) {
   const isNew = idx == null, d = isNew ? null : DATA.diaria[idx];
   let metodo = method || (d && d.metodo) || "debito";
   const mesSel = isNew ? curMonth : (d.mes != null ? d.mes : curMonth);
-  const maxM = yearsCount() * 12;
-  // meses agrupados por ano (picker nativo do iOS = roda de rolagem)
-  let monthOpts = "", lastY = -1;
-  for (let i = 0; i < maxM; i++) {
-    const y = yearOf(i);
-    if (y !== lastY) { if (lastY !== -1) monthOpts += `</optgroup>`; monthOpts += `<optgroup label="${y}">`; lastY = y; }
-    monthOpts += `<option value="${i}"${i === mesSel ? " selected" : ""}>${MESES[((i % 12) + 12) % 12]}</option>`;
-  }
-  monthOpts += `</optgroup>`;
   $("#modalTitle").textContent = (isNew ? "Nova " : "Editar ") + "compra no débito";
   $("#entryForm").innerHTML = `
     <div id="f_metTag" class="method-tag ${metodo}"><span class="mt-label">${metLabel(metodo)}</span><button type="button" id="f_metToggle" class="met-switch">trocar ⇄</button></div>
@@ -1315,25 +1347,16 @@ function openDiariaModal(idx, method) {
       <datalist id="catList"><option>Alimentação</option><option>Transporte</option><option>Lazer</option><option>Saúde</option><option>Casa</option><option>Outros</option></datalist></label>
     <label class="field"><span>Valor (R$)</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : d.valor}" placeholder="0,00" required /></label>
     <div class="field-row">
-      <label class="field"><span>Mês</span><select id="f_mes" class="sel">${monthOpts}</select></label>
+      <label class="field"><span>Mês</span><select id="f_mes" class="sel">${monthOptionsHTML(mesSel)}</select></label>
       <label class="field"><span>Dia</span><select id="f_dia" class="sel"></select></label>
     </div>
     <p class="hint" style="text-align:left">📌 Escolha o <b>mês</b> aqui — o gasto vai pro mês certo mesmo que você esteja vendo outro.</p>`;
-  // popula os dias conforme o mês (preserva a seleção ao trocar de mês)
-  const fillDays = (forceDia) => {
-    const mes = +$("#f_mes").value, n = diasNoMesAbs(mes);
-    const realM = realMesAbs();
-    const def = forceDia !== undefined ? forceDia
-      : (+($("#f_dia") && $("#f_dia").value) || (isNew ? (mes === realM ? REAL_TODAY.getDate() : null) : (d.dia || null)));
-    let opts = `<option value="">—</option>`;
-    for (let k = 1; k <= n; k++) opts += `<option value="${k}"${k === def ? " selected" : ""}>${k}</option>`;
-    $("#f_dia").innerHTML = opts;
-  };
-  fillDays(isNew ? undefined : (d.dia || null));
+  const diaDefault = isNew ? (mesSel === realMesAbs() ? REAL_TODAY.getDate() : null) : (d.dia || null);
+  fillDaySelect("f_dia", "f_mes", diaDefault);
   const oldValD = isNew ? 0 : (Number(d.valor) || 0);
   $("#entryForm").insertAdjacentHTML("beforeend", `<div id="f_impact" class="impact"></div>`);
   const fvd = $("#f_val"); if (fvd) fvd.oninput = () => updateImpact(true, oldValD);
-  $("#f_mes").onchange = () => { fillDays(); updateImpact(true, oldValD); };
+  $("#f_mes").onchange = () => { fillDaySelect("f_dia", "f_mes"); updateImpact(true, oldValD); };
   $("#f_metToggle").onclick = () => { metodo = metodo === "pix" ? "debito" : "pix"; const t = $("#f_metTag"); t.className = "method-tag " + metodo; t.querySelector(".mt-label").textContent = metLabel(metodo); };
   updateImpact(true, oldValD);
   $("#btnDelete").classList.toggle("hidden", isNew);
