@@ -569,3 +569,9 @@ html.theme-dark #rain { opacity: .7; }
   transition: transform .14s ease, background .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease; }
 .yr-chip:active { transform: scale(.94); }
 .yr-chip.active { background: linear-gradient(135deg, var(--green-2), var(--green)); color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(11,61,46,.3); }
+
+/* ----- Selo "necessário" ao lado do valor (✓), deslocando o valor à esquerda sem ocupar muito ----- */
+.amt-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex: 0 0 auto; }
+.nec-flag { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; background: rgba(21,194,102,.2);
+  color: var(--accent); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900;
+  box-shadow: 0 0 0 1px rgba(21,194,102,.28) inset; }

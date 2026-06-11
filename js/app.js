@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.9.2";
-const VERSION_NOTES = "📱 conserta a faixa branca embaixo no iPhone (área segura pintada) · 🎯 ícone da barra cresce e dá um pulinho suave ao trocar de aba";
+const APP_VERSION = "3.9.3";
+const VERSION_NOTES = "✓ contas marcadas como necessárias agora mostram um selinho verde ao lado do valor (Fixas e Cartão)";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -781,7 +781,7 @@ function lineRow(l, idx) {
   return `<div class="list-row" data-idx="${idx}">
     <div class="desc"><div class="name">${esc(l.desc || "—")}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>
     <span class="badge ${st}" data-toggle="${idx}">${st}</span>
-    <span class="amount">${brl(val)}</span></div>`;
+    <div class="amt-wrap"><span class="amount">${brl(val)}</span>${l.nec ? `<span class="nec-flag" title="Necessário — não posso deixar de pagar">✓</span>` : ""}</div></div>`;
 }
 
 function renderDiaria(view) {
