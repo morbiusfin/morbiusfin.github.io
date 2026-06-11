@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.8";
+const APP_VERSION = "3.11.9";
 const VERSION_NOTES = "🔔 \"Próximas contas\" agora mostra só as que estão PERTO de vencer (na janela de aviso ou 5 dias) + atrasadas — não a lista do mês todo";
 let history = [];
 let redoStack = [];
@@ -395,10 +395,16 @@ function renderResumo(view) {
   const sIni = saldoInicialMes(m), disp = disponivelMes(m), sobra = disp - desp;
   const alertas = contasPerto(m);
 
+  const totalVenc = alertas.reduce((s, v) => s + (Number(v.val) || 0), 0);
   view.innerHTML = toggle + `
-    ${alertas.length ? `<div class="alert-banner" id="goVenc">🔔 <b>${alertas.length}</b> conta(s) a vencer — toque para ver</div>` : ""}
-
-    ${alertas.length ? `<div class="section-card fade-in" id="vencCard"><h3>📌 Próximas contas</h3><div id="vencList"></div></div>` : ""}
+    ${alertas.length ? `<div class="section-card venc-card fade-in" id="vencCard">
+      <div class="venc-head">
+        <span class="venc-bell">🔔</span>
+        <div class="venc-htxt"><div class="venc-title">Contas a vencer</div>
+          <div class="venc-meta">${alertas.length} conta(s) · total <b>${brl(totalVenc)}</b></div></div>
+      </div>
+      <div id="vencList"></div>
+    </div>` : ""}
 
     ${renderHealth(m)}
 
@@ -582,15 +588,16 @@ function renderVencList() {
   const el = $("#vencList"); if (!el) return;
   const vs = contasPerto(curMonth);
   el.innerHTML = vs.map(v =>
-    `<div class="list-row">
-      <div class="desc"><div class="name">${esc(v.desc)}</div><div class="sub">dia ${v.venc} ${vencBadgeHTML(v.daysLeft)}</div></div>
-      <span class="amount">${brl(v.val)}</span>
-      <button class="mini-btn" data-pay="${v.id}">Pagar</button>
+    `<div class="venc-row">
+      <span class="vr-bar ${vencBadge(v.daysLeft).cls}"></span>
+      <div class="vr-main"><div class="vr-name">${esc(v.desc)}</div><div class="vr-sub">dia ${v.venc} ${vencBadgeHTML(v.daysLeft)}</div></div>
+      <span class="vr-amt">${brl(v.val)}</span>
+      <button class="vr-pay" data-pay="${v.id}">Pagar</button>
     </div>`
   ).join("");
   // Pagar: a linha esvaece e a lista encolhe (≤ ~0,7s) antes de salvar
   $$("[data-pay]", el).forEach(b => b.onclick = () => {
-    const id = b.dataset.pay, row = b.closest(".list-row");
+    const id = b.dataset.pay, row = b.closest(".venc-row");
     const pagar = () => { const l = DATA.fixas.find(x => x.id === id); if (l) { l.sts[curMonth] = "pago"; suppressNextAnim = true; persist(); toast("Pago ✅"); } };
     if (row && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) {
       row.classList.add("paying"); setTimeout(pagar, 620);

@@ -1,11 +1,11 @@
 /* Service Worker — network-first (sempre busca a versão nova; cache só offline) */
-const CACHE = "financas-v48";
+const CACHE = "financas-v49";
 const ASSETS = [
   "./", "./index.html",
   "./css/styles.css",
   "./js/data.js", "./js/app.js",
   "./manifest.webmanifest",
-  "./icons/icon-192.png", "./icons/icon-512.png",
+  "./icons/icon-192.png", "./icons/icon-512.png", "./icons/coin.png",
   "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
 ];
 
