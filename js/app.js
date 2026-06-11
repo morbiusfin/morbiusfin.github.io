@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.10.4";
-const VERSION_NOTES = "♾️ ícone novo — infinito ∞ cromado 3D no preto (a imagem que você escolheu) · também na notificação";
+const APP_VERSION = "3.11.0";
+const VERSION_NOTES = "📊 nova aba GRÁFICOS no Resumo — saldo/despesas/receitas por mês, interativos (toque numa barra pra ver o detalhe), linha de tendência estatística, simulador em cima do gráfico de saldo e insights automáticos tipo IA";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -10,6 +10,8 @@ const HISTORY_MAX = 50;
 let curMonth = (new Date().getFullYear() === DATA.year) ? new Date().getMonth() : 4;
 let annual = false;
 let curTab = "resumo";
+let resumoView = "resumo";   // "resumo" | "graficos" (toggle no topo do Resumo)
+let gSelMonth = 0;           // mês (0-11) selecionado nos gráficos interativos
 let charts = {};
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -64,7 +66,7 @@ const ValueLabels = {
     // 1) coleta candidatos (valor de cada barra/ponto), com fonte que cabe na barra
     const cand = [];
     chart.data.datasets.forEach((ds, di) => {
-      if (ds._sim) return;                                   // não rotula a linha tracejada do simulador
+      if (ds._sim || ds._trend) return;                      // não rotula linha do simulador nem a de tendência
       const meta = chart.getDatasetMeta(di);
       if (!meta || meta.hidden) return;
       (meta.data || []).forEach((el, i) => {
@@ -372,11 +374,18 @@ function cycleTheme() {
 /* ---------- RESUMO (mês) ---------- */
 function renderResumo(view) {
   const m = curMonth;
+  const toggle = viewToggleHTML();
+  if (resumoView === "graficos") {
+    view.innerHTML = toggle + `<div id="gfxHost"></div>`;
+    bindViewToggle();
+    renderGraficos($("#gfxHost"));
+    return;
+  }
   const rec = receitaMes(m), desp = despesaMes(m);
   const sIni = saldoInicialMes(m), disp = disponivelMes(m), sobra = disp - desp;
   const alertas = isMesAtual() ? contasAlerta(m) : [];
 
-  view.innerHTML = `
+  view.innerHTML = toggle + `
     ${alertas.length ? `<div class="alert-banner" id="goVenc">🔔 <b>${alertas.length}</b> conta(s) a vencer — toque para ver</div>` : ""}
 
     ${alertas.length ? `<div class="section-card fade-in" id="vencCard"><h3>📌 Próximas contas</h3><div id="vencList"></div></div>` : ""}
@@ -428,6 +437,7 @@ function renderResumo(view) {
   bindSimulador(m);
   renderCharts();
   animateResumo();
+  bindViewToggle();
   const gv = $("#goVenc"); if (gv) gv.onclick = () => focarVencimentos();
 }
 
@@ -471,10 +481,9 @@ function earliestFeasibleMonth(total, n) { const lim = curMonth + 36; for (let s
 // menor nº de parcelas que cabe JÁ neste mês com folga (>=10% da receita)
 function suggestParcelas(total) { const rec = receitaMes(curMonth) || 1; for (let n = 1; n <= 48; n++) if (minFrom(simBalForStart(total, n, curMonth), curMonth).mn >= rec * 0.1) return n; return null; }
 
-function updateSimVerdict(m) {
-  const el = $("#simVerdict"); if (!el) return;
-  if (!simBuy || simBuy <= 0) { el.className = "sim-verdict hint"; el.innerHTML = "Digite um valor (e nº de parcelas) — eu simulo mês a mês e digo se/quando vale a pena, antes de lançar."; return; }
-  const total = simBuy, n = simN, parcela = total / n, rec = receitaMes(m) || 1, comfort = rec * 0.1;
+function verdictData() {
+  if (!simBuy || simBuy <= 0) return null;
+  const m = curMonth, total = simBuy, n = simN, parcela = total / n, rec = receitaMes(m) || 1, comfort = rec * 0.1;
   const bal = simBalForStart(total, n, m), { mn, idx } = minFrom(bal, m);
   const comoPaga = n > 1 ? `${n}× de <b>${brl(parcela)}</b>` : "à vista";
   let cls, icon, head, extra = "";
@@ -495,9 +504,16 @@ function updateSimVerdict(m) {
     cls = "good"; icon = "✅";
     head = `Pode comprar! (${comoPaga}) No pior mês (<b>${mLong(idx)}</b>) ainda sobra <b>${brl(mn)}</b>.`;
   }
-  el.className = "sim-verdict " + cls;
-  el.innerHTML = `<span class="sim-ic">${icon}</span><span>${head}${extra ? `<span class="sim-extra">${extra}</span>` : ""}</span>`;
+  return { cls, icon, head, extra };
 }
+function renderVerdictInto(el) {
+  if (!el) return;
+  const v = verdictData();
+  if (!v) { el.className = "sim-verdict hint"; el.innerHTML = "Digite um valor (e nº de parcelas) — eu simulo mês a mês e digo se/quando vale a pena, antes de lançar."; return; }
+  el.className = "sim-verdict " + v.cls;
+  el.innerHTML = `<span class="sim-ic">${v.icon}</span><span>${v.head}${v.extra ? `<span class="sim-extra">${v.extra}</span>` : ""}</span>`;
+}
+function updateSimVerdict(m) { renderVerdictInto($("#simVerdict")); }
 // linha tracejada na projeção (acompanha simultaneamente)
 function updateSimOverlay() {
   if (!charts.line) return;
@@ -745,6 +761,247 @@ function chartOpts(legend) {
       tooltip: { callbacks: { label: c => `${c.dataset.label || ""}: ${brl(c.raw)}` } },
       valueLabels: { on: true } },
     scales: { y: { display: false, grace: "16%" }, x: { grid: { display: false }, ticks: { font: { size: 10 }, autoSkip: true, maxRotation: 0 } } } };
+}
+
+/* ===================== GRÁFICOS (aba interativa do Resumo) ===================== */
+function viewToggleHTML() {
+  return `<div class="view-toggle">
+    <button type="button" class="vt-btn ${resumoView === "resumo" ? "active" : ""}" data-rv="resumo">📋 Resumo</button>
+    <button type="button" class="vt-btn ${resumoView === "graficos" ? "active" : ""}" data-rv="graficos">📊 Gráficos</button>
+  </div>`;
+}
+function bindViewToggle() {
+  $$(".vt-btn").forEach(b => b.onclick = () => { if (resumoView === b.dataset.rv) return; resumoView = b.dataset.rv; suppressNextAnim = true; window.scrollTo(0, 0); render(); });
+}
+
+// regressão linear (mínimos quadrados) + R² → linha de tendência estatística
+function linReg(ys) {
+  const n = ys.length; if (n < 2) return { slope: 0, intercept: ys[0] || 0, r2: 0, at: () => ys[0] || 0 };
+  let sx = 0, sy = 0, sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) { sx += i; sy += ys[i]; sxy += i * ys[i]; sxx += i * i; syy += ys[i] * ys[i]; }
+  const d = n * sxx - sx * sx, slope = d ? (n * sxy - sx * sy) / d : 0, intercept = (sy - slope * sx) / n;
+  const den = Math.sqrt((n * sxx - sx * sx) * (n * syy - sy * sy)), r = den ? (n * sxy - sx * sy) / den : 0;
+  return { slope, intercept, r2: r * r, at: (x) => intercept + slope * x };
+}
+const trendForca = (r2) => r2 >= 0.6 ? "forte" : r2 >= 0.3 ? "moderada" : "fraca";
+const serieRec = () => { const b = curYear() * 12; return Array.from({ length: 12 }, (_, i) => receitaMes(b + i)); };
+const serieDesp = () => { const b = curYear() * 12; return Array.from({ length: 12 }, (_, i) => despesaMes(b + i)); };
+const serieSaldo = () => { const b = curYear() * 12; return Array.from({ length: 12 }, (_, i) => sobraMes(b + i)); };
+
+function renderGraficos(host) {
+  stopResumoAnim();
+  gSelMonth = ((curMonth % 12) + 12) % 12;
+  const ano = DATA.year + curYear();
+  host.innerHTML = `
+    <div class="section-card g-card fade-in">
+      <h3>💰 Saldo acumulado por mês — ${ano}</h3>
+      <p class="hint" style="text-align:left;margin:-2px 0 8px">Simule uma compra aqui que a linha aparece <b>em cima do gráfico</b> — fica preciso se dá pra comprar.</p>
+      <div class="g-sim">
+        <div class="field-row">
+          <label class="field" style="margin:0;flex:2"><span>🧪 Quero gastar (R$)</span><input id="gSimInput" type="number" step="0.01" inputmode="decimal" placeholder="0,00" /></label>
+          <label class="field" style="margin:0;flex:1"><span>Parcelas</span><input id="gSimN" type="number" min="1" max="48" value="1" /></label>
+          <button type="button" id="gSimClear" class="sim-clear" style="align-self:flex-end;margin-bottom:14px">↺</button>
+        </div>
+        <div id="gSimVerdict" class="sim-verdict hint">Digite um valor pra simular em cima do gráfico.</div>
+      </div>
+      <div class="chart-wrap"><canvas id="gSaldo" height="210"></canvas></div>
+      <div class="g-detail" id="detSaldo"></div>
+      <div class="g-insights" id="insSaldo"></div>
+    </div>
+    <div class="section-card g-card fade-in">
+      <h3>📉 Despesas por mês — ${ano}</h3>
+      <p class="hint" style="text-align:left;margin:-2px 0 8px">Toque numa barra pra ver as despesas daquele mês.</p>
+      <div class="chart-wrap"><canvas id="gDesp" height="210"></canvas></div>
+      <div class="g-detail" id="detDesp"></div>
+      <div class="g-insights" id="insDesp"></div>
+    </div>
+    <div class="section-card g-card fade-in">
+      <h3>📈 Receitas por mês — ${ano}</h3>
+      <p class="hint" style="text-align:left;margin:-2px 0 8px">Toque numa barra pra ver as receitas daquele mês.</p>
+      <div class="chart-wrap"><canvas id="gRec" height="210"></canvas></div>
+      <div class="g-detail" id="detRec"></div>
+      <div class="g-insights" id="insRec"></div>
+    </div>`;
+  renderGCharts();
+  bindGSim();
+  const il = $("#insSaldo"); if (il) il.innerHTML = insightsSaldo();
+  const id2 = $("#insDesp"); if (id2) id2.innerHTML = insightsDespesas();
+  const ir = $("#insRec"); if (ir) ir.innerHTML = insightsReceitas();
+  drillSaldo(gSelMonth); drillDesp(gSelMonth); drillRec(gSelMonth);
+}
+
+function renderGCharts() {
+  if (typeof Chart === "undefined") return;
+  applyChartTheme();
+  ["gSaldo", "gDesp", "gRec", "dough", "bar", "line", "sim", "sobra"].forEach(k => { if (charts[k]) { try { charts[k].destroy(); } catch (e) {} charts[k] = null; } });
+  const labels = Array.from({ length: 12 }, (_, i) => MESES_CURTO[i]);
+  charts.gDesp = makeBarTrend("gDesp", labels, serieDesp(), "#e5484d", drillDesp);
+  charts.gRec = makeBarTrend("gRec", labels, serieRec(), "#1db954", drillRec);
+  charts.gSaldo = makeSaldoChart(labels);
+}
+function barColors(color, n) { return Array.from({ length: n }, (_, i) => i === gSelMonth ? color : color + "85"); }
+function makeBarTrend(id, labels, data, color, onIdx) {
+  const reg = linReg(data), trend = data.map((_, i) => reg.at(i));
+  return new Chart($("#" + id), {
+    type: "bar",
+    data: { labels, datasets: [
+      { label: "valor", data, backgroundColor: barColors(color, 12), borderRadius: 5, order: 2 },
+      { _trend: true, type: "line", label: "tendência", data: trend, borderColor: "#cfd8d3", borderWidth: 2, borderDash: [5, 4], pointRadius: 0, fill: false, tension: 0, order: 1 }
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18, bottom: 4 } },
+      onClick: (e, els) => { if (els && els.length) onIdx(els[0].index); },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => (c.dataset.label === "tendência" ? "tendência: " : "") + brl(c.raw) } }, valueLabels: { on: true } },
+      scales: { y: { display: false, grace: "18%" }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
+  });
+}
+function makeSaldoChart(labels) {
+  const b = curYear() * 12, bal = serieSaldo(), reg = linReg(bal), trend = bal.map((_, i) => reg.at(i));
+  const ds = [
+    { label: "saldo", data: bal, borderColor: "#15c266", borderWidth: 2.6, backgroundColor: "transparent", fill: false, tension: .35,
+      pointRadius: bal.map((_, i) => i === gSelMonth ? 6 : 3), pointBackgroundColor: "#15c266", order: 2 },
+    { _trend: true, label: "tendência", data: trend, borderColor: "#cfd8d3", borderWidth: 2, borderDash: [5, 4], pointRadius: 0, fill: false, tension: 0, order: 1 }
+  ];
+  if (simBuy > 0) {
+    const arr = simBalArray();
+    ds.push({ _sim: true, label: simN > 1 ? `com a compra (${simN}×)` : "com a compra",
+      data: Array.from({ length: 12 }, (_, i) => { const a = b + i; return arr[a] != null ? arr[a] : sobraMes(a); }),
+      borderColor: "#f5a623", borderWidth: 2.4, borderDash: [6, 4], pointRadius: 0, fill: false, tension: .35, order: 0 });
+  }
+  return new Chart($("#gSaldo"), { type: "line", data: { labels, datasets: ds },
+    options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18, bottom: 4 } },
+      onClick: (e, els) => { if (els && els.length) drillSaldo(els[0].index); },
+      plugins: { legend: { display: true, position: "bottom", labels: { boxWidth: 12, font: { size: 10 }, filter: i => i.text !== "tendência" || true } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${brl(c.raw)}` } }, valueLabels: { on: true } },
+      scales: { y: { display: false, grace: "16%" }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } } });
+}
+function bindGSim() {
+  const inp = $("#gSimInput"), inpN = $("#gSimN"); if (!inp) return;
+  inp.value = simBuy ? simBuy : ""; if (inpN) inpN.value = simN || 1;
+  const upd = () => { simBuy = parseFloat(inp.value) || 0; simN = Math.max(1, parseInt(inpN && inpN.value) || 1); updateGSim(); };
+  inp.oninput = upd; if (inpN) inpN.oninput = upd;
+  const clr = $("#gSimClear"); if (clr) clr.onclick = () => { simBuy = 0; simN = 1; inp.value = ""; if (inpN) inpN.value = "1"; updateGSim(); inp.focus(); };
+  updateGSim();
+}
+function updateGSim() {
+  renderVerdictInto($("#gSimVerdict"));
+  if (charts.gSaldo) { try { charts.gSaldo.destroy(); } catch (e) {} charts.gSaldo = null; }
+  charts.gSaldo = makeSaldoChart(Array.from({ length: 12 }, (_, i) => MESES_CURTO[i]));
+}
+
+// drill-down: clicar no mês mostra os lançamentos daquele mês, ordenados, com animação
+function detHTML(title, items, tot, color, sub) {
+  if (!items.length) return `<div class="det-head">${esc(title)}</div><div class="g-empty">Nada lançado neste mês.</div>`;
+  const max = Math.max.apply(null, items.map(i => i.val).concat([1]));
+  return `<div class="det-head">${esc(title)} <b>${brl(tot)}</b></div>` + items.map((it, i) => `
+    <div class="det-row" style="animation-delay:${(i * 0.045).toFixed(2)}s">
+      <span class="det-rank">${i + 1}</span>
+      <div class="det-main"><div class="det-name">${esc(it.desc || "—")}${it.nec ? ` <span class="det-nec">✓</span>` : ""}</div>
+        <div class="det-bar"><div class="det-fill" style="width:${Math.round(it.val / max * 100)}%;background:${color}"></div></div></div>
+      <div class="det-val">${brl(it.val)}<span class="det-cat">${esc(it.cat)}</span></div>
+    </div>`).join("") + (sub || "");
+}
+function animDetail(id) { const el = $(id); if (!el) return; el.classList.remove("drill-in"); void el.offsetWidth; el.classList.add("drill-in"); }
+function highlightBar(id, color) { const c = charts[id]; if (!c) return; c.data.datasets[0].backgroundColor = barColors(color, 12); try { c.update("none"); } catch (e) {} }
+function drillDesp(i) {
+  gSelMonth = i; const m = curYear() * 12 + i, el = $("#detDesp"); if (!el) return;
+  const items = [];
+  (DATA.fixas || []).forEach(l => { const v = Number(l.vals[m]) || 0; if (v > 0) items.push({ desc: l.desc, val: v, cat: "Fixa", nec: l.nec }); });
+  (DATA.cartao || []).forEach(l => { const v = Number(l.vals[m]) || 0; if (v > 0) items.push({ desc: l.desc, val: v, cat: "Cartão", nec: l.nec }); });
+  (DATA.diaria || []).filter(d => d.mes === m).forEach(d => items.push({ desc: d.desc, val: Number(d.valor) || 0, cat: d.categoria || "Débito" }));
+  items.sort((a, b) => b.val - a.val);
+  el.innerHTML = detHTML(`Despesas de ${mLong(m)}`, items, items.reduce((s, x) => s + x.val, 0), "#e5484d");
+  highlightBar("gDesp", "#e5484d"); animDetail("#detDesp");
+}
+function drillRec(i) {
+  gSelMonth = i; const m = curYear() * 12 + i, el = $("#detRec"); if (!el) return;
+  const items = (DATA.receitas || []).map(l => ({ desc: l.desc, val: Number(l.vals[m]) || 0, cat: l.tipo || "Ativa" })).filter(x => x.val > 0).sort((a, b) => b.val - a.val);
+  el.innerHTML = detHTML(`Receitas de ${mLong(m)}`, items, items.reduce((s, x) => s + x.val, 0), "#1db954");
+  highlightBar("gRec", "#1db954"); animDetail("#detRec");
+}
+function drillSaldo(i) {
+  gSelMonth = i; const m = curYear() * 12 + i, el = $("#detSaldo"); if (!el) return;
+  const r = receitaMes(m), d = despesaMes(m), liq = r - d, acc = sobraMes(m);
+  el.innerHTML = `<div class="det-head">${mLong(m)}</div>
+    <div class="det-kpis">
+      <div class="dk"><span>Receitas</span><b class="pos">${brl(r)}</b></div>
+      <div class="dk"><span>Despesas</span><b class="neg">${brl(d)}</b></div>
+      <div class="dk"><span>Sobrou no mês</span><b class="${liq >= 0 ? "pos" : "neg"}">${brl(liq)}</b></div>
+      <div class="dk big"><span>Saldo acumulado</span><b class="${acc >= 0 ? "pos" : "neg"}">${brl(acc)}</b></div>
+    </div>`;
+  if (charts.gSaldo) { try { charts.gSaldo.data.datasets[0].pointRadius = serieSaldo().map((_, k) => k === i ? 6 : 3); charts.gSaldo.update("none"); } catch (e) {} }
+  animDetail("#detSaldo");
+}
+
+// insights automáticos (estatística) — "tipo IA"
+function insTable(title, rows, narr) {
+  return `<div class="ins-card">
+    <div class="ins-title">🤖 ${title}</div>
+    <table class="ins-tbl"><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</tbody></table>
+    <div class="ins-narr">${narr}</div></div>`;
+}
+function insightsDespesas() {
+  const d = serieDesp(), reg = linReg(d), media = d.reduce((a, x) => a + x, 0) / 12;
+  const maxI = d.indexOf(Math.max.apply(null, d)), minI = d.indexOf(Math.min.apply(null, d));
+  const std = Math.sqrt(d.reduce((a, x) => a + (x - media) ** 2, 0) / 12);
+  const forte = reg.r2 >= 0.2 && Math.abs(reg.slope) >= 1, dir = !forte ? "estável" : reg.slope > 0 ? "alta" : "queda", forca = trendForca(reg.r2);
+  const proj = Math.max(0, reg.at(12));
+  const rows = [
+    ["Média por mês", brl(media)],
+    ["Tendência", `${dir}${forte ? " (~" + brl(Math.abs(reg.slope)) + "/mês)" : ""}`],
+    ["Confiança", `${(reg.r2 * 100).toFixed(0)}% (${forca})`],
+    ["Mês de pico", `${MESES_CURTO[maxI]} · ${brl(d[maxI])}`],
+    ["Mês mais leve", `${MESES_CURTO[minI]} · ${brl(d[minI])}`],
+    ["Projeção próx. mês", brl(proj)],
+  ];
+  const narr = `Suas despesas estão em <b>${dir}</b> (tendência ${forca}). ` +
+    (dir === "alta" ? `Atenção: o ritmo de gastos cresce ~${brl(Math.abs(reg.slope))}/mês — segure pra não comprometer o saldo.`
+      : dir === "queda" ? `Bom: você vem cortando ~${brl(Math.abs(reg.slope))}/mês. Continue assim. 👏`
+      : `Gastos controlados, sem grande variação (desvio ${brl(std)}).`) +
+    ` Projeção pro próximo mês: ~<b>${brl(proj)}</b>.`;
+  return insTable("Análise de despesas", rows, narr);
+}
+function insightsReceitas() {
+  const r = serieRec(), reg = linReg(r), media = r.reduce((a, x) => a + x, 0) / 12;
+  const maxI = r.indexOf(Math.max.apply(null, r)), minI = r.indexOf(Math.min.apply(null, r));
+  const forte = reg.r2 >= 0.2 && Math.abs(reg.slope) >= 1, dir = !forte ? "estável" : reg.slope > 0 ? "alta" : "queda", forca = trendForca(reg.r2);
+  const proj = Math.max(0, reg.at(12)), zero = r.filter(v => v <= 0).length;
+  const rows = [
+    ["Média por mês", brl(media)],
+    ["Tendência", `${dir}${forte ? " (~" + brl(Math.abs(reg.slope)) + "/mês)" : ""}`],
+    ["Confiança", `${(reg.r2 * 100).toFixed(0)}% (${forca})`],
+    ["Melhor mês", `${MESES_CURTO[maxI]} · ${brl(r[maxI])}`],
+    ["Meses sem receita", `${zero}`],
+    ["Projeção próx. mês", brl(proj)],
+  ];
+  const narr = `Suas receitas estão em <b>${dir}</b> (tendência ${forca}). ` +
+    (dir === "alta" ? `Ótimo: a renda vem crescendo ~${brl(Math.abs(reg.slope))}/mês. 🚀`
+      : dir === "queda" ? `Atenção: a renda vem caindo ~${brl(Math.abs(reg.slope))}/mês — vale buscar fontes extras.`
+      : `Renda estável em torno de ${brl(media)}/mês.`) +
+    ` Projeção pro próximo mês: ~<b>${brl(proj)}</b>.`;
+  return insTable("Análise de receitas", rows, narr);
+}
+function insightsSaldo() {
+  const b = curYear() * 12;
+  const liq = Array.from({ length: 12 }, (_, i) => receitaMes(b + i) - despesaMes(b + i));
+  const bal = serieSaldo(), reg = linReg(liq), media = liq.reduce((a, x) => a + x, 0) / 12;
+  const poup = liq.reduce((a, x) => a + x, 0), totRec = serieRec().reduce((a, x) => a + x, 0);
+  const taxa = totRec > 0 ? Math.round(poup / totRec * 100) : 0;
+  const minI = bal.indexOf(Math.min.apply(null, bal)), neg = bal.filter(v => v < 0).length, fim = bal[11];
+  const nota = taxa >= 20 ? "💪 Excelente" : taxa >= 10 ? "🙂 Boa" : taxa >= 0 ? "⚠️ Apertada" : "🆘 Crítica";
+  const rows = [
+    ["Saúde", nota],
+    ["Sobra média/mês", brl(media)],
+    ["Guardado no ano", `${brl(poup)} (${taxa}%)`],
+    ["Saldo no fim do ano", brl(fim)],
+    ["Pior mês (saldo)", `${MESES_CURTO[minI]} · ${brl(bal[minI])}`],
+    ["Meses no vermelho", `${neg}`],
+  ];
+  const narr = `<b>${nota}</b> — você guarda em média <b>${brl(media)}/mês</b> (${taxa}% da renda). ` +
+    (neg > 0 ? `⚠️ <b>${neg}</b> mês(es) ficam no vermelho — o pior é ${MESES_CURTO[minI]} (${brl(bal[minI])}).`
+      : `Nenhum mês fica no vermelho. 👏`) +
+    ` No ritmo atual, fecha o ano com ~<b>${brl(fim)}</b>.` +
+    (reg.slope < -5 ? ` A tendência é de <b>piora</b> — segure os gastos.` : reg.slope > 5 ? ` A tendência é de <b>melhora</b> — continue!` : ``);
+  return insTable("Como você está indo", rows, narr);
 }
 
 /* ---------- LISTAS ---------- */
