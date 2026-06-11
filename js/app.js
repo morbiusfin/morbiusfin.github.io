@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.9";
+const APP_VERSION = "3.11.10";
 const VERSION_NOTES = "🔔 \"Próximas contas\" agora mostra só as que estão PERTO de vencer (na janela de aviso ou 5 dias) + atrasadas — não a lista do mês todo";
 let history = [];
 let redoStack = [];
@@ -1761,7 +1761,7 @@ function startApp() {
 function setSplashMsg(t) { const el = document.querySelector("#splash .splash-tag"); if (el) el.textContent = t; }
 function hideSplash() {
   const sp = document.getElementById("splash");
-  if (sp && !sp.classList.contains("gone")) { sp.classList.add("gone"); setTimeout(() => { try { sp.remove(); } catch (e) {} }, 560); }
+  if (sp && !sp.classList.contains("reveal")) { sp.classList.add("reveal"); setTimeout(() => { try { sp.remove(); } catch (e) {} }, 1050); }
 }
 // rede de segurança: nunca deixar o splash preso (após os 5s da animação)
 window.addEventListener("load", () => setTimeout(hideSplash, 6000));

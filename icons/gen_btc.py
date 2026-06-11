@@ -86,11 +86,19 @@ def make_coin(S):
     draw_btc(syd, cx, cy, h, (150, 92, 14, 255), FONT)                    # corpo
     img.alpha_composite(sym)
 
-    # --- brilho especular: blob superior-esquerdo + crescente no topo ---
+    # --- brilho especular: blob superior-esquerdo + glint na borda + sombra inferior ---
     spec = Image.new("RGBA", (S, S), (0, 0, 0, 0)); spd = ImageDraw.Draw(spec)
-    spd.ellipse([cx - R*0.55, cy - R*0.8, cx + R*0.05, cy - R*0.18], fill=(255, 255, 255, 75))
-    spec = spec.filter(ImageFilter.GaussianBlur(int(S * 0.03)))
-    # recorta o brilho ao disco
+    spd.ellipse([cx - R*0.58, cy - R*0.82, cx + R*0.08, cy - R*0.14], fill=(255, 255, 255, 105))
+    spd.ellipse([cx - R*0.40, cy - R*0.62, cx - R*0.10, cy - R*0.34], fill=(255, 255, 255, 90))
+    spec = spec.filter(ImageFilter.GaussianBlur(int(S * 0.028)))
+    # glint fino na borda superior (luz batendo no metal)
+    spd.arc([cx - R*0.92, cy - R*0.92, cx + R*0.92, cy + R*0.92], 200, 320, fill=(255, 255, 255, 150), width=int(S*0.01))
+    # sombra suave na parte inferior (volume)
+    sh2 = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    ImageDraw.Draw(sh2).ellipse([cx - R*0.7, cy + R*0.18, cx + R*0.7, cy + R*0.95], fill=(60, 36, 4, 70))
+    sh2 = sh2.filter(ImageFilter.GaussianBlur(int(S*0.04)))
+    spec.alpha_composite(sh2)
+    # recorta tudo ao disco
     mask = Image.new("L", (S, S), 0); ImageDraw.Draw(mask).ellipse([cx - R, cy - R, cx + R, cy + R], fill=255)
     img.alpha_composite(Image.composite(spec, Image.new("RGBA", (S, S), (0, 0, 0, 0)), mask))
     return img
