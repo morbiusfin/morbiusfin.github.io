@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.9.8";
-const VERSION_NOTES = "📱 some o bloco escuro embaixo no iPhone — a barra de baixo agora é sólida e contínua até a base";
+const APP_VERSION = "3.9.9";
+const VERSION_NOTES = "📌 a barra de baixo não treme/sobe mais ao trocar de aba no iPhone (reset de rolagem + camada de GPU estável)";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -1062,7 +1062,7 @@ function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;"
 let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.add("hidden"), 1800); }
 
 /* ---------- Eventos ---------- */
-$$(".tab").forEach(t => t.onclick = () => { $$(".tab").forEach(x => x.classList.remove("active")); t.classList.add("active"); curTab = t.dataset.tab; if (curTab !== "resumo") annual = false; suppressNextAnim = true; render(); });
+$$(".tab").forEach(t => t.onclick = () => { $$(".tab").forEach(x => x.classList.remove("active")); t.classList.add("active"); curTab = t.dataset.tab; if (curTab !== "resumo") annual = false; suppressNextAnim = true; window.scrollTo(0, 0); render(); });
 $("#fab").onclick = () => curTab === "diaria" ? openDiariaModal(null) : curTab === "cartao" ? openCartaoModal() : openEntryModal(curTab, null);
 $("#btnUndo").onclick = undo;
 { const br = $("#btnRefresh"); if (br) br.onclick = syncNow; }
