@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.9.6";
-const VERSION_NOTES = "🔔 PUSH COM APP FECHADO no ar! Vá em ⚙️ → Ativar push pra receber aviso das contas mesmo sem abrir o app (todo dia 8h) · 🟢 fundo mais leve · ✨ troca de aba sem subir";
+const APP_VERSION = "3.9.7";
+const VERSION_NOTES = "♾️ ícone novo do MorbiusFin — a fita ∞ feita de números (igual à abertura), e a notificação usa o mesmo ícone";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
