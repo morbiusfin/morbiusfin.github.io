@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.9.4";
-const VERSION_NOTES = "➕ o botão de adicionar não cobre mais o último item da lista — agora dá pra rolar e ver o valor de baixo";
+const APP_VERSION = "3.9.5";
+const VERSION_NOTES = "🟢 fundo (chuva de números) refeito — leve, uniforme e calmo, sem aquela faixa feia · ✨ trocar de aba ficou instantâneo, sem os blocos subindo";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -1062,7 +1062,7 @@ function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;"
 let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.add("hidden"), 1800); }
 
 /* ---------- Eventos ---------- */
-$$(".tab").forEach(t => t.onclick = () => { $$(".tab").forEach(x => x.classList.remove("active")); t.classList.add("active"); curTab = t.dataset.tab; if (curTab !== "resumo") annual = false; render(); });
+$$(".tab").forEach(t => t.onclick = () => { $$(".tab").forEach(x => x.classList.remove("active")); t.classList.add("active"); curTab = t.dataset.tab; if (curTab !== "resumo") annual = false; suppressNextAnim = true; render(); });
 $("#fab").onclick = () => curTab === "diaria" ? openDiariaModal(null) : curTab === "cartao" ? openCartaoModal() : openEntryModal(curTab, null);
 $("#btnUndo").onclick = undo;
 { const br = $("#btnRefresh"); if (br) br.onclick = syncNow; }
@@ -1424,31 +1424,38 @@ window.addEventListener("load", () => setTimeout(hideSplash, 5000));
   if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { cv.style.display = "none"; return; }
   const ctx = cv.getContext("2d");
   const glyphs = "0123456789$€£¥₹₽¢₩₪₫₴₦฿₲₱".split(""); // dígitos + cifras de vários países
-  const font = 16;
-  let W, H, cols, drops;
-  function resize() { W = cv.width = innerWidth; H = cv.height = innerHeight; cols = Math.ceil(W / font); drops = Array(cols).fill(0).map(() => Math.random() * -H / font); }
+  const font = 13, step = 28;                          // colunas BEM espaçadas = textura leve, não poluída
+  let W, H, cols, drops, speed;
+  function resize() {
+    W = cv.width = innerWidth; H = cv.height = innerHeight;
+    cols = Math.ceil(W / step);
+    // espalha as gotas por TODA a tela desde o 1º frame (sem "faixa subindo/entrando")
+    drops = Array(cols).fill(0).map(() => Math.random() * (H / font));
+    speed = Array(cols).fill(0).map(() => 0.30 + Math.random() * 0.45);   // quedas lentas e variadas (calmo)
+  }
   resize(); addEventListener("resize", resize);
   function palette() {
     const dark = document.documentElement.classList.contains("theme-dark") ||
       (!document.documentElement.classList.contains("theme-light") && matchMedia("(prefers-color-scheme: dark)").matches);
-    return dark ? { fade: "rgba(8,17,13,0.15)", g: "rgba(70,210,150,0.55)", head: "rgba(160,255,205,0.85)" }
-                : { fade: "rgba(238,241,240,0.16)", g: "rgba(20,120,80,0.32)", head: "rgba(15,150,90,0.55)" };
+    // bem fraco, quase na cor do fundo; rastro curto (fade mais forte) pra não virar "barra" sólida
+    return dark ? { fade: "rgba(9,18,14,0.20)", g: "rgba(95,210,160,0.16)", head: "rgba(160,255,210,0.34)" }
+                : { fade: "rgba(238,241,240,0.20)", g: "rgba(20,120,80,0.11)", head: "rgba(15,150,90,0.24)" };
   }
   let last = 0;
   function frame(t) {
     requestAnimationFrame(frame);
     if (document.hidden) return;
-    if (t - last < 55) return; last = t;            // ~18fps → queda estilo "matrix"
+    if (t - last < 75) return; last = t;            // ~13fps → queda calma e suave
     const c = palette();
     ctx.fillStyle = c.fade; ctx.fillRect(0, 0, W, H);
     ctx.font = font + "px ui-monospace, monospace";
     for (let i = 0; i < cols; i++) {
       const g = glyphs[(Math.random() * glyphs.length) | 0];
       const y = drops[i] * font;
-      ctx.fillStyle = (Math.random() < 0.05) ? c.head : c.g;
-      ctx.fillText(g, i * font, y);
-      if (y > H && Math.random() > 0.975) drops[i] = Math.random() * -20;
-      drops[i]++;
+      ctx.fillStyle = (Math.random() < 0.02) ? c.head : c.g;
+      ctx.fillText(g, i * step, y);
+      if (y > H && Math.random() > 0.965) drops[i] = Math.random() * -10;
+      drops[i] += speed[i];
     }
   }
   requestAnimationFrame(frame);
