@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.15";
-const VERSION_NOTES = "🔔 \"Próximas contas\" agora mostra só as que estão PERTO de vencer (na janela de aviso ou 5 dias) + atrasadas — não a lista do mês todo";
+const APP_VERSION = "3.11.16";
+const VERSION_NOTES = "✨ Cabeçalho das listas repaginado + aviso de nova atualização com 1 toque pra aplicar";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -1592,6 +1592,35 @@ function checkVersion() {
   if (b) { b.innerHTML = `🎉 Atualizado para <b>v${APP_VERSION}</b> — ${VERSION_NOTES} <span class="ver-x">✕</span>`; b.classList.remove("hidden"); b.onclick = () => b.classList.add("hidden"); }
 }
 
+// ===== "Nova atualização disponível" — compara a versão no ar (version.json) com a rodando =====
+let updateShown = false;
+async function checkForUpdate() {
+  if (updateShown) return;
+  try {
+    const r = await fetch("version.json?cb=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return;
+    const j = await r.json();
+    if (j && j.version && j.version !== APP_VERSION) showUpdateBanner();
+  } catch (e) {}
+}
+function showUpdateBanner() {
+  const b = $("#updateBanner"); if (!b) return;
+  updateShown = true;
+  b.classList.remove("hidden");
+  requestAnimationFrame(() => b.classList.add("show"));
+  const btn = $("#updateBtn");
+  if (btn) btn.onclick = async () => {
+    btn.textContent = "Atualizando…"; btn.disabled = true;
+    try {
+      if ("serviceWorker" in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) { try { await reg.update(); } catch (e) {} if (reg.waiting) reg.waiting.postMessage("skipWaiting"); }
+      }
+    } catch (e) {}
+    setTimeout(() => location.reload(), 250);
+  };
+}
+
 /* ---------- Segurança: PIN + criptografia (AES-256-GCM) ---------- */
 const b64 = (u8) => btoa(String.fromCharCode(...new Uint8Array(u8)));
 const ub64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -1786,9 +1815,12 @@ function startLiveSync() {
 }
 function stopLiveSync() { if (liveT) { clearInterval(liveT); liveT = null; } }
 // Voltou pro app (destrava tela, troca de aba, abre do início) → puxa na hora
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && syncCfg()) pullSync(false); });
-window.addEventListener("focus", () => { if (syncCfg()) pullSync(false); });
-window.addEventListener("online", () => { if (syncCfg()) pullSync(false); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { if (syncCfg()) pullSync(false); checkForUpdate(); } });
+window.addEventListener("focus", () => { if (syncCfg()) pullSync(false); checkForUpdate(); });
+window.addEventListener("online", () => { if (syncCfg()) pullSync(false); checkForUpdate(); });
+// checa atualização ao abrir (após o splash) e a cada 5 min
+setTimeout(checkForUpdate, 6500);
+setInterval(checkForUpdate, 5 * 60 * 1000);
 
 /* ---------- Boot ---------- */
 function startApp() {

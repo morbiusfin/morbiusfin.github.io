@@ -155,6 +155,25 @@ body:has(#fab:not(.hidden)) main { padding-bottom: 104px; }
 .ver-banner b { font-weight: 800; }
 .ver-x { float: right; opacity: .55; padding-left: 8px; }
 
+/* Banner "nova atualização disponível" — toast no topo que desliza + botão pulsando */
+.update-banner { position: fixed; left: 50%; top: calc(10px + env(safe-area-inset-top, 0px)); z-index: 1600;
+  transform: translateX(-50%) translateY(-160%); transition: transform .55s cubic-bezier(.2,.9,.2,1.3);
+  display: flex; align-items: center; gap: 12px; width: max-content; max-width: 92vw;
+  background: linear-gradient(135deg, var(--green-2), var(--green)); color: #fff;
+  padding: 10px 12px 10px 15px; border-radius: 16px; border: 1px solid rgba(255,255,255,.16);
+  box-shadow: 0 16px 38px rgba(0,0,0,.45); }
+.update-banner.show { transform: translateX(-50%) translateY(0); }
+.update-banner.hidden { display: none; }
+.ub-spark { font-size: 20px; animation: ubSpark 1.6s ease-in-out infinite; }
+.ub-txt { display: flex; flex-direction: column; line-height: 1.2; }
+.ub-txt b { font-size: 13.5px; font-weight: 800; }
+.ub-txt i { font-style: normal; font-size: 11px; color: rgba(255,255,255,.75); font-weight: 600; }
+.ub-btn { background: #fff; color: var(--green); border: 0; border-radius: 11px; padding: 9px 15px; font-weight: 800;
+  font-size: 13px; font-family: var(--font); white-space: nowrap; animation: ubPulse 1.8s ease-in-out infinite; }
+.ub-btn:active { transform: scale(.93); }
+@keyframes ubPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,.55); } 50% { box-shadow: 0 0 0 7px rgba(255,255,255,0); } }
+@keyframes ubSpark { 0%,100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.18) rotate(12deg); } }
+
 /* ===== Tela de bloqueio (PIN) ===== */
 .lock { position: fixed; inset: 0; z-index: 1000;
   background: linear-gradient(160deg, #0b3d2e 0%, #12734d 100%);
@@ -228,9 +247,18 @@ body:has(#fab:not(.hidden)) main { padding-bottom: 104px; }
 .sort-sel { flex: 1; max-width: 200px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 11px; font-size: 13.5px;
   font-weight: 700; background: var(--card-2); color: var(--ink); font-family: var(--font); cursor: pointer; }
 .sort-sel:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
-.list-header { display: flex; justify-content: space-between; align-items: baseline; margin: 4px 2px 12px; }
-.list-header .total { font-weight: 800; font-size: 17px; letter-spacing: -.3px; }
-.list-header .lbl { font-size: 13px; color: var(--muted); font-weight: 600; }
+/* Cabeçalho da lista = card "hero" com gradiente, shimmer e animação de entrada */
+.list-header { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  margin: 0 0 14px; padding: 15px 18px; border-radius: 18px; color: #fff; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, var(--green-2), var(--green));
+  box-shadow: 0 10px 26px rgba(11,61,46,.34); animation: headerIn .5s cubic-bezier(.2,.9,.2,1.12) both; }
+.list-header::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.18) 50%, transparent 62%);
+  transform: translateX(-160%); animation: headerShimmer 4s ease-in-out 1s infinite; }
+.list-header .total { font-weight: 800; font-size: 21px; letter-spacing: -.4px; color: #fff; position: relative; z-index: 1; }
+.list-header .lbl { font-size: 12.5px; color: rgba(255,255,255,.82); font-weight: 600; position: relative; z-index: 1; }
+@keyframes headerIn { from { opacity: 0; transform: translateY(-12px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes headerShimmer { 0% { transform: translateX(-160%); } 55%, 100% { transform: translateX(160%); } }
 .empty { text-align: center; color: var(--muted); padding: 44px 20px; font-size: 14px; }
 .cat-line { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
 .cat-line:last-child { border-bottom: 0; }
