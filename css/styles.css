@@ -612,7 +612,13 @@ html.theme-dark #rain { opacity: .7; }
 #splash .coin-face { position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
   backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 #splash .coin-face img { width: 100%; height: 100%; display: block; }
-#splash .cf-back { transform: rotateY(180deg); }
+#splash .cf-front { transform: translateZ(8px); }                         /* face da frente, à frente no eixo Z */
+#splash .cf-back { transform: rotateY(180deg) translateZ(8px); }          /* face de trás, atrás → dá ESPESSURA */
+#splash .cf-back img { transform: scaleX(-1); }                            /* desespelha: o ₿ fica da esq→dir nos 2 lados */
+/* borda (rim) cilíndrica = espessura real da moeda */
+#splash .coin-edge { position: absolute; inset: 0; transform-style: preserve-3d; }
+#splash .coin-edge i { position: absolute; left: 50%; top: 50%; display: block; transform-origin: center center;
+  background: linear-gradient(to bottom, #6e4506 0%, #b9800f 22%, #ffe6a0 50%, #f1b231 64%, #8a5a0a 100%); }
 #splash .coin-shine { position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.78) 49%, rgba(255,255,255,.78) 51%, transparent 60%);
   transform: translateX(-150%); animation: coinShine 1.9s ease-in-out infinite; }

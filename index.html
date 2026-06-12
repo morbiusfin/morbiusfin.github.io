@@ -27,6 +27,7 @@
     <div class="coin-stage" aria-hidden="true">
       <div class="coin-glow"></div>
       <div class="coin3d">
+        <div class="coin-edge"></div>
         <div class="coin-face cf-front"><img src="icons/coin.png" alt="" /><span class="coin-shine"></span></div>
         <div class="coin-face cf-back"><img src="icons/coin.png" alt="" /></div>
       </div>
@@ -35,6 +36,18 @@
     <div class="splash-name">MorbiusFin</div>
     <div class="splash-tag">suas finanças em movimento</div>
   </div>
+  <script>
+    /* gera a borda (rim) 3D da moeda — segmentos ao redor da circunferência dão espessura real */
+    (function () {
+      var edge = document.querySelector('#splash .coin-edge'); if (!edge) return;
+      var N = 72, R = 80, T = 16, arc = (2 * Math.PI * R / N) + 1.2, html = '';
+      for (var i = 0; i < N; i++) {
+        var a = (360 / N) * i;
+        html += '<i style="width:' + arc.toFixed(2) + 'px;height:' + T + 'px;transform:translate(-50%,-50%) rotateZ(' + a + 'deg) translateY(' + R + 'px) rotateX(90deg)"></i>';
+      }
+      edge.innerHTML = html;
+    })();
+  </script>
 
   <!-- HEADER -->
   <header class="app-header">
