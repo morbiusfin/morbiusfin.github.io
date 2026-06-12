@@ -1,11 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.25";
-const VERSION_NOTES = "✨ Novidades agora aparecem num modal elegante — toque no ✨ no cabeçalho para ver o changelog";
+const APP_VERSION = "3.11.26";
+const VERSION_NOTES = "🔒 Segurança e acessibilidade: correção de XSS, zoom liberado, botões maiores e foco de teclado visível";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.26",
+    bullets: [
+      "Segurança: corrigida injeção (XSS) no campo do cartão",
+      "Acessibilidade: zoom de tela liberado (pinça)",
+      "Botões do cabeçalho maiores e mais fáceis de tocar",
+      "Indicação visível de foco ao navegar pelo teclado",
+    ]
+  },
   {
     version: "3.11.25",
     bullets: [
@@ -1314,7 +1323,7 @@ function lineRow(l, idx) {
   const bits = [];
   if (l.dia) bits.push("dia " + l.dia);
   if (curTab === "cartao" && l.parcAtual && l.parcTotal) bits.push(`parcela ${l.parcAtual}/${l.parcTotal}`);
-  if (curTab === "cartao" && l.cartao) bits.push("•" + l.cartao);
+  if (curTab === "cartao" && l.cartao) bits.push("•" + esc(l.cartao));
   const sub = bits.join(" · ");
   const on = selected.has(idx);
   const box = selMode ? `<span class="sel-box${on ? " on" : ""}" data-sel="${idx}"></span>` : "";
