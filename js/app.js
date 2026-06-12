@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.14";
+const APP_VERSION = "3.11.15";
 const VERSION_NOTES = "🔔 \"Próximas contas\" agora mostra só as que estão PERTO de vencer (na janela de aviso ou 5 dias) + atrasadas — não a lista do mês todo";
 let history = [];
 let redoStack = [];
@@ -1373,7 +1373,7 @@ function fillDaySelect(diaId, mesId, forceDia) {
 function showChooser(title, opts) {
   const old = $("#methodPop"); if (old) old.remove();
   const pop = document.createElement("div");
-  pop.id = "methodPop"; pop.className = "method-pop hidden";
+  pop.id = "methodPop"; pop.className = "method-pop";   // sem "hidden" (senão display:none esconde o balão)
   pop.innerHTML = `<div class="mp-title">${title}</div>` + opts.map((o, i) =>
     `<button type="button" class="mp-opt ${o.cls || ""}" data-i="${i}"><span class="mp-ic">${o.ic}</span><span class="mp-txt"><b>${o.label}</b><i>${o.sub}</i></span></button>`).join("");
   document.body.appendChild(pop);
