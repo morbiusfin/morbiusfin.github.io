@@ -247,6 +247,62 @@ body:has(#fab:not(.hidden)) main { padding-bottom: 104px; }
 .sort-sel { flex: 1; max-width: 200px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 11px; font-size: 13.5px;
   font-weight: 700; background: var(--card-2); color: var(--ink); font-family: var(--font); cursor: pointer; }
 .sort-sel:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+
+/* ===== Seleção múltipla + apagar em massa ===== */
+/* checkbox azul (o "bloquinho" de selecionar) */
+.sel-box { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px; border: 2px solid #3b82f6;
+  background: transparent; position: relative; transition: background .15s ease, transform .12s ease; }
+.sel-box.on { background: #3b82f6; }
+.sel-box.on::after { content: "✓"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 14px; font-weight: 900; }
+.list-row.sel-mode { cursor: pointer; }
+.list-row.sel-mode:active .sel-box { transform: scale(.88); }
+.list-row.sel-on { background: rgba(59,130,246,.12); }
+/* barra "Selecionar todos" + dropdown de como selecionar (abaixo do total) */
+.sel-bar { display: flex; align-items: center; gap: 10px; margin: 0 2px 10px; flex-wrap: wrap;
+  animation: fadeInUp .2s ease both; }
+.sel-all { display: inline-flex; align-items: center; gap: 8px; background: 0; border: 0; padding: 0;
+  font-family: var(--font); font-size: 13.5px; font-weight: 800; color: var(--ink); cursor: pointer; }
+.sel-all .sel-box.master { width: 20px; height: 20px; }
+.sel-how { padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; font-size: 12.5px; font-weight: 700;
+  background: var(--card-2); color: var(--ink); font-family: var(--font); cursor: pointer; }
+.sel-how:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.25); }
+.sel-count { font-size: 12.5px; color: var(--muted); font-weight: 700; margin-left: auto; }
+.sel-cancel { background: var(--card-2); border: 1px solid var(--line); color: var(--ink); font-weight: 800;
+  font-size: 12.5px; padding: 7px 13px; border-radius: 10px; cursor: pointer; font-family: var(--font); }
+.sel-cancel:active { transform: scale(.96); }
+/* barra flutuante de apagar (sobe de baixo, acima da tabbar) */
+.bulk-bar { position: fixed; left: 12px; right: 12px; bottom: calc(72px + var(--safe-bottom)); z-index: 70;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.4); transform: translateY(140%); opacity: 0;
+  transition: transform .32s cubic-bezier(.2,.9,.2,1.1), opacity .25s ease; }
+.bulk-bar.show { transform: translateY(0); opacity: 1; }
+.bulk-bar.hidden { display: none; }
+.bulk-bar .bb-count { font-weight: 800; font-size: 14px; color: var(--ink); }
+.bulk-bar .bb-del { background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; border: 0; font-weight: 800;
+  font-size: 14px; padding: 11px 20px; border-radius: 12px; cursor: pointer; font-family: var(--font);
+  box-shadow: 0 6px 18px rgba(220,38,38,.4); }
+.bulk-bar .bb-del:active { transform: scale(.96); }
+/* modal de escopo (este mês / em diante / escolher) */
+.bulk-card { text-align: center; }
+.bulk-card .bm-opts { display: flex; flex-direction: column; gap: 10px; }
+.bm-opt { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left;
+  background: var(--card-2); border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px;
+  cursor: pointer; font-family: var(--font); transition: border-color .15s ease, transform .1s ease; }
+.bm-opt:active { transform: scale(.98); }
+.bm-opt b { font-size: 15px; color: var(--ink); }
+.bm-opt span { font-size: 12px; color: var(--muted); }
+.bm-pick { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.bm-pick.hidden { display: none; }
+.bm-pick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.mg-cell { display: flex; align-items: center; gap: 5px; background: var(--card-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 6px; font-size: 12px; font-weight: 700; color: var(--ink); cursor: pointer; }
+.mg-cell input { accent-color: #3b82f6; }
+.bm-pick-go { width: 100%; background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; border: 0;
+  font-weight: 800; font-size: 14px; padding: 12px; border-radius: 12px; cursor: pointer; font-family: var(--font); }
+.bm-cancel { margin-top: 14px; background: 0; border: 0; color: var(--muted); font-weight: 700; font-size: 14px;
+  cursor: pointer; font-family: var(--font); }
 /* Cabeçalho da lista = card "hero" com gradiente, shimmer e animação de entrada */
 .list-header { display: flex; justify-content: space-between; align-items: center; gap: 10px;
   margin: 0 0 14px; padding: 15px 18px; border-radius: 18px; color: #fff; position: relative; overflow: hidden;

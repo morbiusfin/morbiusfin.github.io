@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.22";
-const VERSION_NOTES = "📌 Barra de menu não sobe mais ao rolar com o teclado aberto — fica fixa no fundo";
+const APP_VERSION = "3.11.23";
+const VERSION_NOTES = "🗑️ Toque longo num item pra selecionar vários e apagar — escolhendo este mês, os próximos ou meses específicos";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -264,6 +264,8 @@ function renderYearSelect() {
 let suppressNextAnim = false;       // pula as animações de ENTRADA no próximo render (ex.: ao pagar, pra não "piscar")
 function render() {
   const maxM = yearsCount() * 12 - 1; if (curMonth > maxM) curMonth = maxM; if (curMonth < 0) curMonth = 0;
+  // sai da seleção se mudou de aba ou de mês (a seleção é por aba+mês)
+  if (selMode && (curTab !== selTab || curMonth !== selMonth)) { selMode = false; selected = new Set(); selTab = null; selMonth = -1; }
   const noAnim = suppressNextAnim; suppressNextAnim = false;
   renderMonthBar();
   const ub = $("#btnUndo"); if (ub) { ub.disabled = !history.length; ub.style.opacity = history.length ? "1" : ".35"; }
@@ -272,13 +274,14 @@ function render() {
     resumo: "Resumo", receitas: "Receitas", fixas: "Despesas Fixas",
     cartao: "Cartão Mercado Pago", diaria: "Débitos Dia a Dia"
   })[curTab];
-  $("#fab").classList.toggle("hidden", curTab === "resumo");
+  $("#fab").classList.toggle("hidden", curTab === "resumo" || selMode);   // sem + durante a seleção
   const view = $("#view");
   view.classList.toggle("no-anim", noAnim);
   view.innerHTML = "";
   if (curTab === "resumo") { if (annual) renderAnual(view); else renderResumo(view); }
   else renderLista(view);
   if (noAnim) requestAnimationFrame(() => requestAnimationFrame(() => { const v = $("#view"); if (v) v.classList.remove("no-anim"); }));
+  updateBulkBar();   // mostra/esconde a barra flutuante de apagar conforme a seleção
 }
 
 /* ---------- Inteligência local (insights + saúde) — NADA sai do aparelho ---------- */
@@ -1054,6 +1057,180 @@ function bindSortBar(view) {
   s.onchange = () => { listSort[curTab] = s.value; suppressNextAnim = true; render(); };
 }
 
+/* ===== Seleção múltipla + apagar em massa (com escopo de mês) =====
+   Toque longo num item → entra no modo seleção (aparecem os checkboxes azuis).
+   "Selecionar todos" no topo (+ dropdown de COMO selecionar). Barra de apagar sobe quando há seleção.
+   Apagar: só este mês / deste mês em diante / escolher meses. Vale p/ receitas, fixas e cartão. */
+let selMode = false, selected = new Set(), selTab = null, selMonth = -1, selModeAt = 0;
+const SEL_TABS = ["receitas", "fixas", "cartao"];
+
+// linhas visíveis na aba/mês atuais (espelha o filtro do render)
+function visibleRows(tab, m) {
+  return (DATA[tab] || []).map((l, idx) => ({ l, idx }))
+    .filter(x => (x.l.vals[m] || 0) > 0 || (x.l.sts[m] || "vazio") !== "vazio");
+}
+function enterSelMode(idx) {
+  if (!SEL_TABS.includes(curTab)) return;
+  selMode = true; selTab = curTab; selMonth = curMonth; selected = new Set();
+  if (idx != null) selected.add(idx);
+  selModeAt = Date.now();
+  suppressNextAnim = true; render();
+}
+function exitSelMode() {
+  if (!selMode) return;
+  selMode = false; selected = new Set(); selTab = null; selMonth = -1;
+  suppressNextAnim = true; render();
+}
+function toggleSel(idx) {
+  if (Date.now() - selModeAt < 400) return;   // ignora o clique que acompanha o toque longo
+  if (selected.has(idx)) selected.delete(idx); else selected.add(idx);
+  const view = $("#view");
+  const box = view && view.querySelector(`.sel-box[data-sel="${idx}"]`);
+  const row = box && box.closest(".list-row");
+  if (box) box.classList.toggle("on", selected.has(idx));
+  if (row) row.classList.toggle("sel-on", selected.has(idx));
+  updateSelCount(view);
+  updateBulkBar();
+}
+function updateSelCount(view) {
+  if (!view) return;
+  const c = view.querySelector(".sel-count"); if (c) c.textContent = selected.size + " selec.";
+  const vis = visibleRows(curTab, curMonth);
+  const all = vis.length && vis.every(x => selected.has(x.idx));
+  const master = view.querySelector("#selAll"); if (master) master.classList.toggle("on", all);
+}
+function applySelectHow(how) {
+  const m = curMonth;
+  selected = new Set();
+  visibleRows(curTab, m).forEach(x => {
+    const st = x.l.sts[m] || "vazio";
+    const match = how === "all"
+      || (how === "Ativa" && x.l.tipo === "Ativa")
+      || (how === "Extra" && x.l.tipo === "Extra")
+      || (how === "prog" && st === "programado")
+      || (how === "done" && (st === "recebido" || st === "pago"));
+    if (match) selected.add(x.idx);
+  });
+}
+function selBarHTML(tab) {
+  const vis = visibleRows(tab, curMonth);
+  const all = vis.length && vis.every(x => selected.has(x.idx));
+  const how = [["all", "Todos"]];
+  if (tab === "receitas") how.push(["Ativa", "Só recorrentes"], ["Extra", "Só extras"]);
+  how.push(["prog", "Só programados"], ["done", tab === "receitas" ? "Só recebidos" : "Só pagos"]);
+  return `<div class="sel-bar">
+    <button class="sel-all" id="selAll"><span class="sel-box master${all ? " on" : ""}"></span> Selecionar todos</button>
+    <select id="selHow" class="sel-how" title="Como selecionar">${how.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select>
+    <span class="sel-count">${selected.size} selec.</span>
+    <button class="sel-cancel" id="selCancel">Cancelar</button>
+  </div>`;
+}
+function bindSelBar(view) {
+  const ca = $("#selCancel", view); if (ca) ca.onclick = exitSelMode;
+  const sa = $("#selAll", view); if (sa) sa.onclick = () => {
+    const vis = visibleRows(curTab, curMonth);
+    const all = vis.length && vis.every(x => selected.has(x.idx));
+    if (all) selected = new Set(); else { selected = new Set(); vis.forEach(x => selected.add(x.idx)); }
+    suppressNextAnim = true; render();
+  };
+  const sh = $("#selHow", view); if (sh) sh.onchange = () => { applySelectHow(sh.value); suppressNextAnim = true; render(); };
+}
+
+/* barra flutuante de apagar (sobe quando há seleção) */
+function bulkBarEl() {
+  let b = document.getElementById("bulkBar");
+  if (!b) {
+    b = document.createElement("div");
+    b.id = "bulkBar"; b.className = "bulk-bar hidden";
+    b.innerHTML = `<span class="bb-count"></span><button class="bb-del" id="bbDel">🗑️ Apagar</button>`;
+    document.body.appendChild(b);
+    b.querySelector("#bbDel").onclick = openBulkDelete;
+  }
+  return b;
+}
+function updateBulkBar() {
+  const b = bulkBarEl(), show = selMode && selected.size > 0;
+  if (show) {
+    b.querySelector(".bb-count").textContent = `${selected.size} selecionado(s)`;
+    b.classList.remove("hidden");
+    requestAnimationFrame(() => b.classList.add("show"));
+  } else {
+    b.classList.remove("show");
+    setTimeout(() => { if (!(selMode && selected.size > 0)) b.classList.add("hidden"); }, 280);
+  }
+}
+
+/* modal de escopo: este mês / deste mês em diante / escolher meses */
+function bulkModalEl() {
+  let m = document.getElementById("bulkModal");
+  if (!m) {
+    m = document.createElement("div");
+    m.id = "bulkModal"; m.className = "modal center hidden";
+    m.innerHTML = `<div class="modal-card bulk-card">
+      <h3 class="bm-title">Apagar</h3>
+      <p class="bm-sub hint" style="text-align:center;margin:-4px 0 14px"></p>
+      <div class="bm-opts">
+        <button class="bm-opt" data-scope="this"><b>Só este mês</b><span class="bm-mes"></span></button>
+        <button class="bm-opt" data-scope="future"><b>Deste mês em diante</b><span>apaga o mês atual e todos os próximos</span></button>
+        <button class="bm-opt" data-scope="pick"><b>Escolher meses…</b><span>marcar mês a mês</span></button>
+      </div>
+      <div class="bm-pick hidden">
+        <div class="bm-pick-grid"></div>
+        <button class="bm-pick-go" id="bmPickGo">Apagar meses marcados</button>
+      </div>
+      <button class="bm-cancel" id="bmCancel">Cancelar</button>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener("click", e => { if (e.target === m) closeBulkModal(); });
+    m.querySelector("#bmCancel").onclick = closeBulkModal;
+  }
+  return m;
+}
+function monthGridHTML() {
+  const H = horizonLen(); let h = "";
+  for (let i = 0; i < H; i++) h += `<label class="mg-cell"><input type="checkbox" value="${i}"${i === curMonth ? " checked" : ""}><span>${mLabel(i)}</span></label>`;
+  return h;
+}
+function openBulkDelete() {
+  if (!selMode || !selected.size) return;
+  const m = bulkModalEl();
+  m.querySelector(".bm-title").textContent = `Apagar ${selected.size} item(ns)`;
+  m.querySelector(".bm-sub").textContent = `Selecionados em ${mLong(curMonth)}.`;
+  m.querySelector(".bm-mes").textContent = mLong(curMonth);
+  const pick = m.querySelector(".bm-pick"); pick.classList.add("hidden");
+  m.querySelector(".bm-pick-grid").innerHTML = monthGridHTML();
+  m.querySelectorAll(".bm-opt").forEach(b => b.onclick = () => {
+    const sc = b.dataset.scope;
+    if (sc === "this") doBulkDelete([curMonth]);
+    else if (sc === "future") { const H = horizonLen(); const arr = []; for (let i = curMonth; i < H; i++) arr.push(i); doBulkDelete(arr); }
+    else { pick.classList.remove("hidden"); pick.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+  });
+  m.querySelector("#bmPickGo").onclick = () => {
+    const months = [...m.querySelectorAll(".bm-pick-grid input:checked")].map(c => +c.value);
+    if (!months.length) { toast("Marque ao menos um mês"); return; }
+    doBulkDelete(months);
+  };
+  m.classList.remove("hidden");
+}
+function closeBulkModal() { const m = document.getElementById("bulkModal"); if (m) m.classList.add("hidden"); }
+
+function doBulkDelete(months) {
+  const tab = selTab; if (!tab) return;
+  const lines = [...selected].map(i => DATA[tab][i]).filter(Boolean);
+  if (!lines.length || !months.length) return;
+  months.forEach(mi => lines.forEach(l => {
+    if (l.vals && mi >= 0 && mi < l.vals.length) l.vals[mi] = 0;
+    if (l.sts && mi >= 0 && mi < l.sts.length) l.sts[mi] = "vazio";
+  }));
+  // remove linhas que ficaram 100% vazias (some de todos os meses)
+  DATA[tab] = DATA[tab].filter(l => (l.vals || []).some(v => Number(v) > 0) || (l.sts || []).some(s => s && s !== "vazio"));
+  selMode = false; selected = new Set(); selTab = null; selMonth = -1;
+  closeBulkModal();
+  persist();                 // salva + render limpo + histórico (desfazível) + sync
+  updateBulkBar();           // esconde a barra
+  toast(`Apagado em ${months.length} mês(es) — dá pra desfazer ↩︎`);
+}
+
 function renderLista(view) {
   if (curTab === "diaria") return renderDiaria(view);
   if (curTab === "receitas") return renderReceitas(view);
@@ -1065,17 +1242,18 @@ function renderLista(view) {
   view.innerHTML = `
     ${curTab === "cartao" ? renderCardsSection() : ""}
     <div class="list-header"><span class="lbl">${rows.length} lançamento(s) em ${mLong(curMonth)}</span><span class="total">${brl(total)}</span></div>
-    ${rows.length ? sortBarHTML(curTab) : ""}
+    ${rows.length ? (selMode ? selBarHTML(curTab) : sortBarHTML(curTab)) : ""}
     <div class="list">${rows.length ? rows.map(({ l, idx }) => lineRow(l, idx)).join("") : empty()}</div>`;
   bindRows(view);
   bindSortBar(view);
+  bindSelBar(view);
   if (curTab === "cartao") bindCardsSection(view);
 }
 
 function renderReceitas(view) {
   const m = curMonth;
   const groups = [["Ativa", "Renda recorrente"], ["Extra", "Renda extra"]];
-  let html = `<div class="list-header"><span class="lbl">Recebido ${brl(recebido(m))} · a receber ${brl(aReceber(m))}</span><span class="total">${brl(receitaMes(m))}</span></div>` + sortBarHTML("receitas");
+  let html = `<div class="list-header"><span class="lbl">Recebido ${brl(recebido(m))} · a receber ${brl(aReceber(m))}</span><span class="total">${brl(receitaMes(m))}</span></div>` + (selMode ? selBarHTML("receitas") : sortBarHTML("receitas"));
   groups.forEach(([tipo, titulo]) => {
     let rows = DATA.receitas.map((l, idx) => ({ l, idx }))
       .filter(x => x.l.tipo === tipo && (x.l.vals[m] > 0 || (x.l.sts[m] || "vazio") !== "vazio"));
@@ -1087,6 +1265,7 @@ function renderReceitas(view) {
   view.innerHTML = html;
   bindRows(view);
   bindSortBar(view);
+  bindSelBar(view);
 }
 
 function lineRow(l, idx) {
@@ -1096,8 +1275,10 @@ function lineRow(l, idx) {
   if (curTab === "cartao" && l.parcAtual && l.parcTotal) bits.push(`parcela ${l.parcAtual}/${l.parcTotal}`);
   if (curTab === "cartao" && l.cartao) bits.push("•" + l.cartao);
   const sub = bits.join(" · ");
-  return `<div class="list-row" data-idx="${idx}">
-    <div class="desc"><div class="name">${esc(l.desc || "—")}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>
+  const on = selected.has(idx);
+  const box = selMode ? `<span class="sel-box${on ? " on" : ""}" data-sel="${idx}"></span>` : "";
+  return `<div class="list-row${selMode ? " sel-mode" : ""}${on ? " sel-on" : ""}" data-idx="${idx}">
+    ${box}<div class="desc"><div class="name">${esc(l.desc || "—")}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>
     <span class="badge ${st}" data-toggle="${idx}">${st}</span>
     <div class="amt-wrap"><span class="amount">${brl(val)}</span>${l.nec ? `<span class="nec-flag" title="Necessário — não posso deixar de pagar">✓</span>` : ""}</div></div>`;
 }
@@ -1127,9 +1308,27 @@ function renderDiaria(view) {
 function bindRows(view) {
   $$(".list-row", view).forEach(r => {
     if (!r.dataset.idx) return;
+    const idx = +r.dataset.idx;
+    if (selMode) {
+      r.onclick = (e) => { e.preventDefault(); toggleSel(idx); };   // em seleção: tap marca/desmarca
+      return;
+    }
+    // modo normal: tap = editar/status; toque longo (~550ms) = entra na seleção
+    let lpTimer = null, sx = 0, sy = 0;
+    const cancelLP = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
+    r.addEventListener("pointerdown", (e) => {
+      if (e.target.dataset.toggle !== undefined) return;            // não no badge de status
+      sx = e.clientX; sy = e.clientY;
+      cancelLP();
+      lpTimer = setTimeout(() => { lpTimer = null; if (navigator.vibrate) try { navigator.vibrate(15); } catch (_) {} enterSelMode(idx); }, 550);
+    });
+    r.addEventListener("pointermove", (e) => { if (lpTimer && (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10)) cancelLP(); });
+    r.addEventListener("pointerup", cancelLP);
+    r.addEventListener("pointercancel", cancelLP);
     r.onclick = (e) => {
+      if (selMode) { e.preventDefault(); toggleSel(idx); return; }  // se o long-press já ativou a seleção
       if (e.target.dataset.toggle !== undefined) { toggleStatus(curTab, +e.target.dataset.toggle); e.stopPropagation(); return; }
-      openEntryModal(curTab, +r.dataset.idx);
+      openEntryModal(curTab, idx);
     };
   });
 }
