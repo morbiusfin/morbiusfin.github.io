@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.29";
-const VERSION_NOTES = "🔐 Conta e acesso: proteja os dados reais com PIN (backup automático antes) e use 0000 para o modo teste";
+const APP_VERSION = "3.11.30";
+const VERSION_NOTES = "🧪 Correção: o modo teste agora mostra SÓ dados fictícios — não baixa nem mexe nos seus dados reais";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.30",
+    bullets: [
+      "Correção importante: o modo teste mostrava seus dados reais (a nuvem baixava por trás)",
+      "Agora o modo teste DESLIGA a sincronização e nasce sempre com dados fictícios limpos",
+      "Seus dados reais nunca são baixados, enviados ou alterados no modo teste",
+    ]
+  },
   {
     version: "3.11.29",
     bullets: [
@@ -2055,9 +2063,10 @@ async function protectWithPin() {
 }
 function exitTestMode() {
   localStorage.setItem("financas2026.profile", "real");
+  try { localStorage.removeItem(TEST_STORE_KEY); } catch (e) {}   // limpa os dados de teste (some qualquer cópia)
   document.body.classList.remove("test-mode");
   closeAccessModal();
-  location.reload();                              // reboot limpo → boot() mostra o gate se os reais tiverem PIN
+  location.reload();                              // reboot limpo → boot() carrega os reais (gate se tiver PIN)
 }
 function closeAccessModal() { const m = document.getElementById("accessModal"); if (m) m.classList.add("hidden"); }
 
@@ -2113,7 +2122,9 @@ let pulling = false;
 let lastSyncInfo = { when: 0, ok: null, msg: "ainda não sincronizou", remoteTs: 0 };
 // force=true → a WEB é a fonte da verdade: adota a nuvem sempre que houver e for diferente
 // (usado no botão 🔄 e no puxar-para-atualizar). Sem force = merge por timestamp (boot/auto).
+const isTestMode = () => localStorage.getItem("financas2026.profile") === "test";
 async function pullSync(aviso, onProg, force) {
+  if (isTestMode()) return { ok: false, reason: "teste" };   // NUNCA sincroniza no modo teste (não baixa os reais)
   const c = syncCfg(); if (!c || pulling) return { ok: false, reason: "sem-config" };
   pulling = true;
   let result = { ok: false, reason: "?" };
@@ -2182,6 +2193,7 @@ async function syncNow() {
 }
 let pushT;
 function pushSync() {
+  if (isTestMode()) return;   // NUNCA empurra dados de teste pra sua nuvem real
   const c = syncCfg(); if (!c) return;
   if (!DATA.updatedAt) DATA.updatedAt = Date.now();
   clearTimeout(pushT);
@@ -2195,7 +2207,7 @@ function pushSync() {
 let liveT = null;
 const LIVE_MS = 7000;
 function startLiveSync() {
-  if (!syncCfg()) { stopLiveSync(); return; }
+  if (isTestMode() || !syncCfg()) { stopLiveSync(); return; }
   stopLiveSync();
   liveT = setInterval(() => { if (document.visibilityState === "visible" && navigator.onLine !== false) pullSync(false); }, LIVE_MS);
 }
@@ -2390,10 +2402,9 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { const o 
 function loadTestProfile() {
   localStorage.setItem("financas2026.profile", "test");
   window.CRYPTO_KEY = null;
-  let raw = localStorage.getItem(TEST_STORE_KEY);
-  let d = null; try { d = raw ? JSON.parse(raw) : null; } catch (e) {}
-  DATA = d ? migrate(d) : buildSeed();   // seed fictício se o teste ainda estiver vazio
-  if (!d) saveData(DATA);                 // grava no store de teste (profile=test → profileKey=demo)
+  stopLiveSync();                          // sem sincronização no modo teste (não puxa nem empurra)
+  DATA = buildSeed();                      // SEMPRE dados fictícios e LIMPOS — nunca os reais
+  saveData(DATA);                          // grava no store de teste (financas2026.demo), sobrescrevendo qualquer cópia
   const ls = $("#lockScreen"); if (ls) ls.classList.add("hidden");
   document.body.classList.add("test-mode");
   startApp();
