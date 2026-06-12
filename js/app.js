@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.16";
+const APP_VERSION = "3.11.17";
 const VERSION_NOTES = "✨ Cabeçalho das listas repaginado + aviso de nova atualização com 1 toque pra aplicar";
 let history = [];
 let redoStack = [];
@@ -1375,7 +1375,7 @@ function showChooser(title, opts) {
   const pop = document.createElement("div");
   pop.id = "methodPop"; pop.className = "method-pop";   // sem "hidden" (senão display:none esconde o balão)
   pop.innerHTML = `<div class="mp-title">${title}</div>` + opts.map((o, i) =>
-    `<button type="button" class="mp-opt ${o.cls || ""}" data-i="${i}"><span class="mp-ic">${o.ic}</span><span class="mp-txt"><b>${o.label}</b><i>${o.sub}</i></span></button>`).join("");
+    `<button type="button" class="mp-opt ${o.cls || ""}" data-i="${i}"><span class="mp-ic">${o.ic}</span><span class="mp-txt"><b>${o.label}</b>${o.sub ? `<i>${o.sub}</i>` : ""}</span></button>`).join("");
   document.body.appendChild(pop);
   requestAnimationFrame(() => pop.classList.add("show"));
   const close = () => { pop.classList.remove("show"); setTimeout(() => { try { pop.remove(); } catch (e) {} }, 200); document.removeEventListener("click", onDoc, true); };
@@ -1385,14 +1385,14 @@ function showChooser(title, opts) {
 }
 function openDiariaChooser() {
   showChooser("Como você pagou?", [
-    { ic: "⚡", label: "PIX", sub: "caiu na hora", cls: "pix", fn: () => openDiariaModal(null, "pix") },
-    { ic: "💳", label: "Débito", sub: "direto da conta", cls: "debito", fn: () => openDiariaModal(null, "debito") },
+    { ic: "⚡", label: "PIX", cls: "pix", fn: () => openDiariaModal(null, "pix") },
+    { ic: "💳", label: "Débito", cls: "debito", fn: () => openDiariaModal(null, "debito") },
   ]);
 }
 function openCartaoChooser() {
   showChooser("O que você quer lançar?", [
-    { ic: "🛒", label: "Nova compra", sub: "lançar no cartão", cls: "debito", fn: () => openCartaoModal() },
-    { ic: "💳", label: "Cadastrar cartão", sub: "fechamento e vencimento", cls: "pix", fn: () => openCardModal(null) },
+    { ic: "🛒", label: "Nova compra", cls: "debito", fn: () => openCartaoModal() },
+    { ic: "💳", label: "Cadastrar cartão", cls: "pix", fn: () => openCardModal(null) },
   ]);
 }
 
