@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.12";
+const APP_VERSION = "3.11.13";
 const VERSION_NOTES = "🔔 \"Próximas contas\" agora mostra só as que estão PERTO de vencer (na janela de aviso ou 5 dias) + atrasadas — não a lista do mês todo";
 let history = [];
 let redoStack = [];
@@ -1032,36 +1032,62 @@ function insightsSaldo() {
 }
 
 /* ---------- LISTAS ---------- */
+/* ---------- Ordenação das listas (Data / Valor / A→Z / Necessário) ---------- */
+let listSort = { receitas: "valor", fixas: "valor", cartao: "valor", diaria: "valor" };
+// ordena um array de { ...itens } usando extratores (val, dia, desc, nec)
+function sortRows(arr, mode, get) {
+  const byVal = (a, b) => get.val(b) - get.val(a);
+  const byDia = (a, b) => ((get.dia(a) || 99) - (get.dia(b) || 99)) || byVal(a, b);
+  const byAlpha = (a, b) => String(get.desc(a) || "").localeCompare(String(get.desc(b) || ""), "pt", { sensitivity: "base" });
+  const byNec = (a, b) => ((get.nec(b) ? 1 : 0) - (get.nec(a) ? 1 : 0)) || byVal(a, b);
+  const f = mode === "data" ? byDia : mode === "alpha" ? byAlpha : mode === "nec" ? byNec : byVal;
+  return arr.slice().sort(f);
+}
+function sortBarHTML(tab) {
+  const cur = listSort[tab] || "valor";
+  const opts = [["valor", "Maior valor"], ["data", "Data (dia)"], ["alpha", "A → Z"]];
+  if (tab === "fixas" || tab === "cartao") opts.push(["nec", "Necessário 1º"]);
+  return `<div class="sort-bar"><span class="sort-lbl">↕ Ordenar</span><select id="listSort" class="sort-sel">${
+    opts.map(([v, t]) => `<option value="${v}"${v === cur ? " selected" : ""}>${t}</option>`).join("")}</select></div>`;
+}
+function bindSortBar(view) {
+  const s = $("#listSort", view); if (!s) return;
+  s.onchange = () => { listSort[curTab] = s.value; suppressNextAnim = true; render(); };
+}
+
 function renderLista(view) {
   if (curTab === "diaria") return renderDiaria(view);
   if (curTab === "receitas") return renderReceitas(view);
   const lines = DATA[curTab];
   const total = sumMonth(lines, curMonth);
-  const rows = lines.map((l, idx) => ({ l, idx }))
-    .filter(x => x.l.vals[curMonth] > 0 || (x.l.sts[curMonth] || "vazio") !== "vazio")
-    .sort((a, b) => b.l.vals[curMonth] - a.l.vals[curMonth]);
+  let rows = lines.map((l, idx) => ({ l, idx }))
+    .filter(x => x.l.vals[curMonth] > 0 || (x.l.sts[curMonth] || "vazio") !== "vazio");
+  rows = sortRows(rows, listSort[curTab], { val: x => x.l.vals[curMonth] || 0, dia: x => x.l.dia, desc: x => x.l.desc, nec: x => x.l.nec });
   view.innerHTML = `
     ${curTab === "cartao" ? renderCardsSection() : ""}
     <div class="list-header"><span class="lbl">${rows.length} lançamento(s) em ${mLong(curMonth)}</span><span class="total">${brl(total)}</span></div>
+    ${rows.length ? sortBarHTML(curTab) : ""}
     <div class="list">${rows.length ? rows.map(({ l, idx }) => lineRow(l, idx)).join("") : empty()}</div>`;
   bindRows(view);
+  bindSortBar(view);
   if (curTab === "cartao") bindCardsSection(view);
 }
 
 function renderReceitas(view) {
   const m = curMonth;
   const groups = [["Ativa", "Renda recorrente"], ["Extra", "Renda extra"]];
-  let html = `<div class="list-header"><span class="lbl">Recebido ${brl(recebido(m))} · a receber ${brl(aReceber(m))}</span><span class="total">${brl(receitaMes(m))}</span></div>`;
+  let html = `<div class="list-header"><span class="lbl">Recebido ${brl(recebido(m))} · a receber ${brl(aReceber(m))}</span><span class="total">${brl(receitaMes(m))}</span></div>` + sortBarHTML("receitas");
   groups.forEach(([tipo, titulo]) => {
-    const rows = DATA.receitas.map((l, idx) => ({ l, idx }))
-      .filter(x => x.l.tipo === tipo && (x.l.vals[m] > 0 || (x.l.sts[m] || "vazio") !== "vazio"))
-      .sort((a, b) => b.l.vals[m] - a.l.vals[m]);
+    let rows = DATA.receitas.map((l, idx) => ({ l, idx }))
+      .filter(x => x.l.tipo === tipo && (x.l.vals[m] > 0 || (x.l.sts[m] || "vazio") !== "vazio"));
+    rows = sortRows(rows, listSort.receitas, { val: x => x.l.vals[m] || 0, dia: x => x.l.dia, desc: x => x.l.desc, nec: x => x.l.nec });
     if (!rows.length) return;
     const sub = DATA.receitas.filter(l => l.tipo === tipo).reduce((s, l) => s + (Number(l.vals[m]) || 0), 0);
     html += `<div class="group-head">${titulo} <span>${brl(sub)}</span></div><div class="list">${rows.map(({ l, idx }) => lineRow(l, idx)).join("")}</div>`;
   });
   view.innerHTML = html;
   bindRows(view);
+  bindSortBar(view);
 }
 
 function lineRow(l, idx) {
@@ -1085,14 +1111,18 @@ function renderDiaria(view) {
   const cats = {};
   rows.forEach(({ d, idx }) => { (cats[d.categoria || "Geral"] = cats[d.categoria || "Geral"] || []).push({ d, idx }); });
   let html = `<div class="list-header"><span class="lbl">${rows.length} compra(s) em ${mLong(m)}</span><span class="total">${brl(total)}</span></div>`;
-  if (!rows.length) html += `<div class="list">${empty("Nenhuma compra no débito.")}</div>`;
+  if (!rows.length) { html += `<div class="list">${empty("Nenhuma compra no débito.")}</div>`; }
+  else html += sortBarHTML("diaria");
+  const getD = { val: x => Number(x.d.valor) || 0, dia: x => x.d.dia, desc: x => x.d.desc, nec: () => false };
   Object.keys(cats).sort().forEach(cat => {
     const sub = cats[cat].reduce((s, x) => s + (Number(x.d.valor) || 0), 0);
-    html += `<div class="group-head">${esc(cat)} <span>${brl(sub)}</span></div><div class="list">${cats[cat].map(({ d, idx }) =>
+    const itens = sortRows(cats[cat], listSort.diaria, getD);
+    html += `<div class="group-head">${esc(cat)} <span>${brl(sub)}</span></div><div class="list">${itens.map(({ d, idx }) =>
       `<div class="list-row" data-didx="${idx}"><div class="desc"><div class="name">${esc(d.desc || "—")}</div>${(() => { const met = d.metodo === "pix" ? `<span class="met-pill pix">⚡ PIX</span>` : d.metodo === "debito" ? `<span class="met-pill debito">💳 Débito</span>` : ""; const dia = d.dia ? `dia ${d.dia}` : ""; return (met || dia) ? `<div class="sub">${[dia, met].filter(Boolean).join(" · ")}</div>` : ""; })()}</div><span class="amount">${brl(d.valor)}</span></div>`).join("")}</div>`;
   });
   view.innerHTML = html;
   $$("[data-didx]", view).forEach(r => r.onclick = () => openDiariaModal(+r.dataset.didx));
+  bindSortBar(view);
 }
 
 function bindRows(view) {
@@ -1117,15 +1147,13 @@ const empty = (msg) => `<div class="empty">${msg || "Nada lançado neste mês."}
 /* ---------- Cartões cadastrados (fechamento/vencimento) ---------- */
 function renderCardsSection() {
   const cs = DATA.cartoes || [];
+  if (!cs.length) return "";                                   // cadastro agora é pelo + (toque no botão flutuante)
   const itens = cs.map((c, i) => `<div class="card-line" data-cidx="${i}">
       <div class="card-ic">💳</div>
       <div class="desc"><div class="name">${esc(c.nome || "Cartão")}</div>
         <div class="sub">fecha dia <b>${c.fechamento || "—"}</b> · vence dia <b>${c.vencimento || "—"}</b></div></div>
       <span class="card-edit">editar ›</span></div>`).join("");
-  return `<div class="section-card fade-in"><h3>💳 Meus cartões</h3>
-    ${cs.length ? `<div class="card-list">${itens}</div>`
-      : `<div class="empty" style="padding:20px 18px">Nenhum cartão cadastrado.<br>Cadastre com o dia do <b>fechamento</b> e do <b>vencimento</b> para lançar compras sem erro.</div>`}
-    <div class="card-add"><button class="btn ghost" id="btnAddCard">＋ Cadastrar cartão</button></div></div>`;
+  return `<div class="section-card fade-in"><h3>💳 Meus cartões</h3><div class="card-list">${itens}</div></div>`;
 }
 function bindCardsSection(view) {
   const add = $("#btnAddCard", view); if (add) add.onclick = () => openCardModal(null);
@@ -1342,22 +1370,31 @@ function fillDaySelect(diaId, mesId, forceDia) {
 }
 
 // Balão acima do "+" (Dia a Dia): escolhe PIX ou Débito antes de abrir o form.
-function openDiariaChooser() {
-  let pop = $("#methodPop");
-  if (!pop) {
-    pop = document.createElement("div");
-    pop.id = "methodPop"; pop.className = "method-pop hidden";
-    pop.innerHTML = `<div class="mp-title">Como você pagou?</div>
-      <button type="button" class="mp-opt pix" data-m="pix"><span class="mp-ic">⚡</span><span class="mp-txt"><b>PIX</b><i>caiu na hora</i></span></button>
-      <button type="button" class="mp-opt debito" data-m="debito"><span class="mp-ic">💳</span><span class="mp-txt"><b>Débito</b><i>direto da conta</i></span></button>`;
-    document.body.appendChild(pop);
-  }
-  pop.classList.remove("hidden");
+// Balão acima do "+" — escolhe uma ação antes de abrir o form
+function showChooser(title, opts) {
+  const old = $("#methodPop"); if (old) old.remove();
+  const pop = document.createElement("div");
+  pop.id = "methodPop"; pop.className = "method-pop hidden";
+  pop.innerHTML = `<div class="mp-title">${title}</div>` + opts.map((o, i) =>
+    `<button type="button" class="mp-opt ${o.cls || ""}" data-i="${i}"><span class="mp-ic">${o.ic}</span><span class="mp-txt"><b>${o.label}</b><i>${o.sub}</i></span></button>`).join("");
+  document.body.appendChild(pop);
   requestAnimationFrame(() => pop.classList.add("show"));
-  const close = () => { pop.classList.remove("show"); setTimeout(() => pop.classList.add("hidden"), 200); document.removeEventListener("click", onDoc, true); };
+  const close = () => { pop.classList.remove("show"); setTimeout(() => { try { pop.remove(); } catch (e) {} }, 200); document.removeEventListener("click", onDoc, true); };
   const onDoc = (e) => { if (!pop.contains(e.target) && e.target.id !== "fab") close(); };
   setTimeout(() => document.addEventListener("click", onDoc, true), 0);
-  $$(".mp-opt", pop).forEach(b => b.onclick = () => { close(); openDiariaModal(null, b.dataset.m); });
+  $$(".mp-opt", pop).forEach(b => b.onclick = () => { close(); opts[+b.dataset.i].fn(); });
+}
+function openDiariaChooser() {
+  showChooser("Como você pagou?", [
+    { ic: "⚡", label: "PIX", sub: "caiu na hora", cls: "pix", fn: () => openDiariaModal(null, "pix") },
+    { ic: "💳", label: "Débito", sub: "direto da conta", cls: "debito", fn: () => openDiariaModal(null, "debito") },
+  ]);
+}
+function openCartaoChooser() {
+  showChooser("O que você quer lançar?", [
+    { ic: "🛒", label: "Nova compra", sub: "lançar no cartão", cls: "debito", fn: () => openCartaoModal() },
+    { ic: "💳", label: "Cadastrar cartão", sub: "fechamento e vencimento", cls: "pix", fn: () => openCardModal(null) },
+  ]);
 }
 
 function openDiariaModal(idx, method) {
@@ -1429,7 +1466,7 @@ let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.
 
 /* ---------- Eventos ---------- */
 $$(".tab").forEach(t => t.onclick = () => { $$(".tab").forEach(x => x.classList.remove("active")); t.classList.add("active"); curTab = t.dataset.tab; if (curTab !== "resumo") annual = false; suppressNextAnim = true; window.scrollTo(0, 0); render(); });
-$("#fab").onclick = () => curTab === "diaria" ? openDiariaChooser() : curTab === "cartao" ? openCartaoModal() : openEntryModal(curTab, null);
+$("#fab").onclick = () => curTab === "diaria" ? openDiariaChooser() : curTab === "cartao" ? openCartaoChooser() : openEntryModal(curTab, null);
 $("#btnUndo").onclick = undo;
 { const br = $("#btnRefresh"); if (br) br.onclick = syncNow; }
 { const rd = $("#btnRedo"); if (rd) rd.onclick = redo; }
