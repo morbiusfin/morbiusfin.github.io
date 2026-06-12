@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.23";
-const VERSION_NOTES = "🗑️ Toque longo num item pra selecionar vários e apagar — escolhendo este mês, os próximos ou meses específicos";
+const APP_VERSION = "3.11.24";
+const VERSION_NOTES = "📌 Barra de menu agora some de vez enquanto você digita — não sobe mais ao rolar (corrigido pra valer)";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -2158,55 +2158,27 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
   });
 })();
 
-/* ---------- Teclado aberto: a tabbar fica ESCONDIDA atrás do teclado e TRAVADA no fundo —
-   NUNCA sobe ao rolar (escolha do Kaick). O bug do iOS: ao rolar com o teclado aberto, o
-   Safari "solta" os position:fixed e os reancora na VISUAL viewport → a barra sobe pra cima
-   do teclado e só volta no scroll-up/fechar. Contramedida: enquanto o teclado está aberto,
-   reancoramos a tabbar ao FUNDO REAL (layout viewport) a cada frame (rAF) + no scroll da vv,
-   empurrando-a pra baixo pela altura da faixa abaixo do visível (a região do teclado).
-   - Se o iOS mantém no fundo: o empurrão só a esconde mais (inofensivo).
-   - Se o iOS a "solta" pra cima: o empurrão a traz de volta pro fundo, exato.
-   Resultado: some atrás do teclado, role o quanto rolar, e reaparece ao fechar. FAB some junto. ---------- */
+/* ---------- Teclado aberto: a tabbar fica ESCONDIDA atrás do teclado e NUNCA sobe ao rolar.
+   Por que `display:none` (e não transform/visualViewport): no iOS Safari, position:fixed ancora
+   na LAYOUT viewport; ao rolar com o teclado aberto o Safari "arrasta" esses elementos e eles
+   driftam pra cima — reposicionar por transform NÃO vence isso (o elemento segue no render tree).
+   Um elemento com `display:none` sai do render tree → fisicamente não pode driftar/aparecer.
+   Detectamos o teclado por (a) foco em campo de texto (imediato, sem janela pra "subir") e
+   (b) encolhimento da visual viewport. body.kbd-open → tabbar some (CSS) + FAB some. ---------- */
 (function keyboardAware() {
   const isField = (el) => el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) &&
     !/^(button|submit|checkbox|radio|range)$/i.test(el.type || "");
   const vv = window.visualViewport;
-  let raf = null, kbdOn = false;
+  const setKbd = (on) => document.body.classList.toggle("kbd-open", !!on);
 
-  const apply = () => {
-    const tb = document.querySelector(".tabbar");
-    if (tb && vv) {
-      // altura da faixa ABAIXO da área visível (≈ teclado) → empurra a barra pra lá = some no fundo
-      const below = Math.max(0, window.innerHeight - vv.offsetTop - vv.height);
-      tb.style.transform = `translateY(${below}px) translateZ(0)`;
-    }
-  };
-  const loop = () => { apply(); if (kbdOn) raf = requestAnimationFrame(loop); };  // re-trava todo frame
-  const resetBar = () => { const tb = document.querySelector(".tabbar"); if (tb) tb.style.transform = "translateZ(0)"; };
+  // (b) teclado encolhe a viewport visível em >140px
+  if (vv) vv.addEventListener("resize", () => setKbd((window.innerHeight - vv.height) > 140 && isField(document.activeElement)));
 
-  const setKbd = (on) => {
-    on = !!on;
-    if (on === kbdOn) return;
-    kbdOn = on;
-    document.body.classList.toggle("kbd-open", on);
-    if (on) { if (!raf) raf = requestAnimationFrame(loop); }
-    else { if (raf) cancelAnimationFrame(raf); raf = null; resetBar(); }
-  };
-
-  if (vv) {
-    vv.addEventListener("resize", () => {
-      setKbd((window.innerHeight - vv.height) > 140 && isField(document.activeElement));
-    });
-    vv.addEventListener("scroll", () => { if (kbdOn) apply(); });  // reforço imediato ao rolar
-  }
-  // fallback por foco em campo de texto
+  // (a) foco/desfoco em campo de texto — esconde já no foco (antes do teclado terminar de abrir)
   let blurT = null;
   document.addEventListener("focusin", (e) => { if (isField(e.target)) { clearTimeout(blurT); setKbd(true); } });
   document.addEventListener("focusout", (e) => {
-    if (isField(e.target)) {
-      clearTimeout(blurT);
-      blurT = setTimeout(() => { if (!isField(document.activeElement)) setKbd(false); }, 120);
-    }
+    if (isField(e.target)) { clearTimeout(blurT); blurT = setTimeout(() => { if (!isField(document.activeElement)) setKbd(false); }, 120); }
   });
 })();
 

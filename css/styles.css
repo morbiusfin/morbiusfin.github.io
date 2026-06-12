@@ -394,8 +394,9 @@ select.sel { cursor: pointer; }
 }
 .tab.active::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
   width: 30px; height: 3px; border-radius: 0 0 4px 4px; background: linear-gradient(90deg, var(--accent-2), var(--accent)); }
-/* Teclado aberto: a tabbar é reancorada ao fundo a cada frame via JS (keyboardAware) →
-   some atrás do teclado e NÃO sobe ao rolar. O FAB some junto. */
+/* Teclado aberto: a tabbar SAI do render tree (display:none) → no iOS não tem como driftar/subir
+   no scroll. Reaparece ao fechar o teclado. O FAB também some. */
+body.kbd-open .tabbar { display: none !important; }
 body.kbd-open #fab { transform: translateY(160%) scale(.8); opacity: 0; pointer-events: none; }
 
 /* ===== MODAL ===== */
