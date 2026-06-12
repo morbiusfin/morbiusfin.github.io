@@ -1,11 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.26";
-const VERSION_NOTES = "🔒 Segurança e acessibilidade: correção de XSS, zoom liberado, botões maiores e foco de teclado visível";
+const APP_VERSION = "3.11.27";
+const VERSION_NOTES = "👋 Boas-vindas na 1ª abertura: escolha começar do zero ou explorar com exemplos, com um tour rápido";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.27",
+    bullets: [
+      "Tela de boas-vindas na 1ª abertura, deixando claro que os números iniciais são exemplo",
+      "Escolha: começar do zero (app limpo) ou explorar com os exemplos",
+      "Tour rápido de 3 passos (abas, botão +, backup) — pulável",
+      "Banner 'dados de exemplo' com atalho pra começar do zero",
+    ]
+  },
   {
     version: "3.11.26",
     bullets: [
@@ -322,7 +331,7 @@ function render() {
   const rb = $("#btnRedo"); if (rb) { rb.disabled = !redoStack.length; rb.style.opacity = redoStack.length ? "1" : ".35"; }
   $("#screenTitle").textContent = annual && curTab === "resumo" ? "Resumo " + (DATA.year + curYear()) : ({
     resumo: "Resumo", receitas: "Receitas", fixas: "Despesas Fixas",
-    cartao: "Cartão Mercado Pago", diaria: "Débitos Dia a Dia"
+    cartao: "Cartão", diaria: "Débitos do dia a dia"
   })[curTab];
   $("#fab").classList.toggle("hidden", curTab === "resumo" || selMode);   // sem + durante a seleção
   const view = $("#view");
@@ -332,6 +341,7 @@ function render() {
   else renderLista(view);
   if (noAnim) requestAnimationFrame(() => requestAnimationFrame(() => { const v = $("#view"); if (v) v.classList.remove("no-anim"); }));
   updateBulkBar();   // mostra/esconde a barra flutuante de apagar conforme a seleção
+  if (typeof renderSeedBanner === "function") renderSeedBanner();   // banner "dados de exemplo" (modo Explorar)
 }
 
 /* ---------- Inteligência local (insights + saúde) — NADA sai do aparelho ---------- */
@@ -1690,6 +1700,7 @@ function showModal(s) { $(s).classList.remove("hidden"); }
 function closeModal() { $("#modal").classList.add("hidden"); }
 function persist() {
   DATA.updatedAt = Date.now();
+  localStorage.removeItem("financas2026.isSeed");   // ação real do usuário → some o banner "dados de exemplo"
   history.push(lastSnap); if (history.length > HISTORY_MAX) history.shift();
   redoStack = []; // ação nova invalida o "refazer"
   lastSnap = JSON.stringify(DATA);
@@ -2113,7 +2124,10 @@ function startApp() {
 function setSplashMsg(t) { const el = document.querySelector("#splash .splash-tag"); if (el) el.textContent = t; }
 function hideSplash() {
   const sp = document.getElementById("splash");
-  if (sp && !sp.classList.contains("reveal")) { sp.classList.add("reveal"); setTimeout(() => { try { sp.remove(); } catch (e) {} }, 1050); }
+  if (sp && !sp.classList.contains("reveal")) {
+    sp.classList.add("reveal");
+    setTimeout(() => { try { sp.remove(); } catch (e) {} maybeStartOnboarding(); }, 1050);
+  } else { maybeStartOnboarding(); }
 }
 // rede de segurança: nunca deixar o splash preso (após os 5s da animação)
 window.addEventListener("load", () => setTimeout(hideSplash, 6000));
@@ -2185,6 +2199,84 @@ function applyConfigLink() {
     } catch (e) { try { location.hash = ""; } catch (_) {} }
   }
 }
+/* ===== Onboarding de 1ª abertura (spec_onboarding) — boas-vindas + zero/exemplos + mini-tour ===== */
+let onbStep = 0;
+const ONB_COIN = '<svg class="onb-logo" width="60" height="60" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" fill="#f5a623"/><circle cx="32" cy="32" r="28" fill="none" stroke="#b9760a" stroke-width="2"/><text x="32" y="43" text-anchor="middle" font-size="32" font-weight="800" fill="#7a4d06" font-family="system-ui,sans-serif">B</text></svg>';
+function onbStepIcon(kind) {
+  const w = (inner) => '<svg class="onb-step-ic" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+  if (kind === "plus") return w('<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>');
+  if (kind === "shield") return w('<path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2.2 2.2L15 10.5"/>');
+  return w('<rect x="3" y="4" width="18" height="15" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9.5" y1="19" x2="14.5" y2="19"/>');
+}
+function maybeStartOnboarding() {
+  if (localStorage.getItem("financas2026.onboarded") === "1") return;
+  if (!window.__eraSeedNovo) { localStorage.setItem("financas2026.onboarded", "1"); return; }  // retornante: não empurra
+  const o = $("#onboarding"); if (!o || !o.classList.contains("hidden")) return;
+  onbStep = 0; renderOnb(); o.classList.remove("hidden");
+  const f = o.querySelector("button"); if (f) try { f.focus(); } catch (e) {}
+}
+function wipeToZero(afterWipe, onCancel) {
+  const o = $("#onboarding"), body = $("#onbBody"); if (!o || !body) return;
+  body.innerHTML = '<h2 id="onbTitle">Começar do zero?</h2>'
+    + '<p class="onb-sub">Vou apagar os lançamentos de exemplo para você cadastrar os seus. Você pode restaurar o exemplo depois, em Configurações.</p>'
+    + '<button class="btn primary" id="onbWipe">Apagar exemplos</button>'
+    + '<button class="btn ghost" id="onbCancelWipe">Voltar</button>';
+  o.classList.remove("hidden");
+  $("#onbWipe").onclick = () => { DATA = emptyData(); localStorage.removeItem("financas2026.isSeed"); lastSnap = JSON.stringify(DATA); render(); toast("Tudo limpo. Pode começar a lançar."); afterWipe(); };
+  $("#onbCancelWipe").onclick = onCancel;
+}
+function renderOnb() {
+  const body = $("#onbBody"); if (!body) return;
+  if (onbStep === 0) {
+    body.innerHTML = ONB_COIN
+      + '<h2 id="onbTitle">MorbiusFin</h2>'
+      + '<p class="onb-sub">Suas finanças do mês, organizadas num só lugar — receitas, contas, cartão e gastos do dia.</p>'
+      + '<div class="onb-note" role="note"><span style="color:var(--accent);display:flex"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.7" fill="currentColor" stroke="none"/></svg></span><span>Os números que você vê agora são só um exemplo, para você conhecer o app. Nada aqui é seu ainda.</span></div>'
+      + '<button class="btn primary" id="onbZero">Começar do zero</button>'
+      + '<button class="btn ghost" id="onbExplore">Explorar com exemplos</button>'
+      + '<button class="onb-skip" id="onbSkip">Pular introdução</button>';
+    $("#onbZero").onclick = () => wipeToZero(() => { onbStep = 1; renderOnb(); }, () => { onbStep = 0; renderOnb(); });
+    $("#onbExplore").onclick = () => { onbStep = 1; renderOnb(); };
+    $("#onbSkip").onclick = () => finishOnboarding();
+    return;
+  }
+  const steps = [
+    { ic: "layout", t: "Tudo separado por aba", x: "Resumo mostra o mês inteiro. Receitas, Fixas, Cartão e Débito guardam cada tipo de lançamento." },
+    { ic: "plus", t: "Adicione com o +", x: "Toque no + para lançar uma receita, conta, compra no cartão ou gasto do dia. Ele se adapta à aba aberta." },
+    { ic: "shield", t: "Seus dados ficam no seu aparelho", x: "Por padrão, nada vai para a nuvem. Na engrenagem (Configurações) você faz backup do seu jeito." },
+  ];
+  const s = steps[onbStep - 1], last = onbStep === 3;
+  body.innerHTML = onbStepIcon(s.ic)
+    + '<div class="onb-tourtitle" id="onbTitle">' + s.t + '</div>'
+    + '<p class="onb-tourtext">' + s.x + '</p>'
+    + '<div class="onb-foot">'
+    +   '<button class="onb-skip" style="width:auto;padding:4px 2px" id="onbTourSkip">Pular</button>'
+    +   '<div class="onb-dots" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="' + onbStep + '" aria-label="Passo ' + onbStep + ' de 3">' + [1, 2, 3].map(i => '<i class="' + (i === onbStep ? "on" : "") + '"></i>').join("") + '</div>'
+    +   '<div class="onb-nav">' + (onbStep > 1 ? '<button class="btn ghost" id="onbBack">Voltar</button>' : '') + '<button class="btn primary" id="onbNext">' + (last ? "Começar" : "Próximo") + '</button></div>'
+    + '</div>';
+  $("#onbTourSkip").onclick = () => finishOnboarding();
+  const bk = $("#onbBack"); if (bk) bk.onclick = () => { onbStep--; renderOnb(); };
+  $("#onbNext").onclick = () => { if (last) finishOnboarding(); else { onbStep++; renderOnb(); } };
+}
+function finishOnboarding() {
+  localStorage.setItem("financas2026.onboarded", "1");
+  const o = $("#onboarding"); if (o) o.classList.add("hidden");
+  render();
+  toast("Pronto! Toque no + quando quiser lançar algo.");
+  const t = document.querySelector(".tab.active"); if (t) try { t.focus(); } catch (e) {}
+}
+function renderSeedBanner() {   // banner "dados de exemplo" no topo do conteúdo (modo Explorar)
+  if (localStorage.getItem("financas2026.isSeed") !== "1") return;
+  const v = $("#view"); if (!v || v.querySelector(".seed-banner")) return;
+  const sb = document.createElement("div");
+  sb.className = "seed-banner";
+  sb.innerHTML = '<span>Você está vendo <b>dados de exemplo</b>.</span><button class="sb-go" id="seedGo">Começar do zero</button>';
+  v.insertBefore(sb, v.firstChild);
+  const go = sb.querySelector("#seedGo");
+  if (go) go.onclick = () => wipeToZero(() => { const o = $("#onboarding"); if (o) o.classList.add("hidden"); }, () => { const o = $("#onboarding"); if (o) o.classList.add("hidden"); });
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { const o = $("#onboarding"); if (o && !o.classList.contains("hidden")) finishOnboarding(); } });
+
 async function boot() {
   applyTheme();
   applyConfigLink();
@@ -2192,7 +2284,8 @@ async function boot() {
   let parsed = null; try { parsed = raw ? JSON.parse(raw) : null; } catch (e) {}
   if (parsed && parsed.enc) { showLock(parsed); return; }   // bloqueado: exige PIN
   DATA = parsed ? migrate(parsed) : buildSeed();
-  if (!parsed) saveData(DATA);
+  window.__eraSeedNovo = !parsed;                 // 1ª vez (sem dados salvos) → decide o onboarding
+  if (!parsed) { saveData(DATA); localStorage.setItem("financas2026.isSeed", "1"); }
   startApp();
 }
 

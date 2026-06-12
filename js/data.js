@@ -116,3 +116,8 @@ function saveData(d) {
   }
 }
 function resetData() { const s = buildSeed(); saveData(s); return s; }
+/* "Começar do zero" — estado vazio (NÃO mexe no resetData, que recria o exemplo) */
+function emptyData() {
+  const d = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: { fixas: 0, cartao: 0, diaria: 0 }, cartoes: [] };
+  saveData(d); return d;
+}
