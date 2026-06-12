@@ -1,8 +1,8 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.21";
-const VERSION_NOTES = "🪙 Moeda de abertura agora gira em 3D de verdade — espessura real e borda dourada serrilhada";
+const APP_VERSION = "3.11.22";
+const VERSION_NOTES = "📌 Barra de menu não sobe mais ao rolar com o teclado aberto — fica fixa no fundo";
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -1959,21 +1959,46 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
   });
 })();
 
-/* ---------- Teclado aberto: a tabbar fica TRAVADA no fundo (position:fixed; bottom:0).
-   NÃO reposicionamos a barra de jeito nenhum — ela nunca sobe, nunca flutua, nunca treme,
-   independente de onde o usuário toque ou role. Enquanto digita, ela fica no lugar dela
-   (atrás do teclado, como toda barra de app) e reaparece intacta ao fechar.
-   A única coisa que muda no teclado é o FAB (+), que some — não faz sentido boiar sobre o teclado. ---------- */
+/* ---------- Teclado aberto: a tabbar fica ESCONDIDA atrás do teclado e TRAVADA no fundo —
+   NUNCA sobe ao rolar (escolha do Kaick). O bug do iOS: ao rolar com o teclado aberto, o
+   Safari "solta" os position:fixed e os reancora na VISUAL viewport → a barra sobe pra cima
+   do teclado e só volta no scroll-up/fechar. Contramedida: enquanto o teclado está aberto,
+   reancoramos a tabbar ao FUNDO REAL (layout viewport) a cada frame (rAF) + no scroll da vv,
+   empurrando-a pra baixo pela altura da faixa abaixo do visível (a região do teclado).
+   - Se o iOS mantém no fundo: o empurrão só a esconde mais (inofensivo).
+   - Se o iOS a "solta" pra cima: o empurrão a traz de volta pro fundo, exato.
+   Resultado: some atrás do teclado, role o quanto rolar, e reaparece ao fechar. FAB some junto. ---------- */
 (function keyboardAware() {
   const isField = (el) => el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) &&
     !/^(button|submit|checkbox|radio|range)$/i.test(el.type || "");
-  const setKbd = (on) => document.body.classList.toggle("kbd-open", !!on);
   const vv = window.visualViewport;
+  let raf = null, kbdOn = false;
+
+  const apply = () => {
+    const tb = document.querySelector(".tabbar");
+    if (tb && vv) {
+      // altura da faixa ABAIXO da área visível (≈ teclado) → empurra a barra pra lá = some no fundo
+      const below = Math.max(0, window.innerHeight - vv.offsetTop - vv.height);
+      tb.style.transform = `translateY(${below}px) translateZ(0)`;
+    }
+  };
+  const loop = () => { apply(); if (kbdOn) raf = requestAnimationFrame(loop); };  // re-trava todo frame
+  const resetBar = () => { const tb = document.querySelector(".tabbar"); if (tb) tb.style.transform = "translateZ(0)"; };
+
+  const setKbd = (on) => {
+    on = !!on;
+    if (on === kbdOn) return;
+    kbdOn = on;
+    document.body.classList.toggle("kbd-open", on);
+    if (on) { if (!raf) raf = requestAnimationFrame(loop); }
+    else { if (raf) cancelAnimationFrame(raf); raf = null; resetBar(); }
+  };
+
   if (vv) {
-    // detecta o teclado pela redução do viewport visível (só pra esconder o FAB)
     vv.addEventListener("resize", () => {
       setKbd((window.innerHeight - vv.height) > 140 && isField(document.activeElement));
     });
+    vv.addEventListener("scroll", () => { if (kbdOn) apply(); });  // reforço imediato ao rolar
   }
   // fallback por foco em campo de texto
   let blurT = null;
