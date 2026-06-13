@@ -76,7 +76,34 @@ function buildSeed() {
     { id: uid(), nome: "Nubank", last4: "7034", fechamento: 3, vencimento: 10 },
   ];
 
-  return { year: 2026, saldoInicial: 0, receitas, fixas, cartao, diaria, metas, cartoes };
+  const categorias = defaultCategorias();
+  const orcamento = { mercado: 800, alimentacao: 500, transporte: 300, lazer: 200, contas: 700, moradia: 1500 };
+
+  return { year: 2026, saldoInicial: 0, receitas, fixas, cartao, diaria, metas, cartoes, categorias, orcamento };
+}
+
+/* Categorias padrão — ids fixos (a chave do orçamento é estável entre seed/migrate). emoji + nome. */
+function defaultCategorias() {
+  return [
+    { id: "alimentacao", nome: "Alimentação", emoji: "🍽️" },
+    { id: "mercado", nome: "Mercado", emoji: "🛒" },
+    { id: "transporte", nome: "Transporte", emoji: "🚗" },
+    { id: "moradia", nome: "Moradia", emoji: "🏠" },
+    { id: "contas", nome: "Contas de casa", emoji: "💡" },
+    { id: "saude", nome: "Saúde", emoji: "💊" },
+    { id: "educacao", nome: "Educação", emoji: "📚" },
+    { id: "lazer", nome: "Lazer", emoji: "🎮" },
+    { id: "compras", nome: "Compras", emoji: "🛍️" },
+    { id: "roupas", nome: "Roupas", emoji: "👕" },
+    { id: "assinaturas", nome: "Assinaturas", emoji: "📺" },
+    { id: "pets", nome: "Pets", emoji: "🐶" },
+    { id: "beleza", nome: "Beleza", emoji: "💇" },
+    { id: "viagem", nome: "Viagem", emoji: "✈️" },
+    { id: "investimentos", nome: "Investimentos", emoji: "📈" },
+    { id: "presentes", nome: "Presentes", emoji: "🎁" },
+    { id: "trabalho", nome: "Trabalho", emoji: "💼" },
+    { id: "outros", nome: "Outros", emoji: "📦" },
+  ];
 }
 
 function rec(desc, tipo, dia, r)            { return { id: uid(), desc, tipo, dia: dia ?? null, vals: r.vals, sts: r.sts }; }
@@ -90,10 +117,12 @@ const STORE_KEY = "financas2026.v2";
 function migrate(d) {
   // garante campos novos em dados antigos
   d.metas = d.metas || { fixas: 0, cartao: 0, diaria: 0 };
-  d.cartoes = d.cartoes || [];   // cartões cadastrados: { id, nome, fechamento, vencimento }
-  (d.fixas || []).forEach(l => { if (l.aviso === undefined) l.aviso = null; if (l.meta === undefined) l.meta = null; if (l.nec === undefined) l.nec = false; });
-  (d.cartao || []).forEach(l => { if (l.cartao === undefined) l.cartao = ""; if (l.parcAtual === undefined) l.parcAtual = null; if (l.parcTotal === undefined) l.parcTotal = null; if (l.nec === undefined) l.nec = false; });
-  (d.diaria || []).forEach(l => { if (l.categoria === undefined) l.categoria = "Geral"; });
+  d.cartoes = d.cartoes || [];   // cartões cadastrados: { id, nome, last4, fechamento, vencimento }
+  d.categorias = (d.categorias && d.categorias.length) ? d.categorias : defaultCategorias();   // categorias com emoji
+  d.orcamento = d.orcamento || {};   // meta de orçamento por categoria: { catId: valor/mês }
+  (d.fixas || []).forEach(l => { if (l.aviso === undefined) l.aviso = null; if (l.meta === undefined) l.meta = null; if (l.nec === undefined) l.nec = false; if (l.catId === undefined) l.catId = null; });
+  (d.cartao || []).forEach(l => { if (l.cartao === undefined) l.cartao = ""; if (l.parcAtual === undefined) l.parcAtual = null; if (l.parcTotal === undefined) l.parcTotal = null; if (l.nec === undefined) l.nec = false; if (l.catId === undefined) l.catId = null; });
+  (d.diaria || []).forEach(l => { if (l.categoria === undefined) l.categoria = "Geral"; if (l.catId === undefined) l.catId = null; });
   (d.receitas || []).forEach(l => { if (l.tipo === undefined) l.tipo = "Ativa"; });
   return d;
 }
@@ -123,6 +152,6 @@ function saveData(d) {
 function resetData() { const s = buildSeed(); saveData(s); return s; }
 /* "Começar do zero" — estado vazio (NÃO mexe no resetData, que recria o exemplo) */
 function emptyData() {
-  const d = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: { fixas: 0, cartao: 0, diaria: 0 }, cartoes: [] };
+  const d = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: { fixas: 0, cartao: 0, diaria: 0 }, cartoes: [], categorias: defaultCategorias(), orcamento: {} };
   saveData(d); return d;
 }

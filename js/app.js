@@ -1,11 +1,21 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.37";
-const VERSION_NOTES = "💳 Compra no cartão repaginada: à vista/parcelado (até 60×), data única no calendário e cartão pelos 4 dígitos · fundo não rola mais atrás do modal · seleção não pula pro topo · abertura sem flash";
+const APP_VERSION = "3.11.38";
+const VERSION_NOTES = "🏷️ Categorias com emoji + meta de orçamento por categoria e gráfico Orçamento × Realizado";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.38",
+    bullets: [
+      "Categorias com emoji: 18 prontas + crie quantas quiser (menu ☰ → Categorias e orçamento)",
+      "Escolha o emoji de cada categoria num seletor com vários grupos",
+      "Meta de orçamento por categoria (R$/mês) — o total vira seu orçamento",
+      "Novo gráfico Orçamento × Realizado por categoria (verde = dentro, vermelho = estourou)",
+      "Escolha a categoria ao lançar em Fixas, Cartão e Débito",
+    ]
+  },
   {
     version: "3.11.37",
     bullets: [
@@ -970,6 +980,12 @@ function renderGraficos(host) {
   const ano = DATA.year + curYear();
   host.innerHTML = `
     <div class="section-card g-card fade-in">
+      <h3>🎯 Orçamento × Realizado — ${mLong(curMonth)}</h3>
+      <p class="hint" style="text-align:left;margin:-2px 0 8px">Defina as metas no menu ☰ → <b>Categorias e orçamento</b>. Verde = dentro da meta, vermelho = estourou.</p>
+      <div id="orcWrap" class="chart-wrap"></div>
+      <div class="g-detail" id="orcResumo"></div>
+    </div>
+    <div class="section-card g-card fade-in">
       <h3>💰 Saldo acumulado por mês — ${ano}</h3>
       <p class="hint" style="text-align:left;margin:-2px 0 8px">Simule uma compra aqui que a linha aparece <b>em cima do gráfico</b> — fica preciso se dá pra comprar.</p>
       <div class="g-sim">
@@ -999,6 +1015,7 @@ function renderGraficos(host) {
       <div class="g-insights" id="insRec"></div>
     </div>`;
   renderGCharts();
+  renderOrcRealChart(curMonth);
   bindGSim();
   const il = $("#insSaldo"); if (il) il.innerHTML = insightsSaldo();
   const id2 = $("#insDesp"); if (id2) id2.innerHTML = insightsDespesas();
@@ -1009,7 +1026,7 @@ function renderGraficos(host) {
 function renderGCharts() {
   if (typeof Chart === "undefined") return;
   applyChartTheme();
-  ["gSaldo", "gDesp", "gRec", "dough", "bar", "line", "sim", "sobra"].forEach(k => { if (charts[k]) { try { charts[k].destroy(); } catch (e) {} charts[k] = null; } });
+  ["gSaldo", "gDesp", "gRec", "dough", "bar", "line", "sim", "sobra", "orc"].forEach(k => { if (charts[k]) { try { charts[k].destroy(); } catch (e) {} charts[k] = null; } });
   const labels = Array.from({ length: 12 }, (_, i) => MESES_CURTO[i]);
   charts.gDesp = makeBarTrend("gDesp", labels, serieDesp(), "#e5484d", drillDesp);
   charts.gRec = makeBarTrend("gRec", labels, serieRec(), "#1db954", drillRec);
@@ -1450,7 +1467,9 @@ function renderDiaria(view) {
   Object.keys(cats).sort().forEach(cat => {
     const sub = cats[cat].reduce((s, x) => s + (Number(x.d.valor) || 0), 0);
     const itens = sortRows(cats[cat], listSort.diaria, getD);
-    html += `<div class="group-head">${esc(cat)} <span>${brl(sub)}</span></div><div class="list">${itens.map(({ d, idx }, gi) =>
+    const cobj = catList().find(x => x.nome.toLowerCase() === String(cat).toLowerCase());
+    const emo = cobj ? cobj.emoji + " " : "";
+    html += `<div class="group-head">${emo}${esc(cat)} <span>${brl(sub)}</span></div><div class="list">${itens.map(({ d, idx }, gi) =>
       `<div class="list-row" data-didx="${idx}" style="--i:${Math.min(gi, 16)}"><div class="desc"><div class="name">${esc(d.desc || "—")}</div>${(() => { const met = d.metodo === "pix" ? `<span class="met-pill pix">⚡ PIX</span>` : d.metodo === "debito" ? `<span class="met-pill debito">💳 Débito</span>` : ""; const dia = d.dia ? `dia ${d.dia}` : ""; return (met || dia) ? `<div class="sub">${[dia, met].filter(Boolean).join(" · ")}</div>` : ""; })()}</div><span class="amount">${brl(d.valor)}</span></div>`).join("")}</div>`;
   });
   view.innerHTML = html;
@@ -1497,6 +1516,30 @@ const empty = (msg) => `<div class="empty">${msg || "Nada lançado neste mês."}
 
 /* ---------- Cartões cadastrados (fechamento/vencimento) ---------- */
 function cardLabel(c) { return c ? (esc(c.nome || "Cartão") + (c.last4 ? ` •••• ${esc(c.last4)}` : "")) : ""; }
+
+/* ---------- Categorias (com emoji) ---------- */
+function catList() { return DATA.categorias || []; }
+function catById(id) { return id ? catList().find(c => c.id === id) : null; }
+function catFull(id) { const c = catById(id); return c ? `${c.emoji} ${esc(c.nome)}` : ""; }
+function catSelectHTML(selId) {
+  return `<option value="">📦 Sem categoria</option>` + catList().map(c =>
+    `<option value="${c.id}"${c.id === selId ? " selected" : ""}>${c.emoji} ${esc(c.nome)}</option>`).join("");
+}
+// resolve a categoria de um lançamento: catId direto, ou pelo nome antigo (diaria.categoria), senão nenhuma
+function entryCatId(l) {
+  if (l.catId) return l.catId;
+  if (l.categoria) { const c = catList().find(x => x.nome.toLowerCase() === String(l.categoria).toLowerCase()); if (c) return c.id; }
+  return null;
+}
+// soma o realizado do mês m por categoria (fixas + cartão + débito); chave "__none" = sem categoria
+function realizadoPorCategoria(m) {
+  const out = {};
+  const add = (id, v) => { if (!v) return; const k = id || "__none"; out[k] = (out[k] || 0) + v; };
+  (DATA.fixas || []).forEach(l => add(entryCatId(l), Number(l.vals && l.vals[m]) || 0));
+  (DATA.cartao || []).forEach(l => add(entryCatId(l), Number(l.vals && l.vals[m]) || 0));
+  (DATA.diaria || []).filter(d => d.mes === m).forEach(d => add(entryCatId(d), Number(d.valor) || 0));
+  return out;
+}
 function renderCardsSection() {
   const cs = DATA.cartoes || [];
   if (!cs.length) return "";                                   // cadastro agora é pelo + (toque no botão flutuante)
@@ -1559,6 +1602,7 @@ function openCartaoModal() {
     ${cs.length ? "" : `<p class="hint" style="text-align:left;margin-bottom:10px">💡 Cadastre seu cartão (com o dia do fechamento) em <b>Meus cartões</b> para as parcelas caírem no mês certo.</p>`}
     <label class="field"><span>Descrição</span><input id="f_desc" type="text" required placeholder="Ex.: Tênis" /></label>
     <label class="field"><span>Cartão</span><select id="f_card">${cardOpts}<option value="">Outro (sem cadastro)</option></select></label>
+    <label class="field"><span>Categoria</span><select id="f_catId" class="sel">${catSelectHTML(null)}</select></label>
     <div class="seg" id="f_seg" role="tablist">
       <button type="button" class="seg-btn active" data-pay="avista">À vista</button>
       <button type="button" class="seg-btn" data-pay="parc">Parcelado</button>
@@ -1592,7 +1636,8 @@ function openCartaoModal() {
     const paidUntil = realMesAbs();
     const nec = $("#f_nec") ? $("#f_nec").checked : false;
     const last = Math.max(start + n - 1, 11);
-    const line = { id: uid(), desc: $("#f_desc").value.trim(), cartao: card ? card.nome : "", parcAtual: 1, parcTotal: n > 1 ? n : null, dia: card ? card.vencimento : dia, nec, vals: Array(12).fill(0), sts: Array(12).fill("vazio") };
+    const catId = $("#f_catId") ? ($("#f_catId").value || null) : null;
+    const line = { id: uid(), desc: $("#f_desc").value.trim(), cartao: card ? card.nome : "", catId, parcAtual: 1, parcTotal: n > 1 ? n : null, dia: card ? card.vencimento : dia, nec, vals: Array(12).fill(0), sts: Array(12).fill("vazio") };
     ensureLen(line, last + 1);                                 // estende os meses se a última parcela passa de Dez/26
     for (let k = 0; k < n; k++) { const mo = start + k; if (mo < 0) continue; line.vals[mo] = valor; line.sts[mo] = mo <= paidUntil ? "pago" : "programado"; }
     DATA.cartao.push(line);
@@ -1643,9 +1688,11 @@ function openEntryModal(tab, idx) {
       <label class="field"><span>de (total)</span><input id="f_pt" type="number" min="1" value="${isNew || !l.parcTotal ? "" : l.parcTotal}" placeholder="--" /></label>
       <label class="field"><span>Cartão</span><input id="f_cartao" type="text" value="${isNew || !l.cartao ? "" : esc(l.cartao)}" placeholder="final" /></label></div>` + necCheck;
 
+  const catField = isReceita ? "" : `<label class="field"><span>Categoria</span><select id="f_catId" class="sel">${catSelectHTML(isNew ? null : l.catId)}</select></label>`;
   $("#entryForm").innerHTML = `
     <label class="field"><span>Descrição</span><input id="f_desc" type="text" value="${isNew ? "" : esc(l.desc)}" required placeholder="Ex.: ${isReceita ? "Salário" : "Aluguel"}" /></label>
     ${extra}
+    ${catField}
     <label class="field"><span id="f_valLbl">Valor (${mLong(curMonth)})</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : (l.vals[curMonth] || "")}" placeholder="0,00" /></label>
     <div class="field-row">
       <label class="field"><span>Mês${isNew ? " de início" : ""}</span><select id="f_mes" class="sel">${monthOptionsHTML(curMonth)}</select></label>
@@ -1687,7 +1734,7 @@ function openEntryModal(tab, idx) {
     if (isReceita) line.tipo = $("#f_tipo").value;
     if (tab === "fixas") { line.aviso = parseInt($("#f_aviso").value) || null; line.meta = parseFloat($("#f_meta").value) || null; }
     if (tab === "cartao") { line.parcAtual = parseInt($("#f_pa").value) || null; line.parcTotal = parseInt($("#f_pt").value) || null; line.cartao = $("#f_cartao").value.trim(); }
-    if (tab === "fixas" || tab === "cartao") { const ne = $("#f_nec"); line.nec = ne ? ne.checked : (line.nec || false); }
+    if (tab === "fixas" || tab === "cartao") { const ne = $("#f_nec"); line.nec = ne ? ne.checked : (line.nec || false); const ci = $("#f_catId"); if (ci) line.catId = ci.value || null; }
     if (all) {
       const q = Math.max(1, Math.min(120, parseInt($("#f_rep").value) || 12));
       ensureLen(line, bm + q);                                  // recorrência pode passar de Dez/26 → estende os meses
@@ -1778,8 +1825,7 @@ function openDiariaModal(idx, method) {
   $("#entryForm").innerHTML = `
     <div id="f_metTag" class="method-tag ${metodo}"><span class="mt-label">${metLabel(metodo)}</span><button type="button" id="f_metToggle" class="met-switch">trocar ⇄</button></div>
     <label class="field"><span>Descrição</span><input id="f_desc" type="text" value="${isNew ? "" : esc(d.desc)}" required placeholder="Ex.: Mercado" /></label>
-    <label class="field"><span>Categoria</span><input id="f_cat" type="text" list="catList" value="${isNew ? "" : esc(d.categoria || "")}" placeholder="Ex.: Alimentação" />
-      <datalist id="catList"><option>Alimentação</option><option>Transporte</option><option>Lazer</option><option>Saúde</option><option>Casa</option><option>Outros</option></datalist></label>
+    <label class="field"><span>Categoria</span><select id="f_catId" class="sel">${catSelectHTML(isNew ? null : entryCatId(d))}</select></label>
     <label class="field"><span>Valor (R$)</span><input id="f_val" type="number" step="0.01" inputmode="decimal" value="${isNew ? "" : d.valor}" placeholder="0,00" required /></label>
     <div class="field-row">
       <label class="field"><span>Mês</span><select id="f_mes" class="sel">${monthOptionsHTML(mesSel)}</select></label>
@@ -1799,7 +1845,8 @@ function openDiariaModal(idx, method) {
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
     const val = parseFloat($("#f_val").value) || 0, mes = +$("#f_mes").value;
-    const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, categoria: $("#f_cat").value.trim() || "Geral", metodo };
+    const catId = $("#f_catId") ? ($("#f_catId").value || null) : null;
+    const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, catId, categoria: catId ? (catById(catId).nome) : "Geral", metodo };
     if (isNew) DATA.diaria.push({ id: uid(), mes, ...o });
     else { Object.assign(d, o); d.mes = mes; }
     persist(); closeModal();
@@ -1808,6 +1855,118 @@ function openDiariaModal(idx, method) {
     else toast(`${isNew ? "Adicionado" : "Salvo"} em ${mLong(mes)} ✓`);
   };
   showModal("#modal");
+}
+
+/* ---------- Categorias e orçamento (gerenciador no menu) ---------- */
+function openCategoriasModal() { renderCatMgr(); showModal("#catModal"); }
+function catTotalHTML() {
+  const orc = DATA.orcamento || {};
+  const tot = catList().reduce((s, c) => s + (Number(orc[c.id]) || 0), 0);
+  return `Orçamento total: <b>${brl(tot)}</b> <i>/ mês</i>`;
+}
+function renderCatMgr() {
+  const wrap = $("#catMgrList"); if (!wrap) return;
+  const orc = DATA.orcamento || (DATA.orcamento = {});
+  wrap.innerHTML = catList().map(c => `
+    <div class="cat-mgr-row" data-cid="${c.id}">
+      <button type="button" class="cat-emoji-btn" data-emoji-for="${c.id}" aria-label="Trocar emoji">${c.emoji}</button>
+      <input class="cat-name-inp" data-name-for="${c.id}" type="text" value="${esc(c.nome)}" placeholder="Nome" />
+      <div class="cat-orc"><span>R$</span><input class="cat-orc-inp" data-orc-for="${c.id}" type="number" step="0.01" inputmode="decimal" value="${orc[c.id] || ""}" placeholder="0" /></div>
+      <button type="button" class="cat-del" data-del-for="${c.id}" aria-label="Excluir">🗑</button>
+    </div>`).join("");
+  const tEl = $("#catMgrTotal"); if (tEl) tEl.innerHTML = catTotalHTML();
+  $$(".cat-emoji-btn", wrap).forEach(b => b.onclick = () => openEmojiPicker(em => {
+    const c = catById(b.dataset.emojiFor); if (c) { c.emoji = em; b.textContent = em; persist(); }
+  }));
+  $$(".cat-name-inp", wrap).forEach(inp => inp.onchange = () => {
+    const c = catById(inp.dataset.nameFor); if (c) { c.nome = inp.value.trim() || c.nome; persist(); }
+  });
+  $$(".cat-orc-inp", wrap).forEach(inp => inp.onchange = () => {
+    const id = inp.dataset.orcFor, v = parseFloat(inp.value) || 0;
+    if (v > 0) orc[id] = v; else delete orc[id];
+    persist(); const tt = $("#catMgrTotal"); if (tt) tt.innerHTML = catTotalHTML();
+  });
+  $$(".cat-del", wrap).forEach(b => b.onclick = () => {
+    const id = b.dataset.delFor;
+    if (!confirm("Excluir esta categoria? Os lançamentos dela ficam sem categoria.")) return;
+    DATA.categorias = catList().filter(c => c.id !== id); delete orc[id];
+    [].concat(DATA.fixas || [], DATA.cartao || [], DATA.diaria || []).forEach(l => { if (l.catId === id) l.catId = null; });
+    persist(); renderCatMgr();
+  });
+}
+function addCategoria() {
+  const id = "c" + Date.now().toString(36);
+  DATA.categorias = catList().concat([{ id, nome: "Nova categoria", emoji: "🏷️" }]);
+  persist(); renderCatMgr();
+  const inp = document.querySelector(`.cat-name-inp[data-name-for="${id}"]`);
+  if (inp) { inp.focus(); inp.select(); inp.scrollIntoView({ block: "nearest" }); }
+}
+
+/* ---------- Seletor de emoji ---------- */
+const EMOJI_GROUPS = [
+  { name: "Dinheiro", emojis: ["💰","💵","💸","💳","🪙","🏦","📈","📉","💹","🧾","🏷️","🎯","💎","🤑","💲","🪪"] },
+  { name: "Comida", emojis: ["🍽️","🛒","🍕","🍔","🍟","🌭","🥪","🥗","🍜","🍣","🍱","🌮","🌯","🍞","🥐","🥖","🧀","🥩","🍗","🍳","🥦","🥕","🌽","🍅","🍎","🍌","🍇","🍓","🍰","🍫","🍿","☕","🍺","🍷","🥤","🧃"] },
+  { name: "Casa", emojis: ["🏠","🏡","🛋️","🛏️","🚿","🚽","💡","🔌","🧻","🧼","🧹","🧺","🪑","🚪","🔑","🪟","🧯","🌡️","📺","🛁"] },
+  { name: "Transporte", emojis: ["🚗","🚙","🚕","🛻","🏍️","🛵","🚲","🛴","🚌","🚇","🚆","✈️","⛽","🅿️","🛞","🔋","🚖","🛺"] },
+  { name: "Saúde", emojis: ["💊","💉","🩺","🏥","🦷","🧠","🩹","🧬","🩻","👓","🧴","🫀","🩼","🧯"] },
+  { name: "Lazer", emojis: ["🎮","🎬","🎵","🎤","🎧","🎸","🎲","🎯","🎳","🎟️","🏀","⚽","🏖️","🎢","🎨","📚","📷","🎫","🏕️","🎁"] },
+  { name: "Compras", emojis: ["🛍️","👕","👖","👗","👟","👞","🧥","🧢","👜","🎒","⌚","💄","💍","🕶️","🧦","🩳","👔","🥾"] },
+  { name: "Trabalho", emojis: ["💼","💻","🖥️","🖨️","📱","☎️","🖊️","📝","📅","📊","📎","🗂️","🏢","⚙️","🛠️","🔧"] },
+  { name: "Pets/Outros", emojis: ["🐶","🐱","🐟","🦴","🐾","🌱","🪴","🎓","✈️","🏨","🧳","🎂","🍼","👶","💇","💅","🧖","📦","🔁","❤️","⭐","🔥","✨","🧩"] },
+  { name: "Símbolos", emojis: ["⭐","✅","❌","❗","❓","➕","➖","✔️","🔴","🟢","🔵","🟡","🟣","🟠","⚫","⚪","🔶","🔷","🏁","🚩","🔒","🔓"] },
+];
+let _emojiCb = null, _emojiTab = 0;
+function openEmojiPicker(cb) {
+  _emojiCb = cb; _emojiTab = 0;
+  const tabs = $("#emojiTabs");
+  if (tabs) {
+    tabs.innerHTML = EMOJI_GROUPS.map((g, i) => `<button type="button" class="emoji-tab${i === 0 ? " active" : ""}" data-tab="${i}" title="${g.name}">${g.emojis[0]}</button>`).join("");
+    $$(".emoji-tab", tabs).forEach(b => b.onclick = () => { _emojiTab = +b.dataset.tab; $$(".emoji-tab", tabs).forEach(x => x.classList.toggle("active", x === b)); renderEmojiGrid(); });
+  }
+  renderEmojiGrid();
+  showModal("#emojiModal");
+}
+function renderEmojiGrid() {
+  const grid = $("#emojiGrid"); if (!grid) return;
+  const g = EMOJI_GROUPS[_emojiTab] || EMOJI_GROUPS[0];
+  grid.innerHTML = g.emojis.map(e => `<button type="button" class="emoji-cell">${e}</button>`).join("");
+  $$(".emoji-cell", grid).forEach(b => b.onclick = () => { const cb = _emojiCb; $("#emojiModal").classList.add("hidden"); if (cb) cb(b.textContent); });
+}
+
+/* ---------- Gráfico Orçamento × Realizado (por categoria, do mês) ---------- */
+function renderOrcRealChart(m) {
+  const host = $("#orcWrap"); if (!host) return;
+  if (charts.orc) { try { charts.orc.destroy(); } catch (e) {} charts.orc = null; }
+  const real = realizadoPorCategoria(m), orc = DATA.orcamento || {};
+  const rows = [];
+  catList().forEach(c => { const o = Number(orc[c.id]) || 0, r = Number(real[c.id]) || 0; if (o > 0 || r > 0) rows.push({ label: `${c.emoji} ${c.nome}`, o, r }); });
+  if (real.__none) rows.push({ label: "📦 Sem categoria", o: 0, r: real.__none });
+  rows.sort((a, b) => Math.max(b.o, b.r) - Math.max(a.o, a.r));
+  const top = rows.slice(0, 12);
+  const resumoEl = $("#orcResumo");
+  if (!top.length) {
+    host.style.height = ""; host.innerHTML = `<div class="empty">Defina metas no menu ☰ → <b>Categorias e orçamento</b> e classifique seus gastos por categoria.</div>`;
+    if (resumoEl) resumoEl.innerHTML = "";
+    return;
+  }
+  host.style.height = Math.max(150, top.length * 42 + 34) + "px";
+  host.innerHTML = `<canvas id="orcChart"></canvas>`;
+  if (typeof Chart === "undefined") return;
+  const ink = (getComputedStyle(document.documentElement).getPropertyValue("--ink") || "#1a1a1a").trim();
+  charts.orc = new Chart($("#orcChart"), {
+    type: "bar",
+    data: { labels: top.map(x => x.label), datasets: [
+      { label: "Orçamento", data: top.map(x => x.o), backgroundColor: "#9aa0a6aa", borderRadius: 5 },
+      { label: "Realizado", data: top.map(x => x.r), backgroundColor: top.map(x => (x.o > 0 && x.r > x.o) ? "#e5484d" : "#1db954"), borderRadius: 5 },
+    ] },
+    options: {
+      indexAxis: "y", responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: "top" }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${brl(ctx.parsed.x)}` } } },
+      scales: { x: { beginAtZero: true, ticks: { callback: v => "R$ " + (v >= 1000 ? (v / 1000) + "k" : v) } }, y: { ticks: { color: ink, font: { size: 12 } } } }
+    }
+  });
+  const totO = top.reduce((s, x) => s + x.o, 0), totR = top.reduce((s, x) => s + x.r, 0);
+  if (resumoEl) resumoEl.innerHTML = `<div class="orc-sum"><span>Orçado <b>${brl(totO)}</b></span><span>Realizado <b class="${(totO > 0 && totR > totO) ? "neg" : "pos"}">${brl(totR)}</b></span></div>`;
 }
 
 /* ---------- Infra ---------- */
@@ -1907,6 +2066,12 @@ $("#miExport").onclick = () => { closeMenu(); $("#btnExport").click(); };
 $("#miSync").onclick = () => { closeMenu(); if (syncCfg()) pullSync(true, null, true); else configurarSync(); };
 $("#miSim").onclick = () => { closeMenu(); curTab = "resumo"; resumoView = "graficos"; $$(".tab").forEach(x => x.classList.toggle("active", /Resumo/.test(x.textContent))); suppressNextAnim = true; window.scrollTo(0, 0); render(); };
 $("#miConfig").onclick = () => { closeMenu(); openSettings(); };
+{ const mc = $("#miCategorias"); if (mc) mc.onclick = () => { closeMenu(); openCategoriasModal(); }; }
+{ const x = $("#catClose"); if (x) x.onclick = () => $("#catModal").classList.add("hidden"); }
+{ const a = $("#catAdd"); if (a) a.onclick = addCategoria; }
+{ const cm = $("#catModal"); if (cm) cm.onclick = (e) => { if (e.target.id === "catModal") cm.classList.add("hidden"); }; }
+{ const x = $("#emojiClose"); if (x) x.onclick = () => $("#emojiModal").classList.add("hidden"); }
+{ const em = $("#emojiModal"); if (em) em.onclick = (e) => { if (e.target.id === "emojiModal") em.classList.add("hidden"); }; }
 $("#miAcesso").onclick = () => { closeMenu(); openAccessModal(); };   // dados reais (PIN) e modo teste (0000)
 $("#miTema").onclick = () => { cycleTheme(); };
 $("#miZero").onclick = () => { closeMenu(); wipeToZero(_onbHide, _onbHide); };
