@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.47";
-const VERSION_NOTES = "🧠 Simulador mais claro: diz EM QUE MÊS dá pra comprar (sem jargão) · texto mais legível no tema claro · Orçado/Realizado alinhado";
+const APP_VERSION = "3.11.48";
+const VERSION_NOTES = "💧 'Orçado / Realizado' virou uma caixinha com respiro — não cola mais na margem";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.48",
+    bullets: [
+      "'Orçado / Realizado' agora é uma caixinha com espaçamento — não fica mais grudado na borda do card",
+    ]
+  },
   {
     version: "3.11.47",
     bullets: [

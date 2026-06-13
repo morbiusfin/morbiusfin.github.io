@@ -624,8 +624,10 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
 .cat-name-inp:focus, .cat-orc:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
 .cat-del { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 10px; border: 0; background: transparent; color: var(--muted); font-size: 17px; cursor: pointer; }
 .cat-del:active { transform: scale(.9); }
-/* alinhado com a margem do card (o pai .g-detail já dá 16px laterais) + separador discreto no topo */
-.orc-sum { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0 4px; margin-top: 4px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+/* caixinha própria com respiro interno (não cola na margem do card) */
+.orc-sum { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  margin: 6px 0 14px; padding: 13px 16px; background: var(--card-2); border: 1px solid var(--line);
+  border-radius: 13px; font-size: 14px; color: var(--muted); }
 .orc-sum b { font-size: 16px; color: var(--ink); }
 
 /* ===== Seletor de emoji (estilo WhatsApp) ===== */
