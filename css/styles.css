@@ -69,7 +69,8 @@ body {
   background:
     radial-gradient(900px 520px at 100% -8%, rgba(21,194,102,.10), transparent 58%),
     radial-gradient(800px 500px at -10% 102%, rgba(18,115,77,.08), transparent 55%),
-    linear-gradient(180deg, var(--bg-grad-1), var(--bg-grad-2));
+    linear-gradient(180deg, var(--bg-grad-1) 0%, var(--bg-grad-2) 78%, var(--card) 100%);
+  background-color: var(--card);   /* base sólida = cor da tabbar; o rodapé do fundo termina nessa cor (sem faixa) */
   background-attachment: fixed;
   color: var(--ink);
   padding-bottom: calc(82px + var(--safe-bottom));
@@ -79,6 +80,15 @@ body {
 }
 .transitions, body, .section-card, .kpi, .list, .flow-card, .modal-card, .tabbar, .alert-banner, .ver-banner {
   transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease;
+}
+/* PREENCHEDOR da área do home indicator (iPhone): pinta essa faixa com a cor EXATA da tabbar,
+   por cima do fundo do body. Mata a faixa que aparecia mais escura no rodapé. Fica atrás da
+   tabbar (z-45) e dos modais; some sob o splash/lock (que cobrem tudo). */
+body::after {
+  content: ""; position: fixed; left: 0; right: 0; bottom: 0;
+  height: var(--safe-bottom); background: var(--card);
+  z-index: 44; pointer-events: none;
+  transition: background-color .35s ease;
 }
 
 /* tabular numbers nos valores monetários */

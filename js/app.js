@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.45";
-const VERSION_NOTES = "📲 Corrigido no celular: dentro de Categorias/janelas, arrastar pra cima rola normal (não dispara mais o 'atualizar app') e os campos não dão zoom";
+const APP_VERSION = "3.11.46";
+const VERSION_NOTES = "📱 Faixa no rodapé do iPhone: agora o fundo todo termina na cor da barra de baixo — a faixa some de vez";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.46",
+    bullets: [
+      "Faixa no rodapé (área do indicador do iPhone): o fundo do app, a base e um preenchedor passaram a usar exatamente a cor da barra de baixo — a faixa some",
+    ]
+  },
   {
     version: "3.11.45",
     bullets: [
