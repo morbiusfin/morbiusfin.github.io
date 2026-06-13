@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.59";
-const VERSION_NOTES = "💡 Insights e Leitura do mês viraram uma opção no topo (em azul, pulsando pra chamar atenção) · o botão ✨ de atualização agora pulsa mais forte";
+const APP_VERSION = "3.11.60";
+const VERSION_NOTES = "⭕ Carregamento do splash agora é em círculo (spinner) e sai por completo ANTES de o app abrir — sem encavalar com a abertura";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.60",
+    bullets: [
+      "O carregamento da abertura virou um círculo girando (spinner), no lugar da barrinha",
+      "O spinner some por completo ANTES de o app ser revelado — não encavala mais com a abertura",
+    ]
+  },
   {
     version: "3.11.59",
     bullets: [
@@ -2834,10 +2841,15 @@ function hideSplash() {
   const sp = document.getElementById("splash");
   // mantém tabbar/+ escondidos ATÉ o splash sumir de vez (senão a tabbar reaparece no meio da
   // revelação e "pisca" uma faixa no rodapé no iOS, por causa da camada de GPU dela).
-  if (sp && !sp.classList.contains("reveal")) {
-    sp.classList.add("reveal");
-    setTimeout(() => { try { sp.remove(); } catch (e) {} document.body.classList.remove("splash-on"); maybeStartOnboarding(); }, 1050);
-  } else { document.body.classList.remove("splash-on"); maybeStartOnboarding(); }
+  if (sp && !sp.classList.contains("reveal") && !sp.classList.contains("loading-out")) {
+    // 1) o spinner SAI primeiro (esvaece/encolhe) — sincronizado pra NÃO encavalar com a abertura
+    sp.classList.add("loading-out");
+    // 2) só com o spinner já fora, revela o app (cortina do bg desce)
+    setTimeout(() => {
+      sp.classList.add("reveal");
+      setTimeout(() => { try { sp.remove(); } catch (e) {} document.body.classList.remove("splash-on"); maybeStartOnboarding(); }, 1050);
+    }, 320);
+  } else if (!sp) { document.body.classList.remove("splash-on"); maybeStartOnboarding(); }
 }
 // rede de segurança: nunca deixar o splash preso
 window.addEventListener("load", () => setTimeout(hideSplash, 4000));
