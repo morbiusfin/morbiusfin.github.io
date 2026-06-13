@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.57";
-const VERSION_NOTES = "✨ Abertura após a senha mais bonita: anel de progresso (pré-carga), cadeado destravando com estalo + flash de luz e as portas abrindo · barra de loading no splash";
+const APP_VERSION = "3.11.58";
+const VERSION_NOTES = "🔧 Aviso de contas: trava o fundo na hora que aparece (não mexe mais na tela por trás no celular) · desbloqueio: a pré-carga termina por completo antes da cortina abrir (sem vazar)";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.58",
+    bullets: [
+      "Aviso de 'Contas a vencer': ao abrir, trava o fundo na hora — não dá mais pra rolar/puxar a tela por trás dele no celular",
+      "Desbloqueio: o anel de progresso e o cadeado somem por completo ANTES de as portas abrirem (os efeitos não vazam mais pra cortina)",
+    ]
+  },
   {
     version: "3.11.57",
     bullets: [
@@ -508,6 +515,7 @@ function showBillAlert(conta) {
       <div class="al-desc">${esc(conta.desc)}</div>
       <div class="al-sub">dia ${conta.venc} ${vencBadgeHTML(conta.daysLeft)}</div>
     </div>`;
+  try { lockScroll(); } catch (e) {}                       // trava o fundo NA HORA (popup aparece sozinho 5s depois; sem isso o iOS "pula"/rola a tela atrás)
   modal.classList.remove("hidden", "closing");
   modal.classList.add("center");                           // pop-up no MEIO da tela (não mais embaixo)
   $("#alertOk").onclick = closeBillAlert;
@@ -2542,15 +2550,17 @@ function playUnlock(after) {
     return;
   }
   const preMs = 1050;                   // anel preenche ~1s = tempo pro app/gráficos assentarem
-  // 1) destrava: cadeado abre com estalo + flash de luz
+  // 1) destrava: cadeado abre com estalo + flash de luz (anel/texto somem)
   setTimeout(() => {
     const lk = ov.querySelector(".ur-lock"); if (lk) lk.textContent = "🔓";
-    ov.classList.remove("loading"); ov.classList.add("unlocked");   // pop do cadeado + burst de glow + some spinner/anel/texto
+    ov.classList.remove("loading"); ov.classList.add("unlocked");   // pop do cadeado + burst de glow
   }, preMs);
-  // 2) abre as portas (depois do estalo)
-  setTimeout(() => ov.classList.add("go"), preMs + 320);
-  // 3) remove a cortina ao terminar
-  setTimeout(finish, preMs + 320 + 760);
+  // 2) a PRÉ-CARGA acaba: o centro inteiro (cadeado/nome) some POR COMPLETO — nada vaza pra cortina
+  setTimeout(() => ov.classList.add("cleared"), preMs + 560);
+  // 3) SÓ COM O CENTRO JÁ SUMIDO (.34s de fade), abre as portas
+  setTimeout(() => ov.classList.add("go"), preMs + 560 + 380);
+  // 4) remove a cortina ao terminar
+  setTimeout(finish, preMs + 560 + 380 + 800);
 }
 
 /* ===== Conta e acesso: dados reais protegidos (PIN 4 díg) + modo teste (0000) ===== */

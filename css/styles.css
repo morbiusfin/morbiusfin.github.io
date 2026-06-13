@@ -341,7 +341,7 @@ body.lock-on .tabbar, body.lock-on #fab { visibility: hidden; }
 @keyframes urBurst { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(2.4); } }
 /* centro: anel de progresso + cadeado + nome + texto */
 .unlock-reveal .ur-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2;
-  display: flex; flex-direction: column; align-items: center; gap: 12px; transition: opacity .4s ease, transform .5s ease; }
+  display: flex; flex-direction: column; align-items: center; gap: 12px; transition: opacity .34s ease, transform .4s ease; }
 .unlock-reveal .ur-ring { position: relative; width: 92px; height: 92px; }
 .unlock-reveal .ur-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .unlock-reveal .ur-ring-bg { fill: none; stroke: rgba(255,255,255,.16); stroke-width: 5; }
@@ -357,7 +357,9 @@ body.lock-on .tabbar, body.lock-on #fab { visibility: hidden; }
 .unlock-reveal.unlocked .ur-ring-fg { opacity: 0; transition: opacity .25s ease; }
 .unlock-reveal.unlocked .ur-ring-bg { opacity: 0; transition: opacity .25s ease; }
 .unlock-reveal.unlocked .ur-txt { opacity: 0; transition: opacity .2s ease; }
-/* ao abrir as portas: o centro esvaece e sobe de leve */
+/* o centro (anel/cadeado/nome) some POR COMPLETO antes de a cortina abrir — sem vazar */
+.unlock-reveal.cleared .ur-center { opacity: 0; transform: translate(-50%, -60%) scale(.95); }
+.unlock-reveal.cleared .ur-burst { opacity: 0; transition: opacity .25s ease; }
 .unlock-reveal.go .ur-center { opacity: 0; transform: translate(-50%, -64%) scale(.92); }
 .unlock-reveal.nofx .ur-half { transition: none; }
 @keyframes urFill { to { stroke-dashoffset: 0; } }
@@ -615,12 +617,13 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
 
 /* ===== MODAL ===== */
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; display: flex; align-items: flex-end; justify-content: center;
-  backdrop-filter: blur(2px); animation: fadeInUp .2s ease both; }
+  backdrop-filter: blur(2px); animation: fadeInUp .2s ease both;
+  touch-action: none; overscroll-behavior: none; }   /* o fundo (backdrop) NÃO rola/PTR a tela por trás (iOS) */
 .modal.hidden { display: none; }
 .modal-card { background: var(--card); color: var(--ink); width: 100%; max-width: 520px; border-radius: 22px 22px 0 0;
   padding: 22px 18px calc(20px + var(--safe-bottom)); max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg);
   border: 1px solid var(--line); border-bottom: 0; animation: slideUp .26s cubic-bezier(.2,.8,.2,1);
-  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }   /* contain → não "prende" o scroll no body travado (iOS) */
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }   /* contain → não "prende" o scroll no body travado (iOS); pan-y → o card rola por dentro */
 
 /* Modais altos (Categorias, Emoji): cabeçalho FIXO (título + ✕ sempre visíveis) e só o corpo rola */
 .modal-card.sheet-tall { display: flex; flex-direction: column; overflow: hidden; padding-top: 24px; }
