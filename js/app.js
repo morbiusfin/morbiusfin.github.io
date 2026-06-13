@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.54";
-const VERSION_NOTES = "📱 Rodapé em tela cheia de verdade: a barra de baixo encosta na base e preenche tudo (sem faixa), em qualquer aparelho (iPhone e Android)";
+const APP_VERSION = "3.11.55";
+const VERSION_NOTES = "📲 Se a faixa no rodapé ainda aparece, o app agora detecta e mostra o passo pra ativar a tela cheia (recriar o ícone)";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.55",
+    bullets: [
+      "A faixa no rodapé que sobra em alguns iPhones é da área reservada do iOS quando o app não está em tela cheia",
+      "O app agora detecta isso sozinho e mostra o passo a passo pra ativar a tela cheia (recriar o ícone na tela de início)",
+      "Atualizar pelo ✨ não resolve esse caso — só recriar o ícone; o app explica como, sem risco (modo teste)",
+    ]
+  },
   {
     version: "3.11.54",
     bullets: [
@@ -2736,6 +2744,7 @@ function startApp() {
   render();
   if (curTab === "resumo" && !annual) renderCharts();
   checkAndNotify(); checkVersion();
+  setTimeout(checkFullscreen, 3200);   // detecta install antigo (sem tela cheia → faixa no rodapé) e orienta a reinstalar
   const t0 = Date.now();
   // Splash curto (só o nome): mostra ~2,2s e revela o app; o sync continua por trás.
   const fecharSplash = (min) => { const espera = Math.max(0, min - (Date.now() - t0)); setTimeout(hideSplash, espera); };
@@ -2763,6 +2772,44 @@ function hideSplash() {
 }
 // rede de segurança: nunca deixar o splash preso
 window.addEventListener("load", () => setTimeout(hideSplash, 4000));
+
+/* ---------- Detecta install ANTIGO (sem tela cheia) → a faixa do rodapé que o CSS não pinta ----------
+   Num PWA iOS em tela cheia, env(safe-area-inset-bottom) ~34px. Se está como app instalado (standalone),
+   num iPhone alto, e esse inset volta 0 → o ícone foi criado antes do modo tela-cheia → orienta reinstalar. */
+function checkFullscreen() {
+  try {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || "");
+    const standalone = ("standalone" in navigator) && navigator.standalone;
+    if (!isIOS || !standalone) return;                  // só no app instalado no iOS
+    if (localStorage.getItem("financas2026.fsHintOk")) return;
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;left:0;bottom:0;width:1px;height:env(safe-area-inset-bottom,0px);opacity:0;pointer-events:none;";
+    document.body.appendChild(probe);
+    const sb = probe.getBoundingClientRect().height; probe.remove();
+    const tall = !!(window.screen && window.screen.height >= 780);   // iPhone moderno (tem indicador de home)
+    if (sb < 2 && tall) showFullscreenHint();
+  } catch (e) {}
+}
+function showFullscreenHint() {
+  if (document.getElementById("fsHint")) return;
+  const el = document.createElement("div");
+  el.id = "fsHint"; el.className = "fs-hint";
+  el.innerHTML = `<div class="fs-hint-card">
+      <div class="fs-hint-emoji">📲</div>
+      <h2>Ative a tela cheia</h2>
+      <p>O ícone do MorbiusFin na sua tela de início é de uma <b>versão antiga</b> e por isso deixa aquela <b>faixa no rodapé</b>. Atualizar pelo ✨ não resolve isso — precisa <b>recriar o ícone</b> (rapidinho, sem perder nada):</p>
+      <ol>
+        <li>Segure o ícone do app → <b>Remover</b> → Remover da Tela de Início.</li>
+        <li>Abra no <b>Safari</b>: kaickjrx.github.io/financas</li>
+        <li>Toque em <b>Compartilhar</b> ⬆️ → <b>Adicionar à Tela de Início</b>.</li>
+        <li>Abra pelo <b>novo ícone</b> — a faixa some (tela cheia).</li>
+      </ol>
+      <p class="fs-hint-safe">💡 Faça no <b>modo teste (código 8040)</b> pra ter zero risco com seus dados.</p>
+      <button id="fsHintOk" class="btn primary">Entendi</button>
+    </div>`;
+  document.body.appendChild(el);
+  el.querySelector("#fsHintOk").onclick = () => { try { localStorage.setItem("financas2026.fsHintOk", "1"); } catch (e) {} el.remove(); };
+}
 
 /* ---------- Fundo: chuva de números/cifras (estilo Matrix, sutil) ---------- */
 (function rainFX() {

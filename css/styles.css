@@ -341,6 +341,21 @@ body.lock-on .tabbar, body.lock-on #fab { visibility: hidden; }
 .unlock-reveal.go .ur-lock { transform: translate(190%, -50%) scale(.7) rotate(8deg); opacity: 0; }
 @keyframes urPop { 0% { transform: translate(-50%,-50%) scale(.5); opacity: 0; } 60% { transform: translate(-50%,-50%) scale(1.18); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .unlock-reveal { display: none; } }
+
+/* ===== Aviso "ative a tela cheia" (install antigo no iOS) ===== */
+.fs-hint { position: fixed; inset: 0; z-index: 1600; background: rgba(0,0,0,.5); backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeInUp .25s ease both; }
+.fs-hint-card { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 20px;
+  width: 100%; max-width: 384px; padding: 22px 20px calc(20px + var(--safe-bottom)); box-shadow: var(--shadow-lg);
+  text-align: left; max-height: 88vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.fs-hint-emoji { font-size: 40px; text-align: center; }
+.fs-hint-card h2 { margin: 6px 0 12px; font-size: 19px; font-weight: 800; text-align: center; }
+.fs-hint-card p { font-size: 14px; line-height: 1.55; color: var(--ink); margin: 0 0 12px; }
+.fs-hint-card ol { margin: 0 0 12px; padding-left: 20px; }
+.fs-hint-card ol li { font-size: 14px; line-height: 1.6; margin-bottom: 7px; color: var(--ink); }
+.fs-hint-card b { font-weight: 800; }
+.fs-hint-safe { background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 13px !important; }
+.fs-hint-card .btn { width: 100%; margin-top: 4px; }
 .lock-box { background: var(--card); color: var(--ink); border-radius: 22px; padding: 30px 22px; width: 100%; max-width: 340px;
   text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,.4); animation: popIn .3s ease both; }
 .lock-emoji { font-size: 46px; }
