@@ -1,11 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.38";
-const VERSION_NOTES = "🏷️ Categorias com emoji + meta de orçamento por categoria e gráfico Orçamento × Realizado";
+const APP_VERSION = "3.11.39";
+const VERSION_NOTES = "🔓 Tela de código abre com animação (cadeado abrindo + tela se dividindo) · pop-up de contas no meio da tela · gráfico sem fatia vazia";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.39",
+    bullets: [
+      "Ao entrar com o código: o cadeado abre e a tela se divide no meio (animação)",
+      "Tela de código ocupa a tela inteira — sem a faixa no rodapé",
+      "Aviso de contas a vencer agora aparece no MEIO da tela (não mais embaixo)",
+      "Gráfico de composição só mostra o que tem valor (sem fatia/legenda vazia)",
+    ]
+  },
   {
     version: "3.11.38",
     bullets: [
@@ -358,7 +367,8 @@ function showBillAlert(conta) {
       <div class="al-desc">${esc(conta.desc)}</div>
       <div class="al-sub">dia ${conta.venc} ${vencBadgeHTML(conta.daysLeft)}</div>
     </div>`;
-  modal.classList.remove("hidden", "closing", "center");   // painel que sobe de baixo (meia-tela), não centralizado
+  modal.classList.remove("hidden", "closing");
+  modal.classList.add("center");                           // pop-up no MEIO da tela (não mais embaixo)
   $("#alertOk").onclick = closeBillAlert;
   $("#alertVer").onclick = () => { closeBillAlert(); focarVencimentos(); };
   const x = $("#alertClose"); if (x) x.onclick = closeBillAlert;
@@ -864,15 +874,20 @@ function renderCharts() {
   const m = curMonth;
   const dough = $("#doughChart");
   if (dough) {
-    const comp = [fixasMes(m), cartaoMes(m), diariaMes(m)];
-    const tc = comp.reduce((a, b) => a + b, 0);
+    // só entram no gráfico (e na legenda) as fatias COM valor > 0
+    const parts = [
+      { name: "Despesas Fixas", val: fixasMes(m), color: "#0b3d2e" },
+      { name: "Cartão Mercado Pago", val: cartaoMes(m), color: "#15c266" },
+      { name: "Débitos Dia a Dia", val: diariaMes(m), color: "#f5a623" },
+    ].filter(p => p.val > 0);
+    const tc = parts.reduce((s, p) => s + p.val, 0);
     charts.dough = new Chart(dough, { type: "doughnut",
-      data: { labels: ["Despesas Fixas", "Cartão Mercado Pago", "Débitos Dia a Dia"],
-        datasets: [{ data: tc ? comp : [1, 0, 0], backgroundColor: ["#0b3d2e", "#15c266", "#f5a623"],
+      data: { labels: tc ? parts.map(p => p.name) : ["Sem despesas"],
+        datasets: [{ data: tc ? parts.map(p => p.val) : [1], backgroundColor: tc ? parts.map(p => p.color) : ["#2a3a33"],
           borderWidth: 0, borderRadius: tc ? 14 : 0, spacing: tc ? 3 : 0, hoverOffset: 7 }] },
       options: { responsive: true, maintainAspectRatio: false, cutout: "72%", layout: { padding: 6 },
-        plugins: { legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true, pointStyle: "circle", font: { size: 11 }, padding: 14 } },
-          tooltip: { callbacks: { label: c => `${c.label}: ${brl(c.raw)} (${tc ? (c.raw / tc * 100).toFixed(1) : 0}%)` } } } } });
+        plugins: { legend: { display: tc > 0, position: "bottom", labels: { boxWidth: 12, usePointStyle: true, pointStyle: "circle", font: { size: 11 }, padding: 14 } },
+          tooltip: { enabled: tc > 0, callbacks: { label: c => `${c.label}: ${brl(c.raw)} (${tc ? (c.raw / tc * 100).toFixed(1) : 0}%)` } } } } });
   }
   const base = curYear() * 12;                       // gráficos do ANO selecionado (12 meses)
   const labelsH = Array.from({ length: 12 }, (_, i) => MESES_CURTO[i]);
@@ -2264,15 +2279,17 @@ function removerPin() {
   localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
   toast("PIN removido"); renderNotifBtn();
 }
+const TEST_CODE = "8040";   // código do modo teste (privado — sem dica na tela)
 function showLock(env) {
   const ls = $("#lockScreen"); ls.classList.remove("hidden");
+  document.body.classList.add("lock-on");                       // esconde tabbar/+ atrás do lock (sem faixa no rodapé)
   const pin = $("#lockPin"), msg = $("#lockMsg");
   const ttl = $("#lockTitle"); if (ttl) ttl.textContent = "Digite seu código";
-  const hint = $("#lockHint"); if (hint) hint.textContent = "Código 0000 abre o modo teste (dados fictícios).";
+  const hint = $("#lockHint"); if (hint) hint.textContent = "";   // sem aviso revelando o código
   pin.value = ""; msg.textContent = ""; setTimeout(() => pin.focus(), 100);
   const submit = async () => {
     if (!pin.value) return;
-    if (pin.value === "0000") { loadTestProfile(); return; }   // 0000 = modo teste (fictício)
+    if (pin.value === TEST_CODE) { playUnlock(loadTestProfile); return; }   // código reservado = modo teste (fictício)
     msg.textContent = "verificando…";
     try {
       const k = await deriveKey(pin.value, env.salt);
@@ -2280,11 +2297,30 @@ function showLock(env) {
       window.CRYPTO_KEY = k; DATA = migrate(obj);
       localStorage.setItem("financas2026.profile", "real");
       document.body.classList.remove("test-mode");
-      ls.classList.add("hidden"); startApp();
+      playUnlock(startApp);
     } catch (e) { msg.textContent = "código incorreto"; pin.value = ""; pin.focus(); }
   };
   $("#lockBtn").onclick = submit;
   pin.onkeydown = (e) => { if (e.key === "Enter") submit(); };
+}
+// Animação de desbloqueio: cadeado abre → a tela "abre no meio" (duas metades se separam) → cadeado esmaece pra direita.
+function playUnlock(after) {
+  document.body.classList.remove("lock-on", "splash-on");      // libera tabbar/+ (não fica escondida após desbloquear)
+  const sp = document.getElementById("splash"); if (sp) sp.remove();   // splash não interfere mais no fluxo do lock
+  const ls = $("#lockScreen");
+  const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) { if (ls) ls.classList.add("hidden"); after(); return; }
+  const ov = document.createElement("div");
+  ov.id = "unlockReveal"; ov.className = "unlock-reveal";
+  ov.innerHTML = '<div class="ur-half ur-left"></div><div class="ur-half ur-right"></div><div class="ur-lock">🔒</div>';
+  document.body.appendChild(ov);
+  if (ls) ls.classList.add("hidden");   // some o lock; a cortina (mesmo verde) cobre tudo
+  after();                              // monta o app POR TRÁS da cortina
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const lk = ov.querySelector(".ur-lock"); if (lk) lk.textContent = "🔓";   // cadeado abre
+    ov.classList.add("go");                                                    // metades separam + cadeado some p/ direita
+  }));
+  setTimeout(() => { try { ov.remove(); } catch (e) {} }, 1150);
 }
 
 /* ===== Conta e acesso: dados reais protegidos (PIN 4 díg) + modo teste (0000) ===== */
@@ -2339,7 +2375,7 @@ function autoBackup() {
 async function protectWithPin() {
   const p1 = ($("#accPin") || {}).value || "", p2 = ($("#accPin2") || {}).value || "";
   if (!/^\d{4}$/.test(p1)) { toast("Use exatamente 4 dígitos numéricos"); return; }
-  if (p1 === "0000") { toast("0000 é reservado pro modo teste — escolha outro"); return; }
+  if (p1 === TEST_CODE) { toast("Esse código é reservado — escolha outro"); return; }
   if (p1 !== p2) { toast("Os PINs não conferem"); return; }
   autoBackup();                                   // backup ANTES de criptografar
   window.CRYPTO_KEY = await deriveKey(p1);

@@ -296,7 +296,28 @@ body:has(#fab:not(.hidden)) main { padding-bottom: 104px; }
 /* ===== Tela de bloqueio (PIN) ===== */
 .lock { position: fixed; inset: 0; z-index: 1000;
   background: linear-gradient(160deg, #0b3d2e 0%, #12734d 100%);
-  display: flex; align-items: center; justify-content: center; padding: 24px; }
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  /* camada de GPU própria → compõe acima da tabbar (que tem translateZ(0)); sem faixa no rodapé */
+  transform: translateZ(0); -webkit-transform: translateZ(0); }
+/* enquanto a tela de código está aberta, esconde tabbar e + (tela cheia, sem faixa no fim) */
+body.lock-on .tabbar, body.lock-on #fab { visibility: hidden; }
+
+/* ===== Animação de desbloqueio: cadeado abre + a tela se divide no meio + cadeado some p/ direita ===== */
+.unlock-reveal { position: fixed; inset: 0; z-index: 1500; pointer-events: none; overflow: hidden;
+  transform: translateZ(0); -webkit-transform: translateZ(0); }
+.unlock-reveal .ur-half { position: absolute; top: 0; bottom: 0; width: 50.5%;
+  background: linear-gradient(160deg, #0b3d2e 0%, #12734d 100%);
+  transition: transform .72s cubic-bezier(.7,0,.2,1); }
+.unlock-reveal .ur-left { left: 0; }
+.unlock-reveal .ur-right { right: 0; }
+.unlock-reveal.go .ur-left { transform: translateX(-100%); }
+.unlock-reveal.go .ur-right { transform: translateX(100%); }
+.unlock-reveal .ur-lock { position: absolute; top: 50%; left: 50%; font-size: 66px; z-index: 2;
+  transform: translate(-50%, -50%); animation: urPop .42s cubic-bezier(.34,1.56,.64,1) both;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.45)); transition: transform .6s ease .12s, opacity .55s ease .12s; }
+.unlock-reveal.go .ur-lock { transform: translate(190%, -50%) scale(.7) rotate(8deg); opacity: 0; }
+@keyframes urPop { 0% { transform: translate(-50%,-50%) scale(.5); opacity: 0; } 60% { transform: translate(-50%,-50%) scale(1.18); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .unlock-reveal { display: none; } }
 .lock-box { background: var(--card); color: var(--ink); border-radius: 22px; padding: 30px 22px; width: 100%; max-width: 340px;
   text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,.4); animation: popIn .3s ease both; }
 .lock-emoji { font-size: 46px; }
