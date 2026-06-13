@@ -1,11 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.58";
-const VERSION_NOTES = "🔧 Aviso de contas: trava o fundo na hora que aparece (não mexe mais na tela por trás no celular) · desbloqueio: a pré-carga termina por completo antes da cortina abrir (sem vazar)";
+const APP_VERSION = "3.11.59";
+const VERSION_NOTES = "💡 Insights e Leitura do mês viraram uma opção no topo (em azul, pulsando pra chamar atenção) · o botão ✨ de atualização agora pulsa mais forte";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.59",
+    bullets: [
+      "Insights e Leitura do mês agora ficam numa opção no topo do Resumo (📋 Resumo · 📊 Gráficos · 💡 Insights), em azul",
+      "O botão 💡 Insights pulsa pra chamar atenção até você abri-lo pela primeira vez",
+      "O botão ✨ de 'atualização disponível' pulsa mais forte (anel de luz) pra você não perder",
+      "O Resumo ficou mais limpo: os dois blocos saíram do meio e foram pro botão Insights",
+    ]
+  },
   {
     version: "3.11.58",
     bullets: [
@@ -319,7 +328,7 @@ const HISTORY_MAX = 50;
 let curMonth = (new Date().getFullYear() === DATA.year) ? new Date().getMonth() : 4;
 let annual = false;
 let curTab = "resumo";
-let resumoView = "resumo";   // "resumo" | "graficos" (toggle no topo do Resumo)
+let resumoView = "resumo";   // "resumo" | "graficos" | "insights" (toggle no topo do Resumo)
 let gSelMonth = 0;           // mês (0-11) selecionado nos gráficos interativos
 let charts = {};
 
@@ -773,13 +782,21 @@ function renderResumo(view) {
     renderGraficos($("#gfxHost"));
     return;
   }
+  if (resumoView === "insights") {                 // 💡 Leitura do mês + Insights juntos (opção do topo)
+    const ins = renderInsights(m);
+    view.innerHTML = toggle + renderNarrative(m) + (ins ||
+      `<div class="section-card fade-in"><h3>💡 Insights</h3><div class="insights">
+        <div class="insight"><span class="ic">🌱</span><span>Lance algumas receitas e despesas do mês pra eu gerar os insights.</span></div>
+      </div></div>`);
+    bindViewToggle();
+    return;
+  }
   const rec = receitaMes(m), desp = despesaMes(m);
   const sIni = saldoInicialMes(m), disp = disponivelMes(m), sobra = disp - desp;
   const alertas = contasPerto(m);
 
   const totalVenc = alertas.reduce((s, v) => s + (Number(v.val) || 0), 0);
   view.innerHTML = toggle + `
-    ${renderNarrative(m)}
     ${alertas.length ? `<div class="section-card venc-card fade-in" id="vencCard">
       <div class="venc-head">
         <span class="venc-bell">🔔</span>
@@ -798,8 +815,6 @@ function renderResumo(view) {
       <div class="flow-row minus"><span>− Despesas ${disp > 0 ? `<i>(${Math.round(desp / disp * 100)}% do disponível)</i>` : ""}</span><b class="neg">${brl(desp)}</b></div>
       <div class="flow-row total"><span>= Sobra do mês ${rec > 0 ? `<i>(guardou ${Math.round((rec - desp) / rec * 100)}% do que entrou no mês)</i>` : ""}</span><b id="sobraVal" class="countup ${sobra >= 0 ? "pos" : "neg"}" data-amt="${sobra}">${brl(sobra)}</b></div>
     </div>
-
-    ${renderInsights(m)}
 
     <div class="section-card"><h3>Previsto × Realizado — ${mLong(m)}</h3>
       ${barPrevReal("Receitas", recebido(m), aReceber(m), "recebido", "a receber")}
@@ -1167,13 +1182,20 @@ function chartOpts(legend) {
 
 /* ===================== GRÁFICOS (aba interativa do Resumo) ===================== */
 function viewToggleHTML() {
+  const insSeen = localStorage.getItem("financas2026.insSeen") === "1";
+  const pulse = (!insSeen && resumoView !== "insights") ? " pulse" : "";   // pulsa (azul) até abrir a 1ª vez → "de atenção"
   return `<div class="view-toggle">
     <button type="button" class="vt-btn ${resumoView === "resumo" ? "active" : ""}" data-rv="resumo">📋 Resumo</button>
     <button type="button" class="vt-btn ${resumoView === "graficos" ? "active" : ""}" data-rv="graficos">📊 Gráficos</button>
+    <button type="button" class="vt-btn vt-ins${pulse} ${resumoView === "insights" ? "active" : ""}" data-rv="insights">💡 Insights</button>
   </div>`;
 }
 function bindViewToggle() {
-  $$(".vt-btn").forEach(b => b.onclick = () => { if (resumoView === b.dataset.rv) return; resumoView = b.dataset.rv; suppressNextAnim = true; window.scrollTo(0, 0); render(); });
+  $$(".vt-btn").forEach(b => b.onclick = () => {
+    if (b.dataset.rv === "insights") localStorage.setItem("financas2026.insSeen", "1");   // viu → para de pulsar
+    if (resumoView === b.dataset.rv) return;
+    resumoView = b.dataset.rv; suppressNextAnim = true; window.scrollTo(0, 0); render();
+  });
 }
 
 // regressão linear (mínimos quadrados) + R² → linha de tendência estatística
