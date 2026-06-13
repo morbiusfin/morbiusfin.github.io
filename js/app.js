@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.52";
-const VERSION_NOTES = "📱 Tela cheia: o rodapé agora preenche a área do indicador do iPhone (sem faixa) e o conteúdo some suave sob a barra · botões do topo maiores";
+const APP_VERSION = "3.11.53";
+const VERSION_NOTES = "🧱 Caixinha Orçado × Realizado agora se ajusta: valores grandes não estouram mais a margem";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.53",
+    bullets: [
+      "Caixinha 'Orçado × Realizado' redimensionável: Orçado e Realizado em duas colunas e o % centralizado abaixo — valores grandes não vazam mais a borda",
+    ]
+  },
   {
     version: "3.11.52",
     bullets: [
@@ -2139,8 +2145,14 @@ function renderOrcRealChart(m) {
   const totO = top.reduce((s, x) => s + x.o, 0), totR = top.reduce((s, x) => s + x.r, 0);
   if (resumoEl) {
     const usoPct = totO > 0 ? Math.round(totR / totO * 100) : null;
-    const usoTxt = usoPct != null ? `<span class="orc-pct ${totR > totO ? "neg" : "pos"}">${usoPct}% do orçamento</span>` : "";
-    resumoEl.innerHTML = `<div class="orc-sum"><span>Orçado <b>${brl(totO)}</b></span>${usoTxt}<span>Realizado <b class="${(totO > 0 && totR > totO) ? "neg" : "pos"}">${brl(totR)}</b></span></div>`;
+    const realCls = (totO > 0 && totR > totO) ? "neg" : "pos";
+    resumoEl.innerHTML = `<div class="orc-sum">
+      <div class="orc-row">
+        <div class="orc-col"><span class="orc-lbl">Orçado</span><b>${brl(totO)}</b></div>
+        <div class="orc-col right"><span class="orc-lbl">Realizado</span><b class="${realCls}">${brl(totR)}</b></div>
+      </div>
+      ${usoPct != null ? `<div class="orc-pct-wrap"><span class="orc-pct ${totR > totO ? "neg" : "pos"}">${usoPct}% do orçamento</span></div>` : ""}
+    </div>`;
   }
 }
 

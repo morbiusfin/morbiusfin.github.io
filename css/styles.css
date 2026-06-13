@@ -637,12 +637,17 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
 .cat-name-inp:focus, .cat-orc:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
 .cat-del { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 10px; border: 0; background: transparent; color: var(--muted); font-size: 17px; cursor: pointer; }
 .cat-del:active { transform: scale(.9); }
-/* caixinha própria com respiro interno (não cola na margem do card) */
-.orc-sum { display: flex; justify-content: space-between; align-items: center; gap: 12px;
-  margin: 6px 0 14px; padding: 13px 16px; background: var(--card-2); border: 1px solid var(--line);
-  border-radius: 13px; font-size: 14px; color: var(--muted); }
-.orc-sum b { font-size: 16px; color: var(--ink); }
-.orc-pct { font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); white-space: nowrap; }
+/* caixinha dimensionável: Orçado/Realizado em 2 colunas (rótulo em cima, valor embaixo) + chip do % centralizado */
+.orc-sum { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 14px; padding: 13px 15px;
+  background: var(--card-2); border: 1px solid var(--line); border-radius: 13px; }
+.orc-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+.orc-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 0; }
+.orc-col.right { align-items: flex-end; text-align: right; }
+.orc-lbl { font-size: 12px; font-weight: 700; color: var(--muted); }
+.orc-col b { font-size: 16px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.orc-col b.neg { color: var(--red); } .orc-col b.pos { color: #0f9a4c; }
+.orc-pct-wrap { display: flex; justify-content: center; padding-top: 10px; border-top: 1px solid var(--line); }
+.orc-pct { font-size: 12px; font-weight: 800; padding: 3px 11px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); white-space: nowrap; }
 .orc-pct.pos { color: #0f9a4c; } .orc-pct.neg { color: var(--red); }
 
 /* ===== Seletor de emoji (estilo WhatsApp) ===== */
