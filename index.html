@@ -11,7 +11,6 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="icon" href="icons/icon-192.png" />
-  <link rel="preload" as="image" href="icons/coin.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
@@ -22,37 +21,12 @@
   <!-- FUNDO ANIMADO: chuva de números/cifras (estilo Matrix), sutil -->
   <canvas id="rain" aria-hidden="true"></canvas>
 
-  <!-- SPLASH DE ABERTURA — moeda de Bitcoin girando em 3D (5s, sincroniza por trás) -->
+  <!-- SPLASH DE ABERTURA — só o nome (moeda removida) -->
   <div id="splash">
     <div class="splash-bg"></div>
-    <div class="coin-stage" aria-hidden="true">
-      <div class="coin-glow"></div>
-      <div class="coin3d">
-        <div class="coin-edge"></div>
-        <div class="coin-face cf-front"><img src="icons/coin.png" alt="" /><span class="coin-shine"></span></div>
-        <div class="coin-face cf-back"><img src="icons/coin.png" alt="" /></div>
-      </div>
-      <div class="coin-shadow"></div>
-    </div>
     <div class="splash-name">MorbiusFin</div>
     <div class="splash-tag">suas finanças na palma da mão</div>
   </div>
-  <script>
-    /* gera a parede (rim) 3D da moeda = espessura real (X+Y+Y).
-       Moeda gira no eixo Y → cada estria fica em rotateZ(φ) translateX(R) rotateY(90deg),
-       com LARGURA = espessura (T, ao longo de Z) e ALTURA = passo do arco (ao longo da tangente). */
-    (function () {
-      var edge = document.querySelector('#splash .coin-edge'); if (!edge) return;
-      var N = 90, R = 80, T = 18, arc = (2 * Math.PI * R / N) + 1.4, html = '';
-      for (var i = 0; i < N; i++) {
-        var a = (360 / N) * i;
-        html += '<i class="' + (i % 2 ? 'r2' : '') + '" style="width:' + T + 'px;height:' + arc.toFixed(2) +
-          'px;margin-left:' + (-T / 2) + 'px;margin-top:' + (-arc / 2).toFixed(2) +
-          'px;transform:rotateZ(' + a.toFixed(2) + 'deg) translateX(' + R + 'px) rotateY(90deg)"></i>';
-      }
-      edge.innerHTML = html;
-    })();
-  </script>
 
   <!-- HEADER -->
   <header class="app-header">

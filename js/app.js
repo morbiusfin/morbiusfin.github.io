@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.35";
-const VERSION_NOTES = "🧹 Header mais limpo + barra de meses fixa ao rolar; desfazer/refazer só aparecem quando dá pra usar";
+const APP_VERSION = "3.11.36";
+const VERSION_NOTES = "✨ Abertura mais limpa e rápida: tirei a moeda; agora é só o nome MorbiusFin";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.36",
+    bullets: [
+      "Abertura mais limpa: tirei a moeda — agora é só o nome MorbiusFin (com brilho suave)",
+      "Splash mais rápido: ~2,2s em vez de 5s (o app abre antes)",
+    ]
+  },
   {
     version: "3.11.35",
     bullets: [
@@ -2271,17 +2278,17 @@ function startApp() {
   if (curTab === "resumo" && !annual) renderCharts();
   checkAndNotify(); checkVersion();
   const t0 = Date.now();
-  // Splash de 5s: a moeda gira enquanto o sincronismo roda por trás (sempre fecha em ~5s).
+  // Splash curto (só o nome): mostra ~2,2s e revela o app; o sync continua por trás.
   const fecharSplash = (min) => { const espera = Math.max(0, min - (Date.now() - t0)); setTimeout(hideSplash, espera); };
   if (syncCfg()) {
     setSplashMsg("Sincronizando suas finanças…");
     startLiveSync();
     const p = pullSync(window.__syncFromLink ? true : false);
     p.then(r => { if (r && !r.ok && r.reason !== "sem-config") setTimeout(() => toast("Não consegui baixar da web — toque 🔄"), 5200); });
-    // a animação fica sempre ~5s, independente de o sync terminar antes
-    fecharSplash(5000);
+    // a abertura fica sempre ~2,2s, independente de o sync terminar antes
+    fecharSplash(2200);
   } else {
-    fecharSplash(5000);
+    fecharSplash(2200);
   }
   if (window.__syncFromLink) { toast("Sincronização ativada ⚡"); window.__syncFromLink = false; }
 }
@@ -2293,8 +2300,8 @@ function hideSplash() {
     setTimeout(() => { try { sp.remove(); } catch (e) {} maybeStartOnboarding(); }, 1050);
   } else { maybeStartOnboarding(); }
 }
-// rede de segurança: nunca deixar o splash preso (após os 5s da animação)
-window.addEventListener("load", () => setTimeout(hideSplash, 6000));
+// rede de segurança: nunca deixar o splash preso
+window.addEventListener("load", () => setTimeout(hideSplash, 4000));
 
 /* ---------- Fundo: chuva de números/cifras (estilo Matrix, sutil) ---------- */
 (function rainFX() {
