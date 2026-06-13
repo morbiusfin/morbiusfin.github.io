@@ -93,6 +93,11 @@ main > *:nth-child(1){animation-delay:.02s} main > *:nth-child(2){animation-dela
 main > *:nth-child(3){animation-delay:.10s} main > *:nth-child(4){animation-delay:.14s}
 main > *:nth-child(5){animation-delay:.18s} main > *:nth-child(6){animation-delay:.22s}
 main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-delay:.30s}
+/* RENDER ESTÁTICO: com #view em no-anim, nada de animação de ENTRADA (fadeInUp/rowIn) → a tela
+   atualiza no lugar, sem "piscar", em qualquer ação. As decorativas contínuas (medidor, rosca,
+   borda do simulador, sino) usam outros seletores e seguem normais. */
+#view.no-anim > *, #view.no-anim .fade-in, #view.no-anim .list .list-row,
+#view.no-anim .insight, #view.no-anim .ins-card, #view.no-anim .health-meta { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { *, main > * { animation: none !important; transition: none !important; } }
 
 /* ===== HEADER ===== */

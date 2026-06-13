@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.43";
-const VERSION_NOTES = "🛠️ Corrigido o travamento em Categorias/Emoji: o título e o ✕ ficam fixos no topo e a lista rola sem prender";
+const APP_VERSION = "3.11.44";
+const VERSION_NOTES = "🎯 Nada de piscar: ao incluir, editar, excluir ou interagir, a tela atualiza estática e suave (a animação de entrada fica só na abertura)";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.44",
+    bullets: [
+      "A tela não pisca mais ao mudar: incluir, editar, excluir e qualquer interação atualizam de forma estática e suave",
+      "Os gráficos e o medidor não redesenham 'do zero' a cada ação — só mostram o novo valor",
+      "A animação de entrada (cascata) acontece só na abertura do app",
+    ]
+  },
   {
     version: "3.11.43",
     bullets: [
@@ -459,12 +467,14 @@ function renderYearSelect() {
 }
 
 /* ---------- Render principal ---------- */
-let suppressNextAnim = false;       // pula as animações de ENTRADA no próximo render (ex.: ao pagar, pra não "piscar")
+let suppressNextAnim = false;       // (legado — mantido p/ não quebrar chamadas antigas; render é estático por padrão)
+let forceAnimOnce = false;          // SÓ a 1ª carga (intro) anima; toda inclusão/edição/exclusão/sync/troca = estático e suave (sem piscar)
 function render() {
   const maxM = yearsCount() * 12 - 1; if (curMonth > maxM) curMonth = maxM; if (curMonth < 0) curMonth = 0;
   // sai da seleção se mudou de aba ou de mês (a seleção é por aba+mês)
   if (selMode && (curTab !== selTab || curMonth !== selMonth)) { selMode = false; selected = new Set(); selTab = null; selMonth = -1; }
-  const noAnim = suppressNextAnim; suppressNextAnim = false;
+  const noAnim = !forceAnimOnce; forceAnimOnce = false; suppressNextAnim = false;   // estático por padrão → nada "pisca" na mudança
+  window.__noAnim = noAnim;           // medidor e gráficos respeitam (sem count-up nem redesenho do zero)
   renderMonthBar();
   const ub = $("#btnUndo"); if (ub) { ub.style.display = history.length ? "" : "none"; }       // ↩︎ só aparece se há o que desfazer
   const rb = $("#btnRedo"); if (rb) { rb.style.display = redoStack.length ? "" : "none"; }      // ↪︎ só aparece se há o que refazer
@@ -485,7 +495,6 @@ function render() {
   if (curTab === "resumo") { if (annual) renderAnual(view); else renderResumo(view); }
   else renderLista(view);
   if (prevY != null && prevY > 0) window.scrollTo(0, prevY);   // restaura onde estava (a altura já está correta, render é síncrono)
-  if (noAnim) requestAnimationFrame(() => requestAnimationFrame(() => { const v = $("#view"); if (v) v.classList.remove("no-anim"); }));
   updateBulkBar();   // mostra/esconde a barra flutuante de apagar conforme a seleção
   if (typeof renderSeedBanner === "function") renderSeedBanner();   // banner "dados de exemplo" (modo Explorar)
 }
@@ -772,10 +781,16 @@ function updateSimChart(m) {
 
 /* ---------- Animações de entrada (count-up + medidor) ---------- */
 function animateResumo() {
-  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const gn = $("#gaugeNum"); if (gn) animateNumber(gn, parseFloat(gn.dataset.amt) || 0, v => String(Math.round(v)), 750);
-  const sv = $("#sobraVal"); if (sv) animateNumber(sv, parseFloat(sv.dataset.amt) || 0, v => brl(v), 750);
-  const ga = $("#gArc");
+  const gn = $("#gaugeNum"), sv = $("#sobraVal"), ga = $("#gArc");
+  const estatico = window.__noAnim || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  if (estatico) {   // atualização SUAVE e estática: já mostra o valor final, sem count-up nem redesenho
+    if (gn) gn.textContent = String(Math.round(parseFloat(gn.dataset.amt) || 0));
+    if (sv) sv.textContent = brl(parseFloat(sv.dataset.amt) || 0);
+    if (ga && ga.dataset.off != null) ga.style.strokeDashoffset = ga.dataset.off;
+    return;
+  }
+  if (gn) animateNumber(gn, parseFloat(gn.dataset.amt) || 0, v => String(Math.round(v)), 750);
+  if (sv) animateNumber(sv, parseFloat(sv.dataset.amt) || 0, v => brl(v), 750);
   if (ga && ga.dataset.off != null) {
     const len = Math.PI * 74; ga.style.strokeDashoffset = len;
     requestAnimationFrame(() => requestAnimationFrame(() => { ga.style.strokeDashoffset = ga.dataset.off; }));
@@ -899,6 +914,8 @@ function applyChartTheme() {
   Chart.defaults.color = (css.getPropertyValue("--muted") || "#74807b").trim();
   Chart.defaults.borderColor = (css.getPropertyValue("--line") || "#e6e9e8").trim();
   Chart.defaults.font.family = "Manrope, -apple-system, BlinkMacSystemFont, sans-serif";
+  // estático por padrão (sem "piscar"/redesenho do zero); só a 1ª carga anima
+  Chart.defaults.animation = window.__noAnim ? false : { duration: 650, easing: "easeOutQuart" };
 }
 function renderCharts() {
   if (typeof Chart === "undefined") return;
@@ -2586,6 +2603,7 @@ setInterval(checkForUpdate, 5 * 60 * 1000);
 function startApp() {
   window.__started = true;
   lastSnap = JSON.stringify(DATA);
+  forceAnimOnce = true;        // só a abertura tem a animação de entrada (intro); o resto é estático
   render();
   if (curTab === "resumo" && !annual) renderCharts();
   checkAndNotify(); checkVersion();
