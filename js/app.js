@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.53";
-const VERSION_NOTES = "🧱 Caixinha Orçado × Realizado agora se ajusta: valores grandes não estouram mais a margem";
+const APP_VERSION = "3.11.54";
+const VERSION_NOTES = "📱 Rodapé em tela cheia de verdade: a barra de baixo encosta na base e preenche tudo (sem faixa), em qualquer aparelho (iPhone e Android)";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.54",
+    bullets: [
+      "Rodapé em tela cheia: a barra de baixo voltou a encostar na base e preenche a área do indicador — sem faixa clara/escura sobrando",
+      "Funciona em qualquer tamanho de tela (iPhone e Android se adaptam às áreas seguras de cada um)",
+      "Mantido o visual moderno: cantos arredondados no topo da barra e a aba ativa em destaque",
+    ]
+  },
   {
     version: "3.11.53",
     bullets: [

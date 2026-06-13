@@ -3,63 +3,90 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MorbiusFin · iPhone 14 Pro Max (mockup de testes)</title>
+  <title>MorbiusFin · Mockup mobile (multi-aparelho)</title>
   <style>
-    /* Mockup de testes mobile — NÃO é o app. Emula o iPhone 14 Pro Max (430×932 pt)
-       com ilha dinâmica + indicador de home, e injeta as áreas seguras reais no app
-       (via ?frame=1 → html.framed). Serve só pra VER no localhost como fica no celular. */
-    :root { --w: 430px; --h: 932px; --radius: 56px; }
+    /* Mockup de testes mobile — NÃO é o app. Emula vários aparelhos (iPhone/Android) com
+       tamanho + áreas seguras reais, pra VER no localhost como fica em cada um.
+       O app recebe as áreas seguras via ?frame=1&st=<top>&sb=<bottom>. No device real usa env(). */
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
-      background: radial-gradient(120% 120% at 50% 0%, #2a2f3a, #14161b 70%); font-family: -apple-system, "Segoe UI", Roboto, sans-serif; padding: 28px 12px; }
-    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-    .toolbar button { background: #2b3340; color: #e7ecf2; border: 1px solid #3a4350; border-radius: 10px; padding: 8px 14px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
-    .toolbar button:hover { background: #36404f; }
-    .device { position: relative; width: var(--w); height: var(--h); flex: 0 0 auto;
-      background: #000; border-radius: var(--radius);
-      box-shadow: 0 0 0 13px #1b1d22, 0 0 0 15px #2c3038, 0 40px 90px rgba(0,0,0,.6); }
-    .screen { position: absolute; inset: 0; border-radius: var(--radius); overflow: hidden; background: #000; }
+    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 14px;
+      background: radial-gradient(120% 120% at 50% 0%, #2a2f3a, #14161b 70%); font-family: -apple-system, "Segoe UI", Roboto, sans-serif; padding: 20px 12px 40px; }
+    .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; }
+    .bar select, .bar button { background: #2b3340; color: #e7ecf2; border: 1px solid #3a4350; border-radius: 10px; padding: 8px 12px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+    .bar button:hover, .bar select:hover { background: #36404f; }
+    /* o "device" é dimensionado por variáveis JS → flexível pra qualquer tamanho */
+    .device { position: relative; flex: 0 0 auto; background: #0a0a0c; box-shadow: 0 0 0 13px #1b1d22, 0 0 0 15px #2c3038, 0 40px 90px rgba(0,0,0,.6); }
+    .device.ios { border-radius: 56px; }
+    .device.android { border-radius: 34px; }
+    .screen { position: absolute; inset: 0; overflow: hidden; background: #000; border-radius: inherit; }
     .screen iframe { width: 100%; height: 100%; border: 0; display: block; }
-    /* ilha dinâmica + indicador de home, desenhados POR CIMA do app (como no iPhone) */
-    .island { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 126px; height: 36px; background: #000; border-radius: 20px; z-index: 5; pointer-events: none; }
-    .home { position: absolute; bottom: 9px; left: 50%; transform: translateX(-50%); width: 144px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.55); z-index: 5; pointer-events: none; }
+    /* topo: ilha dinâmica (iOS) ou punch-hole (Android) */
+    .top-ind { position: absolute; left: 50%; transform: translateX(-50%); background: #000; z-index: 5; pointer-events: none; }
+    .device.ios .top-ind { top: 12px; width: 126px; height: 34px; border-radius: 20px; }
+    .device.android .top-ind { top: 11px; width: 16px; height: 16px; border-radius: 50%; }
+    .device.sehome .top-ind { display: none; }
+    /* base: indicador de home (gesto) — só quando o aparelho tem safe-bottom > 0 */
+    .home { position: absolute; bottom: 9px; left: 50%; transform: translateX(-50%); width: 38%; height: 5px; border-radius: 3px; background: rgba(255,255,255,.5); z-index: 5; pointer-events: none; }
+    .device.nohome .home { display: none; }
     .label { color: #9aa3af; font-size: 13px; text-align: center; }
     .label b { color: #e7ecf2; }
-    .hint { color: #6b7280; font-size: 11.5px; max-width: 460px; text-align: center; line-height: 1.5; }
+    .hint { color: #6b7280; font-size: 11.5px; max-width: 480px; text-align: center; line-height: 1.5; }
   </style>
 </head>
 <body>
-  <div class="toolbar">
-    <button onclick="reloadApp()">↻ Recarregar app</button>
+  <div class="bar">
+    <select id="dev" onchange="apply()"></select>
+    <select id="theme" onchange="apply()">
+      <option value="">Tema do sistema</option>
+      <option value="light">Claro</option>
+      <option value="dark">Escuro</option>
+    </select>
+    <button onclick="reloadApp()">↻ Recarregar</button>
     <button onclick="setView('resumo')">Resumo</button>
     <button onclick="setView('fixas')">Fixas</button>
     <button onclick="setView('cartao')">Cartão</button>
-    <button onclick="toggleTheme()">🌗 Tema</button>
   </div>
 
   <div class="device" id="device">
-    <div class="screen"><iframe id="app" src="index.html?frame=1"></iframe></div>
-    <div class="island"></div>
+    <div class="screen"><iframe id="app"></iframe></div>
+    <div class="top-ind"></div>
     <div class="home"></div>
   </div>
 
-  <div class="label"><b>iPhone 14 Pro Max</b> · 430 × 932 pt · áreas seguras simuladas (topo 59 / base 34)</div>
-  <div class="hint">Mockup só de teste no localhost. A barra/indicador de baixo aqui mostram exatamente onde fica a "área do home indicator" no celular — é aqui que conferimos se sobra qualquer faixa.</div>
+  <div class="label" id="label"></div>
+  <div class="hint">Mockup só de teste no localhost. Cada aparelho tem tamanho e áreas seguras próprios — é aqui que conferimos se o app acompanha e se não sobra faixa no rodapé. <b>Troque o aparelho</b> no seletor.</div>
 
   <script>
-    const ifr = document.getElementById('app');
-    function reloadApp() { ifr.src = 'index.html?frame=1&_=' + Date.now(); }
-    function setView(tab) {
-      try {
-        const d = ifr.contentWindow.document;
-        const t = [...d.querySelectorAll('.tab')].find(x => new RegExp(tab, 'i').test(x.textContent));
-        if (t) t.click();
-      } catch (e) {}
+    // catálogo de aparelhos: largura/altura em pt e áreas seguras (topo/base)
+    const DEVICES = [
+      { id: "ip14pm",  name: "iPhone 14 Pro Max", w: 430, h: 932, st: 59, sb: 34, kind: "ios" },
+      { id: "ip15",    name: "iPhone 15",          w: 393, h: 852, st: 59, sb: 34, kind: "ios" },
+      { id: "ipse",    name: "iPhone SE (home)",   w: 375, h: 667, st: 20, sb: 0,  kind: "ios sehome nohome" },
+      { id: "pixel8",  name: "Android · Pixel 8",  w: 412, h: 915, st: 28, sb: 24, kind: "android" },
+      { id: "galaxy",  name: "Android · Galaxy S", w: 360, h: 800, st: 28, sb: 24, kind: "android" },
+      { id: "small",   name: "Android pequeno",    w: 360, h: 740, st: 24, sb: 16, kind: "android" },
+    ];
+    const sel = document.getElementById("dev");
+    DEVICES.forEach(d => { const o = document.createElement("option"); o.value = d.id; o.textContent = `${d.name} · ${d.w}×${d.h}`; sel.appendChild(o); });
+
+    const ifr = document.getElementById("app"), dev = document.getElementById("device");
+    function current() { return DEVICES.find(d => d.id === sel.value) || DEVICES[0]; }
+    function appSrc() {
+      const d = current(), t = document.getElementById("theme").value;
+      try { if (t) ifr.contentWindow.localStorage.setItem("financas2026.theme", t); } catch (e) {}
+      return `index.html?frame=1&st=${d.st}&sb=${d.sb}&_=${Date.now()}`;
     }
-    function toggleTheme() {
-      try { ifr.contentWindow.localStorage.setItem('financas2026.theme',
-        ifr.contentWindow.localStorage.getItem('financas2026.theme') === 'light' ? 'dark' : 'light'); reloadApp(); } catch (e) {}
+    function apply() {
+      const d = current();
+      dev.className = "device " + d.kind;
+      dev.style.width = d.w + "px"; dev.style.height = d.h + "px";
+      if (d.sb === 0) dev.classList.add("nohome");
+      document.getElementById("label").innerHTML = `<b>${d.name}</b> · ${d.w} × ${d.h} pt · áreas seguras: topo ${d.st} / base ${d.sb}`;
+      ifr.src = appSrc();
     }
+    function reloadApp() { ifr.src = appSrc(); }
+    function setView(tab) { try { const dd = ifr.contentWindow.document; const t = [...dd.querySelectorAll(".tab")].find(x => new RegExp(tab, "i").test(x.textContent)); if (t) t.click(); } catch (e) {} }
+    apply();
   </script>
 </body>
 </html>
