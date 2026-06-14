@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.74";
-const VERSION_NOTES = "🔄 A bolinha de sincronização não pisca mais a cada poucos segundos — agora ela só aparece quando VOCÊ sincroniza (as checagens automáticas de fundo são silenciosas)";
+const APP_VERSION = "3.11.75";
+const VERSION_NOTES = "☀️ Tema claro: o seletor de vidro (Resumo/Gráficos/Insights e abas) ficou legível — verde sólido com texto branco; no tema escuro segue translúcido";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.75",
+    bullets: [
+      "Tema claro: a lâmina de vidro do seletor e das abas ficou legível (verde sólido + texto branco em vez de translúcido apagado)",
+      "Tema escuro mantém o vidro translúcido; e ao arrastar, a opção sob o vidro fica branca pra ler bem",
+    ]
+  },
   {
     version: "3.11.74",
     bullets: [
