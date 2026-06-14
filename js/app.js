@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.70";
-const VERSION_NOTES = "💑 Pareamento do casal mais à prova de erro: convite pra instalar o app (iPhone/Android), aviso de conexão que falhou e auto-pareamento ao abrir pelo link · campos do perfil alinhados";
+const APP_VERSION = "3.11.71";
+const VERSION_NOTES = "💑 Conta conjunta agora tem um guia 'Como sincronizar' passo a passo (à prova de erro), no perfil e no pareamento";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.71",
+    bullets: [
+      "Conta conjunta: novo guia '📖 Como sincronizar (passo a passo)' explicando exatamente o que cada um faz",
+      "Inclui as regras de ouro (os dois com o app aberto, mesma Wi-Fi) e o que fazer se der erro",
+      "Acessível no perfil (em Conjunta) e dentro da tela de parear",
+    ]
+  },
   {
     version: "3.11.70",
     bullets: [
@@ -2701,6 +2709,7 @@ function saveProfile() {
   const rm = $("#profPhotoRemove"); if (rm) rm.onclick = () => { _profFotoTmp = ""; refreshProfPhoto(); };
   $$("#profTipoSeg .seg-btn").forEach(b => b.onclick = () => { _profTipo = b.dataset.tipo; refreshProfTipo(); });
   const pair = $("#profPair"); if (pair) pair.onclick = () => openPairModal();
+  const sh = $("#profSyncHelp"); if (sh) sh.onclick = () => openSyncHelp();
   const sv = $("#profSave"); if (sv) sv.onclick = saveProfile;
   const f = $("#profFile"); if (f) f.onchange = (e) => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
@@ -2873,6 +2882,39 @@ function pairFillShare(qrId, copyId, shareId, code, title) {
 }
 function openPairModal() { _pairStep = "home"; renderPairBody(); const m = $("#pairModal"); if (m) m.classList.remove("hidden"); }
 function closePairModal() { const m = $("#pairModal"); if (m) m.classList.add("hidden"); }
+// 📖 Guia à prova de erro de como sincronizar o casal
+function openSyncHelp() {
+  let m = document.getElementById("syncHelpModal");
+  if (!m) {
+    m = document.createElement("div"); m.id = "syncHelpModal"; m.className = "modal center hidden";
+    m.innerHTML = '<div class="modal-card sh-card"><button type="button" class="wn-close" id="shClose">✕</button>'
+      + '<div class="sh-head"><span>💑</span><h2>Como sincronizar o casal</h2></div>'
+      + '<div class="sh-body">'
+      + '<div class="sh-rules"><div class="sh-rules-t">✅ Pra dar certo, sempre:</div>'
+      + '<ul><li>Os <b>dois</b> com o app <b>aberto ao mesmo tempo</b>.</li>'
+      + '<li>De preferência na <b>mesma rede Wi-Fi</b>.</li>'
+      + '<li>Se não conectar, gere um <b>convite novo</b> e tente de novo.</li></ul></div>'
+      + '<div class="sh-steps-t">📲 Passo a passo:</div>'
+      + '<ol class="sh-steps">'
+      + '<li><b>Ela ainda não tem o app?</b> Toque em <b>“Convidar”</b> e mande o link. Android: Chrome → Instalar app. iPhone: Safari → Compartilhar → Adicionar à Tela de Início.</li>'
+      + '<li><b>Você (1º):</b> “Criar convite” → mande o <b>QR/código</b> pra ela (Copiar ou Compartilhar).</li>'
+      + '<li><b>Ela (2º):</b> “Tenho um convite” → cola/escaneia o seu → o app dela gera uma <b>resposta</b>.</li>'
+      + '<li><b>Ela te manda a resposta</b> → você cola em <b>“Conectar”</b>.</li>'
+      + '<li>🟢 <b>Pareados!</b> O que um lançar aparece no outro na hora.</li>'
+      + '</ol>'
+      + '<div class="sh-err-t">❓ Deu erro?</div>'
+      + '<ul class="sh-err"><li><b>“Resposta/convite inválido”</b>: confira se colou o código <b>completo</b>.</li>'
+      + '<li><b>“Não conectou”</b>: quase sempre é a rede (4G/5G). Tentem no <b>mesmo Wi-Fi</b>.</li>'
+      + '<li><b>Fechou o app?</b> É só parear de novo — leva segundos.</li></ul>'
+      + '</div>'
+      + '<button type="button" class="btn primary" id="shPair">📲 Parear agora</button></div>';
+    document.body.appendChild(m);
+    m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
+    m.querySelector("#shClose").onclick = () => m.classList.add("hidden");
+    m.querySelector("#shPair").onclick = () => { m.classList.add("hidden"); openPairModal(); };
+  }
+  m.classList.remove("hidden");
+}
 function renderPairBody() {
   const b = $("#pairBody"); if (!b) return;
   if (cpConnected()) {
@@ -2884,10 +2926,12 @@ function renderPairBody() {
       + '<button class="btn primary pair-role" id="pairHost">📤 Criar convite (sou o 1º)</button>'
       + '<button class="btn ghost pair-role" id="pairGuest">📥 Tenho um convite (sou o 2º)</button>'
       + '<button class="btn ghost pair-role pair-invite" id="pairInstall">📲 Ela ainda não tem o app? Convidar</button>'
+      + '<button type="button" class="pair-guide-link" id="pairGuide">📖 Como sincronizar (passo a passo)</button>'
       + '<div class="pair-hint">⚠️ Os dois precisam estar com o app aberto <b>ao mesmo tempo</b> pra parear. Funciona melhor no <b>mesmo Wi-Fi</b>.</div>';
     $("#pairHost").onclick = pairStartHost;
     $("#pairGuest").onclick = () => { _pairStep = "guest"; renderPairBody(); };
     $("#pairInstall").onclick = pairInviteApp;
+    $("#pairGuide").onclick = openSyncHelp;
     return;
   }
   if (_pairStep === "guest") {

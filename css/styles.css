@@ -189,6 +189,24 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
 .prof-conj-txt { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
 .prof-pair-status { margin-top: 8px; text-align: center; }
 .pair-ok { color: var(--green); font-weight: 800; font-size: 13px; }
+.prof-synchelp { width: 100%; margin-top: 8px; }
+.pair-guide-link { width: 100%; background: none; border: 0; color: var(--accent-2); font-family: var(--font); font-weight: 700; font-size: 13px; cursor: pointer; padding: 8px; text-decoration: underline; }
+
+/* guia "Como sincronizar" */
+.sh-card { max-width: 400px; }
+.sh-head { display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 14px; }
+.sh-head span { font-size: 22px; } .sh-head h2 { margin: 0; font-size: 18px; }
+.sh-body { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; text-align: left; }
+.sh-rules-t, .sh-steps-t, .sh-err-t { text-align: left; }
+.sh-rules { background: rgba(21,194,102,.1); border: 1px solid rgba(21,194,102,.28); border-radius: 12px; padding: 12px 12px 12px 4px; margin-bottom: 14px; }
+.sh-rules-t { font-weight: 800; font-size: 13.5px; color: var(--ink); padding-left: 8px; margin-bottom: 4px; }
+.sh-steps-t, .sh-err-t { font-weight: 800; font-size: 14px; margin: 6px 0 8px; }
+.sh-err-t { margin-top: 16px; }
+.sh-body ul, .sh-body ol { margin: 0; padding-left: 22px; }
+.sh-body li { font-size: 13px; line-height: 1.55; color: var(--muted); margin-bottom: 6px; }
+.sh-body li b { color: var(--ink); }
+.sh-steps li { margin-bottom: 9px; }
+.sh-card #shPair { width: 100%; margin-top: 16px; }
 
 /* pareamento do casal */
 .pair-card { max-width: 360px; }
