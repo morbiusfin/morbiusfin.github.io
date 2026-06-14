@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.77";
+const APP_VERSION = "3.11.78";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.78",
+    bullets: [
+      "Toda compra nova já vem com a data de HOJE preenchida (cartão e débito)",
+      "Ao salvar uma compra marcada como hoje, ele pergunta 'foi feita hoje mesmo?' — se você clicar Não, volta pro editor pra ajustar a data antes de salvar",
+      "A pergunta aparece só uma vez por lançamento (sem ficar repetindo)",
+    ]
+  },
   {
     version: "3.11.77",
     bullets: [
@@ -2172,6 +2180,15 @@ function parcelaStartMonth(purchaseMonth, purchaseDay, fechamento) {
 }
 // data de hoje em ISO (YYYY-MM-DD) para o <input type="date">
 function todayISO() { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+// pergunta "foi hoje mesmo?" ANTES de salvar quando a data está marcada como HOJE.
+// retorna true = pode salvar; false = usuário quer ajustar a data (não salva, foca o campo).
+function confirmaHoje(focaCampoSel) {
+  const d = new Date(), dd = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0");
+  if (confirm(`Esta compra está marcada para HOJE (${dd}). Foi feita hoje mesmo?\n\nOK = sim, pode salvar\nCancelar = quero ajustar a data antes`)) return true;
+  const el = focaCampoSel && $(focaCampoSel);
+  if (el) { el.focus(); if (el.showPicker) { try { el.showPicker(); } catch (e) {} } }
+  return false;
+}
 // converte a data escolhida em { dia, mes (índice absoluto a partir de Jan/DATA.year) }
 function dateParts(iso) {
   if (!iso) return { dia: null, mes: curMonth };
@@ -2213,8 +2230,10 @@ function openCartaoModal() {
   ["f_val", "f_n", "f_data", "f_card"].forEach(id => { const el = $("#" + id); if (el) { el.oninput = updateParcelaPreview; el.onchange = updateParcelaPreview; } });
   updateParcelaPreview();
   $("#btnDelete").classList.add("hidden");
+  let askedHoje = false;   // pergunta "foi hoje?" só UMA vez por inclusão (sem loop)
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
+    if (!askedHoje && $("#f_data").value === todayISO()) { askedHoje = true; if (!confirmaHoje("#f_data")) return; }
     const parc = $("#f_seg .seg-btn.active").dataset.pay === "parc";
     const valor = moneyVal($("#f_val"));
     const n = parc ? Math.min(60, Math.max(2, parseInt($("#f_n").value) || 2)) : 1;
@@ -2430,8 +2449,12 @@ function openDiariaModal(idx, method) {
   updateImpact(true, oldValD);
   $("#btnDelete").classList.toggle("hidden", isNew);
   $("#btnDelete").onclick = () => { if (confirm("Excluir esta compra?")) { DATA.diaria.splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
+  let askedHoje = false;   // pergunta "foi hoje?" só UMA vez por inclusão (sem loop)
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
+    if (!askedHoje && isNew && +$("#f_mes").value === realMesAbs() && (parseInt($("#f_dia").value) || 0) === REAL_TODAY.getDate()) {
+      askedHoje = true; if (!confirmaHoje("#f_dia")) return;
+    }
     const val = moneyVal($("#f_val")), mes = +$("#f_mes").value;
     const catId = $("#f_catId") ? ($("#f_catId").value || null) : null;
     const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, catId, categoria: catId ? (catById(catId).nome) : "Geral", metodo };
