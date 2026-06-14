@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.75";
-const VERSION_NOTES = "☀️ Tema claro: o seletor de vidro (Resumo/Gráficos/Insights e abas) ficou legível — verde sólido com texto branco; no tema escuro segue translúcido";
+const APP_VERSION = "3.11.76";
+const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.76",
+    bullets: [
+      "Contas a vencer passou a respeitar o 'avisar X dias antes' de cada conta — se você pôs 2 dias, ela só aparece a 2 dias do vencimento",
+      "No fluxo do mês, abaixo de 'Despesas', agora tem a quebra: Fixas, Cartão e Débitos com % — some o que estiver zerado",
+    ]
+  },
   {
     version: "3.11.75",
     bullets: [
@@ -583,13 +590,14 @@ function vencimentos(m) {
     .sort((a, b) => a.venc - b.venc);
 }
 const contasAlerta = (m) => vencimentos(m).filter(v => v.naJanela || (isMesAtual() && !v.pago && v.daysLeft >= 0));
-// SÓ as contas PERTO de vencer: dentro da janela de aviso da conta (ou 5 dias, se não tiver aviso) + atrasadas
+// SÓ as contas PERTO de vencer: respeita o "avisar X dias antes" de CADA conta (ou 7 dias, se não definiu) + atrasadas
 function contasPerto(m) {
   if (!isMesAtual()) return [];
   return vencimentos(m).filter(v => {
     if (v.pago) return false;
     if (v.vencida) return true;                                   // atrasada = urgente, sempre mostra
-    return v.daysLeft >= 0 && v.daysLeft <= 7;                    // só dentro dos próximos 7 dias (senão não mostra nada)
+    const janela = (v.aviso && v.aviso > 0) ? v.aviso : 7;        // ← respeita o aviso individual (ex.: 2 dias antes)
+    return v.daysLeft >= 0 && v.daysLeft <= janela;
   });
 }
 
@@ -897,6 +905,19 @@ function cycleTheme() {
   toast("Tema: " + themeLabel());
 }
 
+// quebra das despesas do mês: Fixas / Cartão / Débitos, com % do total — esconde o que estiver zerado
+function despBreakdownHTML(m, desp) {
+  if (!(desp > 0)) return "";
+  const parts = [
+    { ic: "📌", nome: "Fixas", val: fixasMes(m) },
+    { ic: "💳", nome: "Cartão", val: cartaoMes(m) },
+    { ic: "🛒", nome: "Débitos", val: diariaMes(m) },
+  ].filter(p => p.val > 0).sort((a, b) => b.val - a.val);
+  if (!parts.length) return "";
+  return `<div class="flow-breakdown">${parts.map(p =>
+    `<div class="fb-row"><span class="fb-name">${p.ic} ${p.nome}</span><span class="fb-val">${brl(p.val)} <i>${Math.round(p.val / desp * 100)}%</i></span></div>`
+  ).join("")}</div>`;
+}
 /* ---------- RESUMO (mês) ---------- */
 function renderResumo(view) {
   const m = curMonth;
@@ -941,6 +962,7 @@ function renderResumo(view) {
       <div class="flow-row plus"><span>+ Receitas</span><b class="pos">${brl(rec)}</b></div>
       <div class="flow-row eq"><span>= Disponível</span><b>${brl(disp)}</b></div>
       <div class="flow-row minus"><span>− Despesas ${disp > 0 ? `<i>(${Math.round(desp / disp * 100)}% do disponível)</i>` : ""}</span><b class="neg">${brl(desp)}</b></div>
+      ${despBreakdownHTML(m, desp)}
       <div class="flow-row total"><span>= Sobra do mês ${rec > 0 ? `<i>(guardou ${Math.round((rec - desp) / rec * 100)}% do que entrou no mês)</i>` : ""}</span><b id="sobraVal" class="countup ${sobra >= 0 ? "pos" : "neg"}" data-amt="${sobra}">${brl(sobra)}</b></div>
     </div>
 
