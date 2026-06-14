@@ -175,8 +175,9 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
 .prof-photo.empty .prof-photo-img { background: linear-gradient(135deg, var(--green-2), var(--green)); }
 .prof-photo.empty .prof-photo-inner::after { content: "👤"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 48px; }
 .prof-photo .prof-photo-cam { position: absolute; right: -2px; bottom: -2px; width: 36px; height: 36px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; font-size: 17px; background: var(--accent); color: #06251a;
+  display: flex; align-items: center; justify-content: center; background: var(--accent); color: #06251a;
   border: 3px solid var(--card); box-shadow: 0 3px 10px rgba(0,0,0,.45); z-index: 2; }   /* destacada, com anel, fora do recorte */
+.prof-photo .prof-photo-cam svg { width: 18px; height: 18px; display: block; }   /* ícone SVG = centralizado certinho (sem o emoji torto) */
 .prof-rm { background: none; border: 0; color: var(--red); font-family: var(--font); font-weight: 700; font-size: 13px; cursor: pointer; padding: 4px 8px; }
 .prof-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
 .prof-field span { font-size: 12.5px; font-weight: 700; color: var(--muted); }
@@ -350,19 +351,25 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
 @keyframes drawerIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 .menu-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 6px 12px; margin-bottom: 2px; }
 .menu-head span { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -.3px; }
-/* itens entram em sequência (stagger) ao abrir o menu */
-.menu-drawer:not(.hidden) .menu-item { animation: menuItemIn .34s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(.05s + var(--mi, 0) * .045s); }
-@keyframes menuItemIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce){ .menu-panel, .menu-drawer:not(.hidden) .menu-item { animation: none; } }
+/* itens entram em sequência (cascata) ao abrir o menu + o ícone dá um "pop" */
+.menu-drawer:not(.hidden) .menu-item { animation: menuItemIn .42s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(.06s + var(--mi, 0) * .055s); }
+@keyframes menuItemIn { from { opacity: 0; transform: translateX(-22px); } to { opacity: 1; transform: none; } }
+.menu-drawer:not(.hidden) .menu-item .mi-ic { animation: miIcPop .45s cubic-bezier(.34,1.55,.5,1) both; animation-delay: calc(.16s + var(--mi, 0) * .055s); }
+@keyframes miIcPop { 0% { opacity: 0; transform: scale(.4); } 60% { opacity: 1; } 100% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce){ .menu-panel, .menu-drawer:not(.hidden) .menu-item, .menu-drawer:not(.hidden) .menu-item .mi-ic { animation: none; } }
 .menu-x { background: var(--card-2); border: 1px solid var(--line); color: var(--ink); width: 36px; height: 36px;
   border-radius: 10px; font-size: 15px; cursor: pointer; font-family: var(--font); }
 .menu-item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--card-2);
-  border: 1px solid var(--line); border-radius: 13px; padding: 12px 13px; cursor: pointer; font-family: var(--font);
-  color: var(--ink); transition: transform .1s ease, border-color .15s ease; }
-.menu-item:active { transform: scale(.98); }
+  border: 1px solid var(--line); border-radius: 14px; padding: 11px 12px; cursor: pointer; font-family: var(--font);
+  color: var(--ink); transition: transform .12s ease, border-color .15s ease, background .15s ease; }
+.menu-item:active { transform: scale(.97); background: var(--card); }
+.menu-item:hover { border-color: var(--accent); }
 .menu-item:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
-.menu-item .mi-ic { font-size: 20px; flex: 0 0 auto; width: 26px; text-align: center; }
-.menu-item > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.menu-item .mi-ic { font-size: 19px; flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+  background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }   /* caixa uniforme → ícones alinhados na coluna */
+.menu-item.danger .mi-ic { background: rgba(229,103,95,.12); box-shadow: inset 0 0 0 1px rgba(229,103,95,.3); }
+.menu-item > span:last-child { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
 .menu-item b { font-size: 14.5px; font-weight: 800; }
 .menu-item i { font-size: 12px; color: var(--muted); font-style: normal; margin-top: 1px; }
 .menu-item.danger b { color: #e5675f; }

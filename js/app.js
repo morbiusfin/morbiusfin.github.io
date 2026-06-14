@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.68";
-const VERSION_NOTES = "✨ Ao trocar entre Resumo · Gráficos · Insights, os blocos agora entram um a um (cascata), mais devagar e fluido";
+const APP_VERSION = "3.11.69";
+const VERSION_NOTES = "📷 Ícone da câmera no perfil centralizado (virou ícone, não emoji) · 🎛️ menu com ícones alinhados em caixas e cada item entrando em cascata com pop";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.69",
+    bullets: [
+      "Ícone da câmera na foto de perfil agora fica certinho no centro (virou um ícone desenhado, não mais emoji torto)",
+      "Menu mais alinhado: cada ícone num quadradinho do mesmo tamanho, em coluna",
+      "Ao abrir o menu, os itens entram em cascata e o ícone dá um pop",
+    ]
+  },
   {
     version: "3.11.68",
     bullets: [
