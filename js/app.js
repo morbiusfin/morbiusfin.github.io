@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.73";
-const VERSION_NOTES = "🪟 Lâmina de vidro (estilo iOS): o seletor Resumo/Gráficos/Insights e a barra de abas agora deslizam de forma fluida e acompanham o arraste; ao soltar, o conteúdo entra com um esmaecer (sem piscar)";
+const APP_VERSION = "3.11.74";
+const VERSION_NOTES = "🔄 A bolinha de sincronização não pisca mais a cada poucos segundos — agora ela só aparece quando VOCÊ sincroniza (as checagens automáticas de fundo são silenciosas)";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.74",
+    bullets: [
+      "A bolinha de 'sincronizando' no cabeçalho parou de aparecer sozinha a cada poucos segundos",
+      "Ela agora só aparece quando você sincroniza de propósito (a verificação automática de fundo é silenciosa)",
+    ]
+  },
   {
     version: "3.11.73",
     bullets: [
@@ -3484,7 +3491,10 @@ function setSyncBusy(on) {
 async function pullSync(aviso, onProg, force) {
   if (isTestMode()) return { ok: false, reason: "teste" };   // NUNCA sincroniza no modo teste (não baixa os reais)
   const c = syncCfg(); if (!c || pulling) return { ok: false, reason: "sem-config" };
-  pulling = true; setSyncBusy(true);
+  // bolinha de "sincronizando" SÓ em sync que o usuário pediu (manual/forçado) — as checagens
+  // automáticas de fundo (a cada 7s) são SILENCIOSAS (senão a bolinha pisca toda hora, sem motivo).
+  const showBusy = !!(aviso || force);
+  pulling = true; if (showBusy) setSyncBusy(true);
   let result = { ok: false, reason: "?" };
   try {
     if (onProg) onProg(25, "Conectando à nuvem…");
@@ -3524,7 +3534,7 @@ async function pullSync(aviso, onProg, force) {
     lastSyncInfo = { when: Date.now(), ok: false, msg: "falha de rede/CORS ao baixar", remoteTs: 0 };
     if (aviso) toast("Sync (baixar) falhou");
   }
-  finally { pulling = false; setSyncBusy(false); }
+  finally { pulling = false; if (showBusy) setSyncBusy(false); }
   return result;
 }
 
