@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.67";
-const VERSION_NOTES = "🎓 Tutorial + ❓ FAQ no menu e um “?” em cada parte explicando o que faz · foto de perfil com câmera mais visível e centralizada · 'Data de nascimento' · painel de contas com mais capricho e animação";
+const APP_VERSION = "3.11.68";
+const VERSION_NOTES = "✨ Ao trocar entre Resumo · Gráficos · Insights, os blocos agora entram um a um (cascata), mais devagar e fluido";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.68",
+    bullets: [
+      "Trocar entre Resumo, Gráficos e Insights ficou mais fluido: os blocos entram um a um (em cascata), não todos de uma vez",
+      "A animação ficou um pouco mais lenta e suave, na direção da troca (avançar/voltar)",
+    ]
+  },
   {
     version: "3.11.67",
     bullets: [
@@ -844,6 +851,7 @@ function renderResumo(view) {
     view.innerHTML = toggle + `<div class="rv-pane${pane}"><div id="gfxHost"></div></div>`;
     bindViewToggle();
     renderGraficos($("#gfxHost"));
+    rvStaggerChildren();
     return;
   }
   if (resumoView === "insights") {                 // 💡 Leitura do mês + Insights juntos (opção do topo)
@@ -853,6 +861,7 @@ function renderResumo(view) {
         <div class="insight"><span class="ic">🌱</span><span>Lance algumas receitas e despesas do mês pra eu gerar os insights.</span></div>
       </div></div>`) + `</div>`;
     bindViewToggle();
+    rvStaggerChildren();
     return;
   }
   const rec = receitaMes(m), desp = despesaMes(m);
@@ -902,6 +911,7 @@ function renderResumo(view) {
   renderCharts();
   animateResumo();
   bindViewToggle();
+  rvStaggerChildren();
   const gv = $("#goVenc"); if (gv) gv.onclick = () => focarVencimentos();
 }
 
@@ -1320,14 +1330,23 @@ function bindViewToggle() {
     if (b.dataset.rv === "insights") localStorage.setItem("financas2026.insSeen", "1");   // viu → para de pulsar
     if (resumoView === b.dataset.rv) return;
     _rvSlide = (RV_ORDER[b.dataset.rv] > RV_ORDER[resumoView]) ? "fwd" : "back";          // direção da transição
-    resumoView = b.dataset.rv; suppressNextAnim = true; window.scrollTo(0, 0); render();
+    resumoView = b.dataset.rv; forceAnimOnce = true; window.scrollTo(0, 0); render();    // forceAnim → libera a animação de entrada (cascata) nesta troca
   });
 }
-// classe de slide pro painel (consome o _rvSlide uma vez)
+// classe de cascata pro painel (consome o _rvSlide uma vez)
 function rvPaneClass() {
-  const c = _rvSlide === "fwd" ? " rv-in-right" : _rvSlide === "back" ? " rv-in-left" : "";
+  const c = _rvSlide === "fwd" ? " rv-stg-right" : _rvSlide === "back" ? " rv-stg-left" : "";
   _rvSlide = null;
   return c;
+}
+// cascata: marca cada bloco do painel com a direção + um índice (atraso) p/ entrarem um a um
+function rvStaggerChildren() {
+  const p = document.querySelector("#view > .rv-pane"); if (!p) return;
+  const dir = p.classList.contains("rv-stg-right") ? "right" : p.classList.contains("rv-stg-left") ? "left" : null;
+  if (!dir) return;
+  let blocks = Array.prototype.slice.call(p.children);
+  if (blocks.length === 1 && blocks[0].id === "gfxHost") blocks = Array.prototype.slice.call(blocks[0].children);  // nos Gráficos, anima os cards de dentro
+  blocks.forEach((el, i) => { el.classList.add("rv-stg-item", "dir-" + dir); el.style.setProperty("--i", i); });
 }
 
 // regressão linear (mínimos quadrados) + R² → linha de tendência estatística

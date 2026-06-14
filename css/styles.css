@@ -111,12 +111,13 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
 #view.no-anim > *:not(.rv-pane), #view.no-anim .fade-in, #view.no-anim .list .list-row,
 #view.no-anim .insight, #view.no-anim .ins-card, #view.no-anim .health-meta { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { *, main > * { animation: none !important; transition: none !important; } }
-/* transição direcional ao trocar Resumo/Gráficos/Insights — o painel desliza, o seletor fica parado */
+/* transição ao trocar Resumo/Gráficos/Insights — os BLOCOS entram um a um (cascata), fluido; o seletor fica parado */
 .rv-pane { animation: none; }   /* base: render normal NÃO desliza nem pisca (vence o `main > *` fadeInUp) */
-.rv-pane.rv-in-right { animation: rvInRight .34s cubic-bezier(.2,.8,.2,1) both; }
-.rv-pane.rv-in-left  { animation: rvInLeft  .34s cubic-bezier(.2,.8,.2,1) both; }
-@keyframes rvInRight { from { opacity: 0; transform: translateX(46px); } to { opacity: 1; transform: none; } }
-@keyframes rvInLeft  { from { opacity: 0; transform: translateX(-46px); } to { opacity: 1; transform: none; } }
+.rv-stg-item.dir-right { animation: rvStgRight .55s cubic-bezier(.22,.7,.2,1) both; animation-delay: calc(var(--i, 0) * .11s); }
+.rv-stg-item.dir-left  { animation: rvStgLeft  .55s cubic-bezier(.22,.7,.2,1) both; animation-delay: calc(var(--i, 0) * .11s); }
+@keyframes rvStgRight { from { opacity: 0; transform: translateX(44px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes rvStgLeft  { from { opacity: 0; transform: translateX(-44px) scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .rv-stg-item.dir-right, .rv-stg-item.dir-left { animation: none; } }
 
 /* ===== HEADER ===== */
 .app-header {
