@@ -1,11 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.79";
+const APP_VERSION = "3.11.80";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.80",
+    bullets: [
+      "Conta conjunta agora é pela NUVEM: os dois celulares usam o mesmo cofre e funciona em qualquer rede (Wi-Fi ou dados) — não precisa mais estar na mesma rede nem com os dois abertos ao mesmo tempo",
+      "Parear ficou simples: você compartilha 1 link (ou QR) e seu par entra na conta com um toque",
+      "Sincronização à prova de perda: o que cada um lança é mesclado por item — ninguém sobrescreve o lançamento do outro",
+      "Apagar de um lado apaga do outro também (sem ressuscitar itens)",
+    ]
+  },
   {
     version: "3.11.79",
     bullets: [
@@ -1996,7 +2005,7 @@ function closeBulkModal() { const m = document.getElementById("bulkModal"); if (
 function doBulkDeleteDiaria() {
   const idxs = [...selected].sort((a, b) => b - a);   // de trás pra frente pra não bagunçar os índices
   let n = 0;
-  idxs.forEach(i => { if (DATA.diaria[i]) { DATA.diaria.splice(i, 1); n++; } });
+  idxs.forEach(i => { if (DATA.diaria[i]) { tombstone(DATA.diaria[i].id); DATA.diaria.splice(i, 1); n++; } });
   selMode = false; selected = new Set(); selTab = null; selMonth = -1;
   persist();                 // salva + render + histórico (desfazível) + sync
   updateBulkBar();
@@ -2011,8 +2020,12 @@ function doBulkDelete(months) {
     if (l.vals && mi >= 0 && mi < l.vals.length) l.vals[mi] = 0;
     if (l.sts && mi >= 0 && mi < l.sts.length) l.sts[mi] = "vazio";
   }));
+  lines.forEach(l => { l.m = nowMs(); });   // editou (zerou meses) → atualiza o mtime p/ o merge
   // remove linhas que ficaram 100% vazias (some de todos os meses)
+  const antesIds = new Set(DATA[tab].map(l => l.id));
   DATA[tab] = DATA[tab].filter(l => (l.vals || []).some(v => Number(v) > 0) || (l.sts || []).some(s => s && s !== "vazio"));
+  const depoisIds = new Set(DATA[tab].map(l => l.id));
+  antesIds.forEach(id => { if (!depoisIds.has(id)) tombstone(id); });   // linha que sumiu de vez → tombstone
   selMode = false; selected = new Set(); selTab = null; selMonth = -1;
   closeBulkModal();
   persist();                 // salva + render limpo + histórico (desfazível) + sync
@@ -2278,6 +2291,7 @@ function openCartaoModal() {
     const line = { id: uid(), desc: $("#f_desc").value.trim(), cartao: card ? card.nome : "", catId, parcAtual: 1, parcTotal: n > 1 ? n : null, dia: card ? card.vencimento : dia, nec, vals: Array(12).fill(0), sts: Array(12).fill("vazio") };
     ensureLen(line, last + 1);                                 // estende os meses se a última parcela passa de Dez/26
     for (let k = 0; k < n; k++) { const mo = start + k; if (mo < 0) continue; line.vals[mo] = valor; line.sts[mo] = mo <= paidUntil ? "pago" : "programado"; }
+    line.m = nowMs();                                          // mtime p/ o merge da conta conjunta
     DATA.cartao.push(line);
     persist(); closeModal();
     const fim = start + n - 1;
@@ -2360,7 +2374,7 @@ function openEntryModal(tab, idx) {
   updateImpact(isExpenseE, oldValAt(curMonth));
 
   $("#btnDelete").classList.toggle("hidden", isNew);
-  $("#btnDelete").onclick = () => { if (confirm("Excluir este lançamento (todos os meses)?")) { DATA[tab].splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
+  $("#btnDelete").onclick = () => { if (confirm("Excluir este lançamento (todos os meses)?")) { tombstone(DATA[tab][idx].id); DATA[tab].splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
     const val = moneyVal($("#f_val")), st = $("#f_st").value, all = $("#f_all").checked;
@@ -2378,6 +2392,7 @@ function openEntryModal(tab, idx) {
       ensureLen(line, bm + q);                                  // recorrência pode passar de Dez/26 → estende os meses
       for (let k = 0; k < q; k++) { const mo = bm + k; line.vals[mo] = val; line.sts[mo] = val > 0 ? st : "vazio"; }
     } else { line.vals[bm] = val; line.sts[bm] = val > 0 ? st : "vazio"; }
+    line.m = nowMs();                                          // mtime p/ o merge da conta conjunta
     if (isNew) DATA[tab].push(line);
     persist(); closeModal();
     const sa = disponivelMes(bm) - despesaMes(bm);
@@ -2479,7 +2494,7 @@ function openDiariaModal(idx, method) {
   $("#f_metToggle").onclick = () => { metodo = metodo === "pix" ? "debito" : "pix"; const t = $("#f_metTag"); t.className = "method-tag " + metodo; t.querySelector(".mt-label").textContent = metLabel(metodo); };
   updateImpact(true, oldValD);
   $("#btnDelete").classList.toggle("hidden", isNew);
-  $("#btnDelete").onclick = () => { if (confirm("Excluir esta compra?")) { DATA.diaria.splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
+  $("#btnDelete").onclick = () => { if (confirm("Excluir esta compra?")) { tombstone(DATA.diaria[idx].id); DATA.diaria.splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
   let askedHoje = false;   // pergunta "foi hoje?" só UMA vez por inclusão (sem loop)
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
@@ -2489,8 +2504,8 @@ function openDiariaModal(idx, method) {
     const val = moneyVal($("#f_val")), mes = +$("#f_mes").value;
     const catId = $("#f_catId") ? ($("#f_catId").value || null) : null;
     const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, catId, categoria: catId ? (catById(catId).nome) : "Geral", metodo };
-    if (isNew) DATA.diaria.push({ id: uid(), mes, ...o });
-    else { Object.assign(d, o); d.mes = mes; }
+    if (isNew) DATA.diaria.push({ id: uid(), mes, ...o, m: nowMs() });
+    else { Object.assign(d, o); d.mes = mes; d.m = nowMs(); }
     persist(); closeModal();
     const sa = disponivelMes(mes) - despesaMes(mes);
     if (val > 0 && sa < 0) toast(`⚠️ ${mLong(mes)} ficou no vermelho (${brl(sa)}) · Ctrl+Z desfaz`);
@@ -2913,7 +2928,7 @@ function openProfile() {
 function refreshProfTipo() {
   $$("#profTipoSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.tipo === _profTipo));
   const conj = $("#profConjunta"); if (conj) conj.classList.toggle("hidden", _profTipo !== "conjunta");
-  const st = $("#profPairStatus"); if (st) st.innerHTML = cpConnected() ? '<span class="pair-ok">🟢 Pareado com o parceiro</span>' : "";
+  const st = $("#profPairStatus"); if (st) st.innerHTML = coupleActive() ? '<span class="pair-ok">🟢 Conta conjunta ativa na nuvem</span>' : (syncCfg() ? '<span class="pair-ok">☁️ Sincronização ativa</span>' : "");
 }
 function refreshProfPhoto() {
   const ph = $("#profPhotoBtn"); if (!ph) return;
@@ -3119,26 +3134,25 @@ function openSyncHelp() {
   if (!m) {
     m = document.createElement("div"); m.id = "syncHelpModal"; m.className = "modal center hidden";
     m.innerHTML = '<div class="modal-card sh-card"><button type="button" class="wn-close" id="shClose">✕</button>'
-      + '<div class="sh-head"><span>💑</span><h2>Como sincronizar o casal</h2></div>'
+      + '<div class="sh-head"><span>💑</span><h2>Como funciona a conta conjunta</h2></div>'
       + '<div class="sh-body">'
-      + '<div class="sh-rules"><div class="sh-rules-t">✅ Pra dar certo, sempre:</div>'
-      + '<ul><li>Os <b>dois</b> com o app <b>aberto ao mesmo tempo</b>.</li>'
-      + '<li>De preferência na <b>mesma rede Wi-Fi</b>.</li>'
-      + '<li>Se não conectar, gere um <b>convite novo</b> e tente de novo.</li></ul></div>'
+      + '<div class="sh-rules"><div class="sh-rules-t">☁️ Pela nuvem — funciona em qualquer rede:</div>'
+      + '<ul><li>Os dois celulares usam o <b>mesmo cofre</b> na nuvem.</li>'
+      + '<li>Funciona em <b>Wi-Fi ou dados móveis</b> — não precisam estar juntos nem na mesma rede.</li>'
+      + '<li>O que um lança aparece pro outro em segundos (e ao abrir o app).</li></ul></div>'
       + '<div class="sh-steps-t">📲 Passo a passo:</div>'
       + '<ol class="sh-steps">'
-      + '<li><b>Ela ainda não tem o app?</b> Toque em <b>“Convidar”</b> e mande o link. Android: Chrome → Instalar app. iPhone: Safari → Compartilhar → Adicionar à Tela de Início.</li>'
-      + '<li><b>Você (1º):</b> “Criar convite” → mande o <b>QR/código</b> pra ela (Copiar ou Compartilhar).</li>'
-      + '<li><b>Ela (2º):</b> “Tenho um convite” → cola/escaneia o seu → o app dela gera uma <b>resposta</b>.</li>'
-      + '<li><b>Ela te manda a resposta</b> → você cola em <b>“Conectar”</b>.</li>'
-      + '<li>🟢 <b>Pareados!</b> O que um lançar aparece no outro na hora.</li>'
+      + '<li><b>Você (1º):</b> ative a <b>sincronização na nuvem</b> em ⚙️ (uma vez só).</li>'
+      + '<li>No perfil → <b>Conta conjunta</b> → toque em <b>“Compartilhar convite”</b> e mande o link/QR pro seu par.</li>'
+      + '<li><b>Ele (2º):</b> abre o link no celular. Se ainda não tem o app, instala (Android: Chrome → Instalar; iPhone: Safari → Compartilhar → Adicionar à Tela de Início) e abre o link de novo.</li>'
+      + '<li>🟢 <b>Pronto!</b> Os dois compartilham a mesma conta. Cada um continua com o <b>seu</b> nome e foto.</li>'
       + '</ol>'
-      + '<div class="sh-err-t">❓ Deu erro?</div>'
-      + '<ul class="sh-err"><li><b>“Resposta/convite inválido”</b>: confira se colou o código <b>completo</b>.</li>'
-      + '<li><b>“Não conectou”</b>: quase sempre é a rede (4G/5G). Tentem no <b>mesmo Wi-Fi</b>.</li>'
-      + '<li><b>Fechou o app?</b> É só parear de novo — leva segundos.</li></ul>'
+      + '<div class="sh-err-t">❓ Dúvidas comuns</div>'
+      + '<ul class="sh-err"><li><b>Não apareceu o que ele lançou?</b> Puxe a tela pra baixo pra atualizar, ou reabra o app.</li>'
+      + '<li><b>O link é seguro?</b> Ele dá acesso total à conta — mande só pra quem é da conta.</li>'
+      + '<li><b>Ao entrar, o que acontece com a conta antiga dele?</b> Ele passa a usar a conta compartilhada; a anterior fica no histórico (Ctrl+Z).</li></ul>'
       + '</div>'
-      + '<button type="button" class="btn primary" id="shPair">📲 Parear agora</button></div>';
+      + '<button type="button" class="btn primary" id="shPair">💑 Abrir conta conjunta</button></div>';
     document.body.appendChild(m);
     m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
     m.querySelector("#shClose").onclick = () => m.classList.add("hidden");
@@ -3146,35 +3160,49 @@ function openSyncHelp() {
   }
   m.classList.remove("hidden");
 }
+// Preenche QR + Copiar + Compartilhar com um LINK pronto (usado pelo convite da conta conjunta na nuvem)
+function pairFillShareLink(qrId, copyId, shareId, link, title) {
+  const qel = document.getElementById(qrId);
+  if (qel) {
+    qel.innerHTML = "";
+    try { const q = qrcode(0, "M"); q.addData(link); q.make(); qel.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); }
+    catch (e) { qel.innerHTML = '<div class="pair-noqr">Use <b>Copiar</b> ou <b>Compartilhar</b> o link.</div>'; }
+  }
+  const cp = document.getElementById(copyId);
+  if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(link); toast("Link copiado ✓"); } catch (e) { toast("Copie o link manualmente"); } };
+  const sh = document.getElementById(shareId);
+  if (sh) sh.onclick = async () => { try { if (navigator.share) await navigator.share({ title: title, text: "Convite da nossa conta conjunta no MorbiusFin 💑", url: link }); else { await navigator.clipboard.writeText(link); toast("Link copiado ✓"); } } catch (e) {} };
+}
 function renderPairBody() {
   const b = $("#pairBody"); if (!b) return;
-  if (cpConnected()) {
-    b.innerHTML = '<div class="pair-connected"><div class="pair-ok-big">🟢</div><p><b>Conectado!</b> O que um de vocês lançar aparece no outro em tempo real — direto entre os celulares, sem nuvem.</p><button class="btn primary" id="pairDone">Fechar</button></div>';
-    const d = $("#pairDone"); if (d) d.onclick = closePairModal; return;
-  }
-  if (_pairStep === "home") {
-    b.innerHTML = '<p class="pair-intro">Conexão direta entre os dois celulares, <b>sem nuvem</b>. Um cria o convite, o outro entra.</p>'
-      + '<button class="btn primary pair-role" id="pairHost">📤 Criar convite (sou o 1º)</button>'
-      + '<button class="btn ghost pair-role" id="pairGuest">📥 Tenho um convite (sou o 2º)</button>'
-      + '<button class="btn ghost pair-role pair-invite" id="pairInstall">📲 Ela ainda não tem o app? Convidar</button>'
-      + '<button type="button" class="pair-guide-link" id="pairGuide">📖 Como sincronizar (passo a passo)</button>'
-      + '<div class="pair-hint">⚠️ Os dois precisam estar com o app aberto <b>ao mesmo tempo</b> pra parear. Funciona melhor no <b>mesmo Wi-Fi</b>.</div>';
-    $("#pairHost").onclick = pairStartHost;
-    $("#pairGuest").onclick = () => { _pairStep = "guest"; renderPairBody(); };
-    $("#pairInstall").onclick = pairInviteApp;
-    $("#pairGuide").onclick = openSyncHelp;
+  // Conta conjunta pela NUVEM: os dois usam o mesmo cofre (qualquer rede). Pré-requisito: sync ativo.
+  if (!syncCfg()) {
+    b.innerHTML = '<p class="pair-intro">A <b>conta conjunta</b> funciona pela nuvem: os dois celulares usam o <b>mesmo cofre</b>, em <b>qualquer rede</b> (Wi-Fi ou dados). Primeiro, ative a sincronização na nuvem.</p>'
+      + '<button class="btn primary" id="pairCfg">☁️ Ativar sincronização</button>'
+      + '<button type="button" class="pair-guide-link" id="pairGuide">📖 Como funciona</button>';
+    const cf = $("#pairCfg"); if (cf) cf.onclick = () => { closePairModal(); configurarSync(); };
+    const g = $("#pairGuide"); if (g) g.onclick = openSyncHelp;
     return;
   }
-  if (_pairStep === "guest") {
-    b.innerHTML = '<p class="pair-step"><b>1.</b> Cole aqui o convite do parceiro:</p>'
-      + '<textarea class="pair-ta" id="pairInv" placeholder="cole o convite…"></textarea>'
-      + '<button class="btn primary" id="pairGen">Gerar resposta</button>'
-      + '<button class="btn ghost" id="pairBack">Voltar</button><div class="pair-msg" id="pairMsg"></div>';
-    if (_pairPrefill) { $("#pairInv").value = _pairPrefill; }
-    $("#pairGen").onclick = pairGuestGen;
-    $("#pairBack").onclick = () => { _pairStep = "home"; renderPairBody(); };
-    return;
-  }
+  const link = cfgLink();
+  b.innerHTML = '<p class="pair-intro">💑 <b>Conta conjunta na nuvem</b> — mande este convite pro seu par. Quando ele abrir o link no celular, vocês passam a compartilhar a <b>mesma conta</b>: o que um lançar aparece pro outro, em qualquer rede.</p>'
+    + '<div class="pair-qr" id="pairQR"></div>'
+    + '<div class="pair-actions"><button class="btn primary" id="pairShare">↗︎ Compartilhar convite</button><button class="btn ghost" id="pairCopy">📋 Copiar link</button></div>'
+    + '<button class="btn ghost pair-role pair-invite" id="pairInstall">📲 Ainda não tem o app? Convidar pra instalar</button>'
+    + '<button type="button" class="pair-guide-link" id="pairGuide">📖 Passo a passo</button>'
+    + '<div class="pair-hint">⚠️ Este link dá acesso total à conta — mande só pra quem é da conta. Ao abrir, o app do seu par passa a usar a conta compartilhada (a conta dele anterior fica no histórico).</div>';
+  pairFillShareLink("pairQR", "pairCopy", "pairShare", link, "Convite MorbiusFin (conta conjunta)");
+  const inst = $("#pairInstall"); if (inst) inst.onclick = pairInviteAppLink;
+  const g = $("#pairGuide"); if (g) g.onclick = openSyncHelp;
+}
+// Convidar a instalar JÁ com o link da conta conjunta (instala + entra no mesmo cofre num passo só)
+async function pairInviteAppLink() {
+  const link = cfgLink() || (location.origin + location.pathname);
+  const msg = "Entra na nossa conta do MorbiusFin 💚\n\n1) Abra este link no celular:\n" + link
+    + "\n\n📱 Android: abra no Chrome → menu (⋮) → \"Instalar app\"."
+    + "\n🍎 iPhone: abra no Safari → Compartilhar → \"Adicionar à Tela de Início\"."
+    + "\n\nPronto: vamos compartilhar a mesma conta, em qualquer rede.";
+  try { if (navigator.share) await navigator.share({ title: "MorbiusFin (conta conjunta)", text: msg, url: link }); else { await navigator.clipboard.writeText(msg); toast("Convite copiado ✓ — cole no WhatsApp"); } } catch (e) {}
 }
 async function pairStartHost() {
   _pairStep = "host"; const b = $("#pairBody");
@@ -3579,12 +3607,71 @@ function configurarSync() {
       cfg.token = tokInp.value.trim();
     }
     if (!cfg || !cfg.url || !cfg.token) { msg.textContent = "Não reconheci. Cole o LINK MÁGICO inteiro."; return; }
-    localStorage.setItem(SYNC_CFG_KEY, JSON.stringify({ url: cfg.url.trim(), token: cfg.token.trim() }));
+    const novo = { url: cfg.url.trim(), token: cfg.token.trim() };
+    const trocou = !cur.url || cur.url !== novo.url || cur.token !== novo.token;
+    localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(novo));
+    if (trocou) window.__joinChannel = true;   // canal novo/diferente → adota a conta de lá (não mistura o local)
     modal.classList.add("hidden");
     toast("Sincronização configurada ✓"); renderNotifBtn();
     pullSync(true, null, true); startLiveSync();   // puxa a web na hora
   };
 }
+/* ========== Conta conjunta na nuvem: MERGE por item (ninguém perde lançamento) ==========
+   Cada lançamento tem id + m (mtime). Apagados viram tombstone em DATA._tomb {id:m}.
+   merge = união por id (vence o m maior); tombstone mais novo que o item o remove de vez.
+   Tudo determinístico (listas ordenadas por id, tomb com chaves ordenadas) → os 2 celulares
+   convergem pro MESMO estado e param de empurrar (sem ping-pong). */
+const SYNC_LISTS = ["receitas", "fixas", "cartao", "diaria"];
+const nowMs = () => Date.now();
+function tombstone(ids) {
+  if (!DATA._tomb) DATA._tomb = {};
+  const t = nowMs();
+  (Array.isArray(ids) ? ids : [ids]).forEach(id => { if (id != null) DATA._tomb[id] = t; });
+}
+function mergeTomb(a, b) {
+  const raw = {};
+  [a, b].forEach(o => { if (o) for (const k in o) raw[k] = Math.max(raw[k] || 0, o[k] || 0); });
+  let keys = Object.keys(raw).sort();                          // ordem determinística
+  if (keys.length > 500) keys = keys.sort((x, y) => raw[y] - raw[x]).slice(0, 500).sort();  // poda os mais antigos
+  const t = {}; keys.forEach(k => t[k] = raw[k]); return t;
+}
+function coupleActive() { return !!syncCfg() && getPerfil().tipo === "conjunta"; }
+function cfgLink() {
+  const c = syncCfg(); if (!c || !c.url || !c.token) return null;
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify({ u: c.url, t: c.token }))))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return location.origin + location.pathname + "#cfg=" + b64;
+}
+function mergeData(local, remote) {
+  if (!remote) return local;
+  const lt = local.updatedAt || 0, rt = remote.updatedAt || 0;
+  const cfg = rt > lt ? remote : local;                        // o lado mais novo decide os campos de configuração
+  const tomb = mergeTomb(local._tomb, remote._tomb);
+  const out = {
+    year: cfg.year != null ? cfg.year : (local.year != null ? local.year : 2026),
+    saldoInicial: cfg.saldoInicial != null ? cfg.saldoInicial : (local.saldoInicial || 0),
+    metas: cfg.metas || local.metas || { fixas: 0, cartao: 0, diaria: 0 },
+    cartoes: cfg.cartoes || local.cartoes || [],
+    categorias: (cfg.categorias && cfg.categorias.length) ? cfg.categorias : (local.categorias || []),
+    orcamento: cfg.orcamento || local.orcamento || {},
+    updatedAt: Math.max(lt, rt),
+    _tomb: tomb
+  };
+  SYNC_LISTS.forEach(list => {
+    const byId = {};
+    const consume = arr => (arr || []).forEach(it => {
+      if (!it || it.id == null) return;
+      const prev = byId[it.id];
+      if (!prev || (it.m || 0) >= (prev.m || 0)) byId[it.id] = it;   // mtime maior vence
+    });
+    consume(local[list]); consume(remote[list]);
+    out[list] = Object.values(byId)
+      .filter(it => !(tomb[it.id] != null && tomb[it.id] > (it.m || 0)))   // apagado depois da última edição → some
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));          // ordem determinística (display reordena depois)
+  });
+  return out;
+}
+
 let pulling = false;
 // status da última sincronização (mostrado em ⚙️ para diagnóstico)
 let lastSyncInfo = { when: 0, ok: null, msg: "ainda não sincronizou", remoteTs: 0 };
@@ -3620,25 +3707,39 @@ async function pullSync(aviso, onProg, force) {
     const r = await resp.json();
     if (r && r.ok) {
       const remote = r.data;
-      const localTs = (DATA && DATA.updatedAt) || 0;
       const remoteTs = (remote && remote.updatedAt) || 0;
-      const difere = remote ? (JSON.stringify(remote) !== JSON.stringify(DATA)) : false;
-      // adota a nuvem se: (forçado e diferente) OU (auto e a nuvem é mais nova)
-      const adota = remote && (force ? difere : remoteTs > localTs);
-      if (adota) {
-        if (onProg) onProg(85, "Aplicando alterações…");
-        history.push(lastSnap); if (history.length > HISTORY_MAX) history.shift(); // dá pra desfazer (Ctrl+Z) se quiser o estado local de volta
-        DATA = migrate(remote); if (!DATA.updatedAt) DATA.updatedAt = remoteTs || Date.now();
+      if (onProg) onProg(85, "Aplicando alterações…");
+      if (window.__joinChannel && remote) {
+        // ENTRANDO numa conta compartilhada por link → adota a conta do par inteira
+        // (não mistura o exemplo/local de quem está entrando).
+        window.__joinChannel = false;
+        history.push(lastSnap); if (history.length > HISTORY_MAX) history.shift();
+        DATA = migrate(remote); if (!DATA.updatedAt) DATA.updatedAt = remoteTs || nowMs();
         saveData(DATA); lastSnap = JSON.stringify(DATA); render();
         result = { ok: true, changed: true };
-        if (aviso) toast("Baixado da web ⤓");
-      } else if (!remote || (!force && localTs > remoteTs)) {
-        // nuvem vazia ou (no modo auto) meu aparelho é mais novo → eu mando pra nuvem
+        if (aviso) toast("Conta compartilhada carregada ⤓");
+      } else if (remote) {
+        // MERGE: une os lançamentos dos dois (ninguém perde nada)
+        const merged = mergeData(DATA, remote);
+        const ms = JSON.stringify(merged);
+        const changedLocal = ms !== JSON.stringify(DATA);
+        const changedRemote = ms !== JSON.stringify(remote);
+        if (changedLocal) {
+          window.__joinChannel = false;
+          history.push(lastSnap); if (history.length > HISTORY_MAX) history.shift();
+          DATA = migrate(merged); saveData(DATA); lastSnap = JSON.stringify(DATA); render();
+        }
+        if (changedRemote) pushSync();                 // devolve o merge pra nuvem → o par também converge
+        result = { ok: true, changed: changedLocal, pushed: changedRemote };
+        if (aviso) toast(changedLocal ? "Sincronizado ⤓" : (changedRemote ? "Enviado ⤴" : "Já estava em dia ✓"));
+      } else {
+        // nuvem vazia → mando o meu
+        window.__joinChannel = false;
         pushSync(); result = { ok: true, changed: false, pushed: true };
-        if (aviso) toast(remote ? "Já estava em dia ✓" : "Enviado pra nuvem ⤴");
-      } else { result = { ok: true, changed: false }; if (aviso) toast("Já estava em dia ✓"); }
+        if (aviso) toast("Enviado pra nuvem ⤴");
+      }
       lastSyncInfo = { when: Date.now(), ok: true, remoteTs: remoteTs,
-        msg: result.changed ? "baixou da web" : (result.pushed ? "enviou o local" : "já estava igual") };
+        msg: result.changed ? "mesclou da nuvem" : (result.pushed ? "enviou o local" : "já estava igual") };
     } else if (r && r.error) {
       result = { ok: false, reason: r.error };
       lastSyncInfo = { when: Date.now(), ok: false, msg: "erro do servidor: " + r.error, remoteTs: 0 };
@@ -3841,6 +3942,7 @@ function applyConfigLink() {
       if (cfg && cfg.u && cfg.t) {
         localStorage.setItem(SYNC_CFG_KEY, JSON.stringify({ url: cfg.u, token: cfg.t }));
         window.__syncFromLink = true;
+        window.__joinChannel = true;   // abriu link de convite → entra na conta compartilhada (adota a do par)
       }
     }
   } catch (e) {}
