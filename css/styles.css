@@ -108,9 +108,15 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
 /* RENDER ESTÁTICO: com #view em no-anim, nada de animação de ENTRADA (fadeInUp/rowIn) → a tela
    atualiza no lugar, sem "piscar", em qualquer ação. As decorativas contínuas (medidor, rosca,
    borda do simulador, sino) usam outros seletores e seguem normais. */
-#view.no-anim > *, #view.no-anim .fade-in, #view.no-anim .list .list-row,
+#view.no-anim > *:not(.rv-pane), #view.no-anim .fade-in, #view.no-anim .list .list-row,
 #view.no-anim .insight, #view.no-anim .ins-card, #view.no-anim .health-meta { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { *, main > * { animation: none !important; transition: none !important; } }
+/* transição direcional ao trocar Resumo/Gráficos/Insights — o painel desliza, o seletor fica parado */
+.rv-pane { animation: none; }   /* base: render normal NÃO desliza nem pisca (vence o `main > *` fadeInUp) */
+.rv-pane.rv-in-right { animation: rvInRight .34s cubic-bezier(.2,.8,.2,1) both; }
+.rv-pane.rv-in-left  { animation: rvInLeft  .34s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes rvInRight { from { opacity: 0; transform: translateX(46px); } to { opacity: 1; transform: none; } }
+@keyframes rvInLeft  { from { opacity: 0; transform: translateX(-46px); } to { opacity: 1; transform: none; } }
 
 /* ===== HEADER ===== */
 .app-header {
@@ -1151,7 +1157,7 @@ body.splash-on .tabbar, body.splash-on #fab { visibility: hidden; }
 }
 
 /* ----- Pagar sem "piscar": no próximo render, blocos não re-animam a entrada ----- */
-#view.no-anim > *, #view.no-anim .insights .insight { animation: none !important; }
+#view.no-anim > *:not(.rv-pane), #view.no-anim .insights .insight { animation: none !important; }
 
 /* ----- Seletor de ano no Resumo (multi-ano) ----- */
 .year-pick { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }

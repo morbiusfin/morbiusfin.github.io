@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.64";
-const VERSION_NOTES = "👤 Foto de perfil no cabeçalho (nome, aniversário e foto com recorte circular) · 🔔 painel próprio de notificações · o sino para de piscar depois que você abre uma vez";
+const APP_VERSION = "3.11.65";
+const VERSION_NOTES = "✨ Trocar entre Resumo · Gráficos · Insights agora desliza: avançar entra pela direita, voltar pela esquerda";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.65",
+    bullets: [
+      "Ao trocar entre Resumo, Gráficos e Insights, o conteúdo desliza com animação (o seletor fica parado em cima)",
+      "Avançar (Resumo→Gráficos→Insights) entra pela direita; voltar entra pela esquerda",
+    ]
+  },
   {
     version: "3.11.64",
     bullets: [
@@ -814,18 +821,19 @@ function cycleTheme() {
 function renderResumo(view) {
   const m = curMonth;
   const toggle = viewToggleHTML();
+  const pane = rvPaneClass();
   if (resumoView === "graficos") {
-    view.innerHTML = toggle + `<div id="gfxHost"></div>`;
+    view.innerHTML = toggle + `<div class="rv-pane${pane}"><div id="gfxHost"></div></div>`;
     bindViewToggle();
     renderGraficos($("#gfxHost"));
     return;
   }
   if (resumoView === "insights") {                 // 💡 Leitura do mês + Insights juntos (opção do topo)
     const ins = renderInsights(m);
-    view.innerHTML = toggle + renderNarrative(m) + (ins ||
+    view.innerHTML = toggle + `<div class="rv-pane${pane}">` + renderNarrative(m) + (ins ||
       `<div class="section-card fade-in"><h3>💡 Insights</h3><div class="insights">
         <div class="insight"><span class="ic">🌱</span><span>Lance algumas receitas e despesas do mês pra eu gerar os insights.</span></div>
-      </div></div>`);
+      </div></div>`) + `</div>`;
     bindViewToggle();
     return;
   }
@@ -834,7 +842,7 @@ function renderResumo(view) {
   const alertas = contasPerto(m);
 
   const totalVenc = alertas.reduce((s, v) => s + (Number(v.val) || 0), 0);
-  view.innerHTML = toggle + `
+  view.innerHTML = toggle + `<div class="rv-pane${pane}">
     ${alertas.length ? `<div class="section-card venc-card fade-in" id="vencCard">
       <div class="venc-head">
         <span class="venc-bell">🔔</span>
@@ -870,7 +878,7 @@ function renderResumo(view) {
 
     <div class="section-card"><h3>Projeção do saldo (ano) <i class="h3-sub">— realizado + provisão dos próximos meses</i></h3>
       <div class="chart-wrap"><canvas id="lineChart" height="180"></canvas></div></div>
-  `;
+  </div>`;
   if (alertas.length) renderVencList();
   renderCatList(m);
   renderCharts();
@@ -1285,12 +1293,21 @@ function viewToggleHTML() {
     <button type="button" class="vt-btn vt-ins${pulse} ${resumoView === "insights" ? "active" : ""}" data-rv="insights">💡 Insights</button>
   </div>`;
 }
+const RV_ORDER = { resumo: 0, graficos: 1, insights: 2 };
+let _rvSlide = null;   // "fwd" (entra pela direita) | "back" (entra pela esquerda) | null
 function bindViewToggle() {
   $$(".vt-btn").forEach(b => b.onclick = () => {
     if (b.dataset.rv === "insights") localStorage.setItem("financas2026.insSeen", "1");   // viu → para de pulsar
     if (resumoView === b.dataset.rv) return;
+    _rvSlide = (RV_ORDER[b.dataset.rv] > RV_ORDER[resumoView]) ? "fwd" : "back";          // direção da transição
     resumoView = b.dataset.rv; suppressNextAnim = true; window.scrollTo(0, 0); render();
   });
+}
+// classe de slide pro painel (consome o _rvSlide uma vez)
+function rvPaneClass() {
+  const c = _rvSlide === "fwd" ? " rv-in-right" : _rvSlide === "back" ? " rv-in-left" : "";
+  _rvSlide = null;
+  return c;
 }
 
 // regressão linear (mínimos quadrados) + R² → linha de tendência estatística
