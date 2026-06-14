@@ -1,11 +1,21 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.66";
-const VERSION_NOTES = "👤 'Editar perfil' no menu (foto/nome) + tipo de conta Pessoal ou Conjunta · 💑 conta de casal sincroniza os 2 celulares ao vivo por QR/código, direto entre eles (sem nuvem)";
+const APP_VERSION = "3.11.67";
+const VERSION_NOTES = "🎓 Tutorial + ❓ FAQ no menu e um “?” em cada parte explicando o que faz · foto de perfil com câmera mais visível e centralizada · 'Data de nascimento' · painel de contas com mais capricho e animação";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.67",
+    bullets: [
+      "Novo Tutorial passo a passo no menu (com botão de pular) e Perguntas frequentes (FAQ)",
+      "Um “?” pequeno em cada parte do Resumo: toque e veja o que aquilo faz, feche na hora",
+      "Foto de perfil: o ícone da câmera ficou maior, com anel e bem centralizado (não corta mais)",
+      "Campo 'Aniversário' virou 'Data de nascimento'",
+      "Painel de contas a vencer mais bonito: ícones centralizados e animação em cascata",
+    ]
+  },
   {
     version: "3.11.66",
     bullets: [
@@ -694,7 +704,7 @@ function renderHealth(m) {
   const s = healthScore(m), meta = healthMeta(s);
   const taxa = rec > 0 ? Math.round((rec - desp) / rec * 100) : 0;
   const len = Math.PI * 74, off = len * (1 - s / 100);
-  return `<div class="section-card health fade-in"><h3>Saúde financeira — ${mLong(m)}</h3>
+  return `<div class="section-card health fade-in"><h3>Saúde financeira — ${mLong(m)} ${helpQ("health")}</h3>
     <div class="health-body">
       <svg class="gauge" viewBox="0 0 180 110" width="170">
         <path d="M16 96 A 74 74 0 0 1 164 96" fill="none" stroke="var(--line)" stroke-width="14" stroke-linecap="round"/>
@@ -854,7 +864,7 @@ function renderResumo(view) {
     ${alertas.length ? `<div class="section-card venc-card fade-in" id="vencCard">
       <div class="venc-head">
         <span class="venc-bell">🔔</span>
-        <div class="venc-htxt"><div class="venc-title">Contas a vencer</div>
+        <div class="venc-htxt"><div class="venc-title">Contas a vencer ${helpQ("venc")}</div>
           <div class="venc-meta">${alertas.length} conta(s) · total <b>${brl(totalVenc)}</b></div></div>
       </div>
       <div id="vencList"></div>
@@ -870,12 +880,12 @@ function renderResumo(view) {
       <div class="flow-row total"><span>= Sobra do mês ${rec > 0 ? `<i>(guardou ${Math.round((rec - desp) / rec * 100)}% do que entrou no mês)</i>` : ""}</span><b id="sobraVal" class="countup ${sobra >= 0 ? "pos" : "neg"}" data-amt="${sobra}">${brl(sobra)}</b></div>
     </div>
 
-    <div class="section-card"><h3>Previsto × Realizado — ${mLong(m)}</h3>
+    <div class="section-card"><h3>Previsto × Realizado — ${mLong(m)} ${helpQ("prevreal")}</h3>
       ${barPrevReal("Receitas", recebido(m), aReceber(m), "recebido", "a receber")}
       ${barPrevReal("Despesas", pago(m), aPagar(m), "pago", "a pagar")}
     </div>
 
-    <div class="section-card"><h3>Composição das despesas</h3>
+    <div class="section-card"><h3>Composição das despesas ${helpQ("comp")}</h3>
       <div class="chart-wrap"><canvas id="doughChart" height="170"></canvas></div>
       <div id="catList"></div></div>
 
@@ -928,11 +938,13 @@ function renderNotifPanel() {
   const al = contasPerto(curMonth).slice().sort((a, b) => a.daysLeft - b.daysLeft);
   $("#notifTitle").textContent = al.length ? "Contas a vencer" : "Notificações";
   const ver = $("#notifVer"); if (ver) ver.style.display = al.length ? "" : "none";
-  if (!al.length) { body.innerHTML = `<div class="notif-empty">Nada a pagar por aqui 🎉</div>`; return; }
-  body.innerHTML = al.map(v => {
+  if (!al.length) { body.innerHTML = `<div class="notif-empty"><div class="ne-ic">🎉</div><p>Tudo em dia!<br><span>Nenhuma conta a pagar agora.</span></p></div>`; return; }
+  body.innerHTML = al.map((v, i) => {
     const cls = vencBadge(v.daysLeft).cls;
     const u = (cls === "atras" || cls === "d0") ? "u-red" : (cls === "d1" || cls === "d3") ? "u-amber" : "u-green";
-    return `<div class="notif-row ${u}">
+    const ic = cls === "atras" ? "⚠️" : cls === "d0" ? "🔔" : "💸";
+    return `<div class="notif-row ${u}" style="--i:${i}">
+      <span class="nr-ic">${ic}</span>
       <div class="nr-main"><div class="nr-name">${esc(v.desc)}</div><div class="nr-sub">dia ${v.venc} ${vencBadgeHTML(v.daysLeft)} · ${brl(v.val)}</div></div>
       <button class="vr-pay" data-pay="${v.id}">Pagar</button>
     </div>`;
@@ -1146,7 +1158,7 @@ function renderMetas(m) {
     { k: "diaria", name: "Dia a Dia", val: diariaMes(m) },
   ].filter(i => (metas[i.k] || 0) > 0);
   if (!itens.length) return "";
-  return `<div class="section-card"><h3>Orçamento do mês (META)</h3>${itens.map(i => {
+  return `<div class="section-card"><h3>Orçamento do mês (META) ${helpQ("metas")}</h3>${itens.map(i => {
     const meta = metas[i.k], rawPct = Math.round(i.val / meta * 100), pct = Math.min(100, rawPct), over = i.val > meta;
     return `<div class="pr-block">
       <div class="pr-head"><span>${i.name}</span><span class="${over ? "neg" : ""}">${brl(i.val)} <i>/ ${brl(meta)} · ${rawPct}%</i></span></div>
@@ -2879,6 +2891,97 @@ function cpCheckHashPair() {
 (function bindPair() {
   const c = $("#pairClose"); if (c) c.onclick = closePairModal;
   const m = $("#pairModal"); if (m) m.onclick = (e) => { if (e.target === m) closePairModal(); };
+})();
+
+/* ===================== ❓ Ajuda: "?" contextual + FAQ + Tutorial ===================== */
+const HELP = {
+  toggle: ["Resumo · Gráficos · Insights", "Troca a visão do mês: <b>📋 Resumo</b> (seu fluxo), <b>📊 Gráficos</b> e <b>💡 Insights</b> (a leitura do mês e dicas)."],
+  venc: ["Contas a vencer", "Contas perto de vencer ou já atrasadas. Toque em <b>Pagar</b> quando quitar — ela some daqui e do sino."],
+  health: ["Saúde financeira", "Uma nota de 0 a 100 pro seu mês. Quanto mais você guarda do que recebe, maior a nota."],
+  flow: ["O caminho do dinheiro", "Mostra: o que <b>sobrou do mês passado</b> + <b>receitas</b> − <b>despesas</b> = <b>o que sobra</b> no mês."],
+  prevreal: ["Previsto × Realizado", "O que você <b>já recebeu/pagou</b> contra o que <b>ainda falta</b> no mês."],
+  comp: ["Composição das despesas", "Como seus gastos se dividem entre <b>Fixas</b>, <b>Cartão</b> e <b>Dia a dia</b>."],
+  metas: ["Orçamento (metas)", "Suas metas por categoria. <b>Verde</b> = dentro da meta; <b>vermelho</b> = estourou. Defina no menu → Categorias."],
+};
+function helpQ(key) { return `<button type="button" class="help-q" data-help="${key}" aria-label="O que é isso?">?</button>`; }
+function openHelp(key) {
+  const h = HELP[key]; if (!h) return;
+  let m = document.getElementById("helpModal");
+  if (!m) {
+    m = document.createElement("div"); m.id = "helpModal"; m.className = "modal center hidden";
+    m.innerHTML = '<div class="modal-card help-card"><div class="help-ic">💡</div><h2 id="helpTitle"></h2><p id="helpText"></p><button type="button" class="btn primary" id="helpOk">Entendi</button></div>';
+    document.body.appendChild(m);
+    m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
+    m.querySelector("#helpOk").onclick = () => m.classList.add("hidden");
+  }
+  m.querySelector("#helpTitle").textContent = h[0];
+  m.querySelector("#helpText").innerHTML = h[1];
+  m.classList.remove("hidden");
+}
+document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest(".help-q"); if (b) { e.preventDefault(); e.stopPropagation(); openHelp(b.dataset.help); } });
+
+const FAQ = [
+  ["📋 Resumo", "A tela inicial do mês: contas a vencer, saúde financeira, o caminho do dinheiro e os gráficos."],
+  ["💡 Insights & Leitura do mês", "Toque na opção azul <b>Insights</b> no topo: a leitura do mês te diz o que pede atenção e dá dicas simples."],
+  ["💰 Receitas · 📌 Fixas · 💳 Cartão · 🛒 Débito", "As abas de baixo. Cada uma lista os lançamentos daquele tipo no mês."],
+  ["➕ Botão +", "Em qualquer aba (menos Resumo), o + adiciona um novo lançamento. No Cartão dá pra parcelar até 60×."],
+  ["🔔 Sino de alertas", "No topo: avisa quando há conta a pagar. Toque para ver e pagar; para de piscar depois que você abre."],
+  ["👤 Perfil", "Sua foto, nome e tipo de conta (Pessoal ou Conjunta de casal)."],
+  ["💑 Conta conjunta", "Casal: pareie os 2 celulares por QR/código. O que um lança aparece no outro em tempo real, <b>sem nuvem</b>."],
+  ["🏷️ Categorias e orçamento", "No menu: crie categorias com emoji e defina metas de gasto por categoria."],
+  ["🧪 Simular gastos", "No menu: veja se vale a pena uma compra à vista ou parcelada antes de comprar."],
+  ["🔄 Sincronização", "No menu: sobe/baixa seus dados da sua nuvem privada (opcional)."],
+  ["⬆️ Importar · ⬇️ Exportar", "Backup: salve tudo num arquivo ou recupere de um backup .json."],
+  ["🌗 Tema", "Claro, escuro ou automático."],
+];
+function openFaq() {
+  let m = document.getElementById("faqModal");
+  if (!m) {
+    m = document.createElement("div"); m.id = "faqModal"; m.className = "modal center hidden";
+    m.innerHTML = '<div class="modal-card faq-card"><button type="button" class="wn-close" id="faqClose">✕</button><div class="faq-head"><span>❓</span><h2>Perguntas frequentes</h2></div><div class="faq-body" id="faqBody"></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
+    m.querySelector("#faqClose").onclick = () => m.classList.add("hidden");
+  }
+  m.querySelector("#faqBody").innerHTML = FAQ.map((q, i) => `<details class="faq-item"${i === 0 ? " open" : ""}><summary>${q[0]}</summary><p>${q[1]}</p></details>`).join("");
+  m.classList.remove("hidden");
+}
+
+const TUTORIAL = [
+  ["👋", "Bem-vindo ao MorbiusFin", "Seu controle financeiro do mês, simples e no celular. Vou te mostrar o essencial em alguns passos — pode pular quando quiser."],
+  ["📋", "Resumo do mês", "Aqui você vê o caminho do seu dinheiro: o que entrou, o que saiu e o que sobra. No topo dá pra trocar para Gráficos e Insights."],
+  ["🔔", "Contas a vencer", "O sino no topo avisa quando há conta perto de vencer ou atrasada. Toque para ver e pagar — ele para de piscar depois."],
+  ["➕", "Lançar gastos e ganhos", "Nas abas de baixo (Receitas, Fixas, Cartão, Débito), use o + para adicionar. No Cartão dá pra parcelar até 60×."],
+  ["🏷️", "Categorias e metas", "No menu, crie categorias com emoji e defina metas de orçamento. Verde = dentro, vermelho = estourou."],
+  ["💑", "Conta de casal", "No perfil, escolha Conjunta e pareie os 2 celulares por QR. O que um lança aparece no outro, sem nuvem."],
+  ["❓", "Ajuda sempre à mão", "Viu um “?” numa parte do app? Toque para saber o que ela faz. E este tutorial fica no menu quando quiser rever."],
+];
+let _tutI = 0;
+function ensureTutModal() {
+  if (document.getElementById("tutModal")) return;
+  const m = document.createElement("div"); m.id = "tutModal"; m.className = "modal center hidden";
+  m.innerHTML = '<div class="modal-card tut-card"><button type="button" class="wn-close" id="tutX">✕</button><div class="tut-ic" id="tutIc"></div><h2 id="tutTitle"></h2><p id="tutText"></p><div class="tut-dots" id="tutDots"></div><div class="tut-nav"><button type="button" class="btn ghost" id="tutPrev">Voltar</button><button type="button" class="btn primary" id="tutNext">Próximo</button></div><button type="button" class="tut-skiplink" id="tutSkip">Pular tutorial</button></div>';
+  document.body.appendChild(m);
+  m.querySelector("#tutX").onclick = closeTut;
+  m.querySelector("#tutSkip").onclick = closeTut;
+  m.addEventListener("click", e => { if (e.target === m) closeTut(); });
+  m.querySelector("#tutPrev").onclick = () => { if (_tutI > 0) { _tutI--; renderTut(); } };
+  m.querySelector("#tutNext").onclick = () => { if (_tutI < TUTORIAL.length - 1) { _tutI++; renderTut(); } else closeTut(); };
+}
+function renderTut() {
+  const s = TUTORIAL[_tutI];
+  document.getElementById("tutTitle").textContent = s[1];
+  document.getElementById("tutText").textContent = s[2];
+  document.getElementById("tutDots").innerHTML = TUTORIAL.map((_, i) => `<span class="${i === _tutI ? "on" : ""}"></span>`).join("");
+  document.getElementById("tutPrev").style.visibility = _tutI === 0 ? "hidden" : "";
+  document.getElementById("tutNext").textContent = _tutI === TUTORIAL.length - 1 ? "Começar a usar" : "Próximo";
+  const ic = document.getElementById("tutIc"); ic.textContent = s[0]; ic.classList.remove("pop"); void ic.offsetWidth; ic.classList.add("pop");
+}
+function openTutorial() { _tutI = 0; ensureTutModal(); renderTut(); document.getElementById("tutModal").classList.remove("hidden"); }
+function closeTut() { const m = document.getElementById("tutModal"); if (m) m.classList.add("hidden"); try { localStorage.setItem("financas2026.tutDone", "1"); } catch (e) {} }
+(function bindHelpMenu() {
+  const mt = $("#miTutorial"); if (mt) mt.onclick = () => { closeMenu(); openTutorial(); };
+  const mf = $("#miFaq"); if (mf) mf.onclick = () => { closeMenu(); openFaq(); };
 })();
 (function bindWhatsNew() {                 // liga o ícone e os botões do modal (elementos estáticos)
   const i = $("#btnWhatsNew"); if (i) i.onclick = openWhatsNew;
