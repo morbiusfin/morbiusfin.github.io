@@ -49,11 +49,13 @@
       <option value="light">Claro</option>
       <option value="dark" selected>Escuro</option>
     </select>
+    <button id="btnDemo" onclick="toggleDemo()">🧪 Dados: FICTÍCIOS</button>
     <button onclick="buildAll()">↻ Recarregar todos</button>
     <button onclick="setViewAll('resumo')">Resumo</button>
     <button onclick="setViewAll('fixas')">Fixas</button>
-    <button onclick="setViewAll('cartao')">Cartão</button>
+    <button onclick="setViewAll('cartao')">Cartões</button>
   </div>
+  <p class="sub" id="demoNote" style="margin:-12px auto 18px;max-width:640px"></p>
 
   <div class="gallery" id="gallery"></div>
 
@@ -67,10 +69,22 @@
       { id: "galaxy",  name: "Android · Galaxy S", w: 360, h: 800, st: 28, sb: 24, kind: "android" },
       { id: "small",   name: "Android pequeno",    w: 360, h: 740, st: 24, sb: 16, kind: "android" },
     ];
+    // padrão = dados FICTÍCIOS (esta é uma galeria de testes; nunca mostra os dados reais sem você escolher)
+    let demoMode = true;
     function appSrc(d) {
       const t = document.getElementById("theme").value;
-      return `index.html?frame=1&st=${d.st}&sb=${d.sb}${t ? "&theme=" + t : ""}&_=${Date.now()}`;
+      return `index.html?frame=1&st=${d.st}&sb=${d.sb}${t ? "&theme=" + t : ""}${demoMode ? "&demo=1" : ""}&_=${Date.now()}`;
     }
+    function updateDemoBtn() {
+      const b = document.getElementById("btnDemo"), n = document.getElementById("demoNote");
+      b.textContent = demoMode ? "🧪 Dados: FICTÍCIOS" : "👤 Dados: REAIS";
+      b.style.background = demoMode ? "#1f6b3a" : "#7a4420";
+      b.style.borderColor = demoMode ? "#2c8a4d" : "#9a5a2a";
+      n.textContent = demoMode
+        ? "Mostrando dados fictícios (modo teste) — seus dados reais não são tocados. Toque no botão para alternar."
+        : "⚠️ Mostrando seus DADOS REAIS. Toque no botão para voltar aos fictícios.";
+    }
+    function toggleDemo() { demoMode = !demoMode; updateDemoBtn(); buildAll(); }
     // carrega o app no iframe só quando o aparelho aparece na tela (lazy) → leve, não trava
     const io = ("IntersectionObserver" in window) ? new IntersectionObserver((ents) => {
       ents.forEach(e => { if (e.isIntersecting) { const ifr = e.target; if (!ifr.src) ifr.src = ifr.dataset.src; io.unobserve(ifr); } });
@@ -100,6 +114,7 @@
         try { const dd = ifr.contentWindow.document; const el = [...dd.querySelectorAll(".tab")].find(x => new RegExp(tab, "i").test(x.textContent)); if (el) el.click(); } catch (e) {}
       });
     }
+    updateDemoBtn();
     buildAll();
   </script>
 </body>

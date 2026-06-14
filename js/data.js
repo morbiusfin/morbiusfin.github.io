@@ -139,7 +139,10 @@ function loadData() {
 /* Perfil ativo: "real" (STORE_KEY, pode ser cifrado) ou "test" (store SEPARADO, fictício, nunca cifrado).
    O teste NUNCA grava em STORE_KEY → impossível o teste apagar/sobrescrever os dados reais. */
 const TEST_STORE_KEY = "financas2026.demo";
-function profileKey() { return (localStorage.getItem("financas2026.profile") === "test") ? TEST_STORE_KEY : STORE_KEY; }
+function profileKey() {
+  const demo = (typeof window !== "undefined" && window.__demo);   // modo demo efêmero (?demo=1) também usa o store de teste → NUNCA toca no real
+  return (demo || localStorage.getItem("financas2026.profile") === "test") ? TEST_STORE_KEY : STORE_KEY;
+}
 function saveData(d) {
   const key = profileKey(), isReal = (key === STORE_KEY);
   if (isReal && window.CRYPTO_KEY && window.encryptEnvelope) {

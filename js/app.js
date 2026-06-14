@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.83";
+const APP_VERSION = "3.11.84";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.84",
+    bullets: [
+      "Na página de testes (iphone.html) tem um botão pra escolher: dados FICTÍCIOS (padrão) ou REAIS",
+      "Modo demo (dados fictícios) nunca toca nos seus dados reais e não deixa rastro no app instalado",
+    ]
+  },
   {
     version: "3.11.83",
     bullets: [
@@ -3729,7 +3736,8 @@ function exitTestMode() {
   try { localStorage.removeItem(TEST_STORE_KEY); } catch (e) {}   // limpa os dados de teste (some qualquer cópia)
   document.body.classList.remove("test-mode");
   closeAccessModal();
-  location.reload();                              // reboot limpo → boot() carrega os reais (gate se tiver PIN)
+  try { const u = new URL(location.href); u.searchParams.delete("demo"); location.replace(u.pathname + u.search + u.hash); }  // tira o ?demo ao sair
+  catch (e) { location.reload(); }                // reboot limpo → boot() carrega os reais (gate se tiver PIN)
 }
 function closeAccessModal() { const m = document.getElementById("accessModal"); if (m) m.classList.add("hidden"); }
 
@@ -3844,7 +3852,7 @@ let pulling = false;
 let lastSyncInfo = { when: 0, ok: null, msg: "ainda não sincronizou", remoteTs: 0 };
 // force=true → a WEB é a fonte da verdade: adota a nuvem sempre que houver e for diferente
 // (usado no botão 🔄 e no puxar-para-atualizar). Sem force = merge por timestamp (boot/auto).
-const isTestMode = () => localStorage.getItem("financas2026.profile") === "test";
+const isTestMode = () => !!window.__demo || localStorage.getItem("financas2026.profile") === "test";
 // Bolinha "sincronizando" no header: aparece SÓ se o sync demora >220ms (não pisca nos polls rápidos de 7s) e some ao terminar.
 let _syncBusyN = 0, _syncBusyTimer = 0;
 function setSyncBusy(on) {
@@ -4212,9 +4220,22 @@ function loadTestProfile() {
   document.body.classList.add("test-mode");
   startApp();
 }
+// Modo DEMO efêmero (?demo=1): dados fictícios, NUNCA toca nos reais, sem deixar rastro (não grava o profile).
+function enterDemo() {
+  window.__demo = true;
+  window.CRYPTO_KEY = null;
+  stopLiveSync();                                  // sem sync no demo
+  document.body.classList.add("test-mode");        // selo "MODO TESTE — dados fictícios"
+  let parsed = null; try { const raw = localStorage.getItem(TEST_STORE_KEY); parsed = raw ? JSON.parse(raw) : null; } catch (e) {}
+  DATA = parsed ? migrate(parsed) : buildSeed();   // store de teste, ou seed fictícia
+  saveData(DATA);                                  // profileKey() honra __demo → grava no store de teste (real intacto)
+  const ls = $("#lockScreen"); if (ls) ls.classList.add("hidden");
+  startApp();
+}
 async function boot() {
   applyTheme();
   applyConfigLink();
+  if (/[?&]demo=1\b/.test(location.search)) { enterDemo(); return; }   // veio de iphone.html com "dados fictícios"
   if (localStorage.getItem("financas2026.profile") === "test") { loadTestProfile(); return; }  // estava em teste
   document.body.classList.remove("test-mode");
   let raw = localStorage.getItem(STORE_KEY) || localStorage.getItem("financas2026.v1");
