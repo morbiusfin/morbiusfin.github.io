@@ -11,7 +11,7 @@
   <!-- tema aplicado ANTES do 1º paint → sem flash claro↔escuro na abertura -->
   <script>try{var t=localStorage.getItem("financas2026.theme"),h=document.documentElement;if(t==="dark")h.classList.add("theme-dark");else if(t==="light")h.classList.add("theme-light");
   /* mockup de teste (iphone.html): simula as áreas seguras do aparelho escolhido (iPhone/Android) */
-  if(location.search.indexOf("frame=")>=0){h.classList.add("framed");var q=new URLSearchParams(location.search);var st=q.get("st"),sb=q.get("sb");if(st!==null)h.style.setProperty("--safe-top",st+"px");if(sb!==null)h.style.setProperty("--safe-bottom",sb+"px");}}catch(e){}</script>
+  if(location.search.indexOf("frame=")>=0){h.classList.add("framed");var q=new URLSearchParams(location.search);var st=q.get("st"),sb=q.get("sb");if(st!==null)h.style.setProperty("--safe-top",st+"px");if(sb!==null)h.style.setProperty("--safe-bottom",sb+"px");var th=q.get("theme");if(th){localStorage.setItem("financas2026.theme",th);h.classList.remove("theme-dark","theme-light");h.classList.add(th==="dark"?"theme-dark":"theme-light");}}}catch(e){}</script>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="icon" href="icons/icon-192.png" />
@@ -184,6 +184,7 @@
       <button class="menu-item" id="miCategorias"><span class="mi-ic">🏷️</span><span><b>Categorias e orçamento</b><i>emojis, metas por categoria</i></span></button>
       <button class="menu-item" id="miSim"><span class="mi-ic">🧪</span><span><b>Simular gastos</b><i>vale a pena comprar?</i></span></button>
       <button class="menu-item" id="miConfig"><span class="mi-ic">⚙️</span><span><b>Configurações</b><i>saldo inicial, notificações</i></span></button>
+      <button class="menu-item" id="miAviso"><span class="mi-ic">🔔</span><span><b>Aviso de vencimento</b><i>quantos dias antes avisar — aplica a todas</i></span></button>
       <button class="menu-item" id="miTema"><span class="mi-ic">🌗</span><span><b>Tema</b><i>claro / escuro / automático</i></span></button>
       <button class="menu-item danger" id="miZero"><span class="mi-ic">🏁</span><span><b>Começar do zero</b><i>apaga e começa vazio</i></span></button>
       <div class="menu-foot">MorbiusFin · v<span id="menuVer"></span></div>

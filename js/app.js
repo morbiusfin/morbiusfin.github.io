@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.71";
-const VERSION_NOTES = "💑 Conta conjunta agora tem um guia 'Como sincronizar' passo a passo (à prova de erro), no perfil e no pareamento";
+const APP_VERSION = "3.11.72";
+const VERSION_NOTES = "🔔 Nova opção 'Aviso de vencimento' no menu: escolhe quantos dias antes avisar e aplica a TODAS as contas de uma vez (e cada conta segue editável individualmente)";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.72",
+    bullets: [
+      "Novo 'Aviso de vencimento' no menu: defina quantos dias antes quer ser avisado e aplique a TODAS as contas de uma vez",
+      "Cada conta fixa continua com seu próprio 'Avisar (dias antes)' na hora de editar",
+    ]
+  },
   {
     version: "3.11.71",
     bullets: [
@@ -2497,6 +2504,7 @@ $("#miExport").onclick = () => { closeMenu(); $("#btnExport").click(); };
 $("#miSync").onclick = () => { closeMenu(); if (syncCfg()) pullSync(true, null, true); else configurarSync(); };
 $("#miSim").onclick = () => { closeMenu(); curTab = "resumo"; resumoView = "graficos"; $$(".tab").forEach(x => x.classList.toggle("active", /Resumo/.test(x.textContent))); suppressNextAnim = true; window.scrollTo(0, 0); render(); };
 $("#miConfig").onclick = () => { closeMenu(); openSettings(); };
+{ const ma = $("#miAviso"); if (ma) ma.onclick = () => { closeMenu(); openAvisoModal(); }; }
 { const mc = $("#miCategorias"); if (mc) mc.onclick = () => { closeMenu(); openCategoriasModal(); }; }
 { const x = $("#catClose"); if (x) x.onclick = () => $("#catModal").classList.add("hidden"); }
 { const a = $("#catAdd"); if (a) a.onclick = addCategoria; }
@@ -2984,6 +2992,42 @@ async function pairInviteApp() {
     if (navigator.share) await navigator.share({ title: "MorbiusFin", text: msg, url: url });
     else { await navigator.clipboard.writeText(msg); toast("Convite copiado ✓ — cole no WhatsApp"); }
   } catch (e) {}
+}
+// 🔔 Aviso de vencimento: escolher quantos dias antes e aplicar a TODAS as contas fixas de uma vez
+function openAvisoModal() {
+  let m = document.getElementById("avisoModal");
+  if (!m) {
+    m = document.createElement("div"); m.id = "avisoModal"; m.className = "modal center hidden";
+    m.innerHTML = '<div class="modal-card aviso-card"><button type="button" class="wn-close" id="avClose">✕</button>'
+      + '<div class="aviso-head"><span>🔔</span><h2>Aviso de vencimento</h2></div>'
+      + '<p class="aviso-sub">Quantos dias antes você quer ser avisado das contas a vencer?</p>'
+      + '<div class="aviso-row"><button type="button" class="aviso-step" id="avMinus">−</button>'
+      + '<input id="avDays" type="number" min="0" max="15" value="3" inputmode="numeric"><span class="aviso-unit">dia(s) antes</span>'
+      + '<button type="button" class="aviso-step" id="avPlus">+</button></div>'
+      + '<button type="button" class="btn primary" id="avApply">Aplicar a TODAS as contas</button>'
+      + '<p class="aviso-note">Isso ajusta todas de uma vez. Você ainda pode mudar conta por conta ao editar cada uma.</p></div>';
+    document.body.appendChild(m);
+    const inp = m.querySelector("#avDays");
+    const clamp = () => { inp.value = Math.max(0, Math.min(15, parseInt(inp.value) || 0)); };
+    m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
+    m.querySelector("#avClose").onclick = () => m.classList.add("hidden");
+    m.querySelector("#avMinus").onclick = () => { inp.value = (parseInt(inp.value) || 0) - 1; clamp(); };
+    m.querySelector("#avPlus").onclick = () => { inp.value = (parseInt(inp.value) || 0) + 1; clamp(); };
+    inp.onchange = clamp;
+    m.querySelector("#avApply").onclick = () => {
+      clamp(); const d = parseInt(inp.value) || 0;
+      (DATA.fixas || []).forEach(l => { l.aviso = d || null; });
+      persist();
+      m.classList.add("hidden");
+      toast(`✅ Aviso: ${d} dia(s) antes em ${(DATA.fixas || []).length} conta(s)`);
+    };
+  }
+  // pré-preenche com o aviso mais usado hoje (ou 3)
+  const vals = (DATA.fixas || []).map(l => l.aviso || 0);
+  let common = 3;
+  if (vals.length) { const c = {}; vals.forEach(v => c[v] = (c[v] || 0) + 1); common = +Object.keys(c).sort((a, b) => c[b] - c[a])[0]; }
+  m.querySelector("#avDays").value = common;
+  m.classList.remove("hidden");
 }
 // abre direto pareando quando o app é aberto por um link de convite (#pair=…) — ex.: câmera nativa do celular
 function cpCheckHashPair() {
