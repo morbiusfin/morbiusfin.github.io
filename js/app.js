@@ -1,11 +1,22 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.8";
+const APP_VERSION = "3.13.9";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.9",
+    bullets: [
+      "Pop-ups: a faixa do rodapé (home indicator) não fica mais branca — a tela inteira escurece junto com o pop-up, em qualquer tema",
+      "Acabou o 'vazamento' de conteúdo atrás do botão Salvar/Fechar: o que rola por baixo agora dissolve antes dos botões",
+      "Simulador (Gráficos): os campos Quero gastar, Parcelas e Mês da compra voltaram a aceitar toque/edição no iPhone",
+      "Novo lançamento já vem com o DIA de hoje preenchido (quando é no mês atual)",
+      "Campo Data de nascimento com a mesma altura do campo Nome (sem desproporção)",
+      "Holofote dos atalhos não estoura mais a tela em cards altos",
+    ]
+  },
   {
     version: "3.13.8",
     bullets: [
@@ -1335,10 +1346,11 @@ function partyConfetti() {
   // 🎉 animado (Noto) no topo do card
   const big = new Image(); big.src = "emoji/festa.webp"; big.className = "party-center"; big.alt = ""; big.setAttribute("aria-hidden", "true");
   ov.querySelector(".party-emoji-wrap").appendChild(big);
-  const close = () => { try { ov.remove(); } catch (e) {} document.body.classList.remove("party-on"); };
+  const close = () => { try { ov.remove(); } catch (e) {} document.body.classList.remove("party-on"); dimRootBg(false); };
   ov.querySelector(".party-ok").onclick = close;
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   document.body.classList.add("party-on");        // some com a tabbar/+ atrás (igual aos modais)
+  dimRootBg(true);
   document.body.appendChild(ov);
 }
 let _coachT = null;
@@ -1769,8 +1781,13 @@ function spotlightOn(el) {
   const sp = document.createElement("div"); sp.className = "spotlight"; document.body.appendChild(sp); _spot = sp;
   const pad = 8, place = () => {
     const r = el.getBoundingClientRect();
-    sp.style.left = (r.left - pad) + "px"; sp.style.top = (r.top - pad) + "px";
-    sp.style.width = (r.width + pad * 2) + "px"; sp.style.height = (r.height + pad * 2) + "px";
+    // limita o recorte à área VISÍVEL: alvos altos (ex.: card do simulador) não estouram a tela
+    // nem deixam a borda/margem "vazar" por baixo do cabeçalho ou da tabbar.
+    const topMin = 8, botMax = window.innerHeight - 8;
+    const left = Math.max(8, r.left - pad), right = Math.min(window.innerWidth - 8, r.right + pad);
+    const top = Math.max(topMin, r.top - pad), bottom = Math.min(botMax, r.bottom + pad);
+    sp.style.left = left + "px"; sp.style.top = top + "px";
+    sp.style.width = Math.max(0, right - left) + "px"; sp.style.height = Math.max(0, bottom - top) + "px";
   };
   place();
   _spotScroll = place; window.addEventListener("scroll", _spotScroll, true);   // segue o conteúdo se rolar
@@ -3074,7 +3091,8 @@ function openEntryModal(tab, idx) {
     <label class="field row-check"><input id="f_all" type="checkbox" /><span>Repetir nos próximos meses</span></label>
     <label class="field" id="f_rep_wrap" style="display:none"><span>Por quantos meses? (a partir do mês escolhido — pode passar de 2026)</span>
       <input id="f_rep" type="number" min="1" max="120" inputmode="numeric" value="12" /></label>`;
-  fillDaySelect("f_dia", "f_mes", isNew ? null : (l.dia || null));
+  const diaDefaultE = isNew ? (curMonth === realMesAbs() ? REAL_TODAY.getDate() : null) : (l.dia || null);
+  fillDaySelect("f_dia", "f_mes", diaDefaultE);   // novo lançamento no mês vigente → já vem com o dia de hoje
   if (!isNew) { if (isReceita) $("#f_tipo").value = l.tipo || "Ativa"; $("#f_st").value = l.sts[curMonth] || "vazio"; }
   else $("#f_st").value = isReceita ? "recebido" : "pago";
   $("#f_all").onchange = () => { $("#f_rep_wrap").style.display = $("#f_all").checked ? "block" : "none"; };
@@ -3385,16 +3403,19 @@ function modalConfirm(msg, onOk, okLabel) {
    Um MutationObserver mantém a trava em dia para QUALQUER .modal (compra, cartão,
    configurações, sync, alerta…), sem precisar editar cada ponto de fechar. */
 let _scrollLockY = 0;
+function dimRootBg(on) { try { document.documentElement.style.backgroundColor = on ? "#0a100d" : ""; } catch (e) {} }
 function lockScroll() {
   if (document.body.classList.contains("scroll-locked")) return;
   _scrollLockY = window.scrollY || window.pageYOffset || 0;
   document.body.style.top = `-${_scrollLockY}px`;
   document.body.classList.add("scroll-locked");
+  dimRootBg(true);                       // faixa do home indicator escura (sem branco) atrás do pop-up
 }
 function unlockScroll() {
   if (!document.body.classList.contains("scroll-locked")) return;
   document.body.classList.remove("scroll-locked");
   document.body.style.top = "";
+  dimRootBg(false);
   window.scrollTo(0, _scrollLockY);
 }
 let _slRaf = 0, _slBusy = false;
