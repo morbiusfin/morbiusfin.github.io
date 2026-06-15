@@ -86,10 +86,12 @@ input, textarea, select, [contenteditable="true"], [contenteditable=""] {
 .section-card .field, .section-card .field * {
   -webkit-user-select: auto; user-select: auto;
 }
-.section-card input, .section-card select, .section-card textarea {
-  -webkit-user-select: text; user-select: text; -webkit-touch-callout: default;
-  touch-action: manipulation; pointer-events: auto; cursor: text;
+.section-card input, .section-card textarea {
+  -webkit-user-select: text !important; user-select: text !important;   /* o fix do iOS pede 'text' explícito */
+  -webkit-touch-callout: default; touch-action: manipulation; pointer-events: auto; cursor: text;
 }
+.section-card select { -webkit-user-select: auto !important; user-select: auto !important;
+  touch-action: manipulation; pointer-events: auto; cursor: pointer; }
 .section-card select { cursor: pointer; }
 .section-card button, .section-card .meta-edit { touch-action: manipulation; pointer-events: auto; }
 html, body { margin: 0; padding: 0; width: 100%; overflow-x: clip; }   /* clip (não hidden) p/ NÃO quebrar o position:sticky do header no iOS */
