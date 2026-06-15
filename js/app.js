@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.18";
+const APP_VERSION = "3.13.19";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.19",
+    bullets: [
+      "Puxar pra atualizar agora atualiza o app NO LUGAR (recalcula a tela e checa versão nova) — sem recarregar nem reiniciar",
+    ]
+  },
   {
     version: "3.13.18",
     bullets: [
@@ -5331,6 +5337,18 @@ async function boot() {
 window.addEventListener("load", () => { if (window.__started && curTab === "resumo" && !annual) renderCharts(); });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
+/* Puxar-para-atualizar SEM sincronização (modo teste/sem nuvem): atualiza NO LUGAR — recalcula e
+   redesenha a tela e checa se há versão nova (mostra o ✨), SEM recarregar/reiniciar o app. */
+function refreshInPlace() {
+  const btn = $("#btnRefresh"); if (btn) btn.classList.add("spin");
+  suppressNextAnim = true;
+  try { render(); } catch (e) {}
+  if (curTab === "resumo" && !annual) { try { renderCharts(); } catch (e) {} }
+  try { updateBell(); } catch (e) {}       // atualiza o badge do sino (sem abrir pop-up de alerta)
+  try { checkForUpdate(); } catch (e) {}   // se saiu versão nova, aparece o ✨ no topo (sem reload)
+  setTimeout(() => { if (btn) btn.classList.remove("spin"); }, 600);
+  toast("✅ Atualizado");
+}
 /* ---------- Puxar para atualizar (pull-to-refresh) ---------- */
 (function pullToRefresh() {
   const ptr = $("#ptr"), txt = $("#ptrText"), TH = 70;
@@ -5360,7 +5378,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
   }, { passive: false });
   window.addEventListener("touchend", () => {
     if (!pulling) return; pulling = false;
-    if (armed) { ptr.style.height = "0"; ptr.style.opacity = "0"; if (syncCfg()) syncNow(); else location.reload(); }
+    if (armed) { ptr.style.height = "0"; ptr.style.opacity = "0"; if (syncCfg()) syncNow(); else refreshInPlace(); }
     else { ptr.style.height = "0"; ptr.style.opacity = "0"; }
   });
 })();
