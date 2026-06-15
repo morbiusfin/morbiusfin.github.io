@@ -255,6 +255,12 @@ body.kbd-open .scroll-top, body.lock-on .scroll-top, body.splash-on .scroll-top 
 .animal-svg.unicornio .ani-bob { animation: aniTilt 3.3s ease-in-out infinite; }
 .animal-svg.pinguim .ani-bob { animation: aniWaddle 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .animal-svg .ani-bob { animation: none; } }
+/* avatar com emoji ANIMADO do Noto (WebP) — preenche o contêiner redondo, com a cor de fundo do animal */
+.animal-anim { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; border-radius: inherit; overflow: hidden; }
+.animal-anim .emoji-anim { width: 84%; height: 84%; object-fit: contain; }
+/* emoji animado genérico (inline em textos/medalhas) */
+.emoji-anim { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -0.22em; object-fit: contain; }
+img.emoji-anim { -webkit-user-select: none; user-select: none; }
 /* 🔒 Oferta de senha no 1º acesso (onboarding) */
 .onb-pin { display: flex; gap: 10px; margin: 10px 0; }
 .onb-pin input { flex: 1; min-width: 0; text-align: center; letter-spacing: 6px; font-size: 20px; padding: 12px; border-radius: 12px;

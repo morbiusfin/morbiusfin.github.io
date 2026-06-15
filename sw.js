@@ -1,5 +1,5 @@
 /* Service Worker — network-first (sempre busca a versão nova; cache só offline) */
-const CACHE = "financas-v133";
+const CACHE = "financas-v134";
 const ASSETS = [
   "./", "./index.html",
   "./css/styles.css",
@@ -7,7 +7,11 @@ const ASSETS = [
   "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png",
   "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
-  "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"
+  "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js",
+  // avatares com emoji animado (Noto) — cache p/ funcionar offline
+  "./emoji/raposa.webp", "./emoji/leao.webp", "./emoji/panda.webp", "./emoji/gato.webp",
+  "./emoji/coruja.webp", "./emoji/pinguim.webp", "./emoji/unicornio.webp", "./emoji/sapo.webp",
+  "./emoji/pintinho.webp", "./emoji/golfinho.webp"
 ];
 
 self.addEventListener("install", (e) => {

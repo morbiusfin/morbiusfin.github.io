@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.93";
+const APP_VERSION = "3.11.94";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.94",
+    bullets: [
+      "Avatares com emoji ANIMADO de verdade (Noto): raposa, leão, panda, gato, coruja, pinguim, unicórnio, sapo, pintinho e golfinho — se mexem no perfil, na foto e no cabeçalho",
+      "Leves e fluidos (animação nativa, sem pesar no app) e funcionam offline",
+    ]
+  },
   {
     version: "3.11.93",
     bullets: [
@@ -3276,12 +3283,25 @@ const ANIMALS = [
 ];
 const ANIMAL_BY = {}; ANIMALS.forEach(a => ANIMAL_BY[a.id] = a);
 /* (avatares antigos em SVG vetorial foram removidos — agora são emoji animado via animalSVG) */
+// animais com emoji ANIMADO do Noto (WebP local em /emoji). WebP anima nativo no <img> —
+// custo ZERO de JS/rAF (não regride a performance). Os que não têm (tigre, macaco) caem no emoji SVG.
+const ANIMATED_AV = { raposa: 1, leao: 1, panda: 1, gato: 1, coruja: 1, pinguim: 1, unicornio: 1, sapo: 1, pintinho: 1, golfinho: 1 };
 function animalSVG(id) {
   const a = ANIMAL_BY[id] || ANIMALS[0];
-  // círculo r50 preenche TODO o viewBox → o contêiner redondo recorta num círculo perfeito (sem falha na borda)
+  if (ANIMATED_AV[a.id]) {
+    return '<span class="animal-anim" style="background:' + a.bg + '">'
+      + '<img class="emoji-anim" src="emoji/' + a.id + '.webp" alt="" loading="lazy" decoding="async" draggable="false" />'
+      + '</span>';
+  }
+  // fallback: emoji estático em SVG (animal sem animação no Noto). r50 preenche o viewBox → círculo perfeito.
   return '<svg class="animal-svg ' + a.id + '" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
     + '<circle cx="50" cy="50" r="50" fill="' + a.bg + '"/>'
     + '<g class="ani-bob"><text x="50" y="53" font-size="56" text-anchor="middle" dominant-baseline="central">' + a.e + '</text></g></svg>';
+}
+// emoji animado genérico (reuso: medalhas, acentos). Devolve <img> do WebP local; cai no texto se faltar.
+function animEmoji(name, fallback, cls) {
+  return '<img class="emoji-anim ' + (cls || "") + '" src="emoji/' + name + '.webp" alt="" aria-hidden="true" loading="lazy" decoding="async" draggable="false" '
+    + 'onerror="this.replaceWith(document.createTextNode(' + JSON.stringify(fallback || "") + '))" />';
 }
 const isAnimalAvatar = (f) => typeof f === "string" && f.indexOf("av:") === 0;
 function defaultAnimal(name) {
