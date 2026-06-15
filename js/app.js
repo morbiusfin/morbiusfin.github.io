@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.6";
+const APP_VERSION = "3.13.7";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.7",
+    bullets: [
+      "Explorou o app 100%? Agora rola uma festa: um 🎉 grande no centro e vários subindo a tela de ponta a ponta",
+    ]
+  },
   {
     version: "3.13.6",
     bullets: [
@@ -1305,6 +1311,34 @@ function markExplored(id) {
   s.add(id); try { localStorage.setItem(EXPLORE_KEY, JSON.stringify(Array.from(s))); } catch (err) {}
   coachTip(e.label, e.tip, explorePct());
   renderExploreWidget();
+  if (explorePct() >= 100) celebrateExploreDone();   // explorou TUDO → 🎉 festa na tela
+}
+// 🎉 Comemoração de 100% explorado: um party-popper GRANDE no centro + vários subindo de ponta a ponta.
+function celebrateExploreDone() {
+  if (window.__exploreParty) return;                 // uma vez só por sessão (o estado já fica salvo)
+  if (localStorage.getItem("financas2026.exploredParty") === "1") return;
+  window.__exploreParty = true;
+  try { localStorage.setItem("financas2026.exploredParty", "1"); } catch (e) {}
+  partyConfetti();
+}
+function partyConfetti() {
+  const wrap = document.createElement("div");
+  wrap.className = "party-fx";
+  const big = new Image(); big.src = "emoji/festa.webp"; big.className = "party-center"; big.alt = ""; big.setAttribute("aria-hidden", "true");
+  wrap.appendChild(big);
+  const N = 16;
+  for (let i = 0; i < N; i++) {
+    const im = new Image(); im.src = "emoji/festa.webp"; im.className = "party-rise"; im.alt = ""; im.setAttribute("aria-hidden", "true");
+    im.style.left = Math.round((i / (N - 1)) * 100) + "%";          // distribui de uma ponta à outra
+    im.style.animationDelay = (Math.random() * 1.4).toFixed(2) + "s";
+    im.style.animationDuration = (2.6 + Math.random() * 1.7).toFixed(2) + "s";
+    const sz = 30 + Math.round(Math.random() * 36);
+    im.style.width = sz + "px"; im.style.height = sz + "px";
+    wrap.appendChild(im);
+  }
+  document.body.appendChild(wrap);
+  setTimeout(() => { try { wrap.remove(); } catch (e) {} }, 5200);
+  toast("🎉 Você explorou o app inteiro!");
 }
 let _coachT = null;
 function coachTip(label, tip, pct) {

@@ -1395,6 +1395,33 @@ html.theme-dark #rain { opacity: .7; }
 @keyframes focusRow { 0%,100% { background: transparent; } 35% { background: rgba(245,166,35,.18); } }
 .focus-row { animation: focusRow 1.2s ease-in-out 2; }
 
+/* ===== 🎉 Comemoração de 100% explorado: party-popper no centro + vários subindo a tela ===== */
+.party-fx { position: fixed; inset: 0; z-index: 1400; pointer-events: none; overflow: hidden; }
+.party-center { position: absolute; left: 50%; top: 42%; width: 136px; height: 136px;
+  filter: drop-shadow(0 10px 26px rgba(0,0,0,.45));
+  transform: translate(-50%,-50%) scale(.3); opacity: 0; animation: partyPop 2.6s cubic-bezier(.2,.9,.2,1.1) both; }
+@keyframes partyPop {
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.3); }
+  16%  { opacity: 1; transform: translate(-50%,-50%) scale(1.14); }
+  70%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%,-60%) scale(1); }
+}
+.party-rise { position: absolute; bottom: -10%; width: 44px; height: 44px;
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,.35));
+  transform: translateY(0) rotate(0deg); opacity: 0;
+  animation-name: partyRise; animation-timing-function: cubic-bezier(.4,0,.5,1); animation-fill-mode: both;
+  will-change: transform, opacity; }
+@keyframes partyRise {
+  0%   { transform: translateY(0) rotate(-8deg);   opacity: 0; }
+  12%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translateY(-120vh) rotate(14deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .party-rise { display: none; }
+  .party-center { animation-duration: 1.6s; }
+}
+
 /* ===== Simulador "vale a pena comprar?" ===== */
 .sim-card h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .sim-clear { background: var(--card-2); color: var(--muted); border: 1px solid var(--line); border-radius: 999px;
