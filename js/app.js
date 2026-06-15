@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.2";
+const APP_VERSION = "3.13.3";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.3",
+    bullets: [
+      "Abertura sem 'flash escuro': o holofote dos atalhos não toca mais durante a entrada do app (ele lavava a tela enquanto a barra de baixo subia)",
+      "Animação de abertura nunca repete: a tela de início agora fecha uma vez só (sem reexecutar a entrada da barra)",
+    ]
+  },
   {
     version: "3.13.2",
     bullets: [
@@ -1687,7 +1694,13 @@ function focarVencimentos() {
 }
 /* Rola até um elemento e faz a borda PISCAR (mesmo destaque das contas a vencer).
    Usado pelos deep-links do FAQ e do menu — o alvo aparece na tela e chama atenção. */
+/* A abertura (splash saindo + entrada da tabbar) tem PRIORIDADE: enquanto ela toca, nada de
+   rolar/escurecer a tela — senão o véu do holofote "lava" a animação de entrada e parece bug. */
+function isOpening() {
+  return document.body.classList.contains("splash-on") || performance.now() < (window.__openGuardUntil || 0);
+}
 function focarEl(sel, dur) {
+  if (isOpening()) return;                  // durante a abertura: ignora deep-links/holofote
   const el = $(sel); if (!el) return;
   // scrollIntoView funciona tanto na página quanto dentro de modal/drawer com scroll próprio
   try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) { scrollToEl(sel); }
@@ -1697,6 +1710,7 @@ function focarEl(sel, dur) {
 let _spot = null, _spotScroll = null, _spotT = null;
 function spotlightOn(el) {
   if (!el || !el.isConnected) return;
+  if (isOpening()) return;                  // blindagem: holofote NUNCA durante/junto à abertura
   if (_spot) { try { _spot.remove(); } catch (e) {} window.removeEventListener("scroll", _spotScroll, true); clearTimeout(_spotT); }
   const sp = document.createElement("div"); sp.className = "spotlight"; document.body.appendChild(sp); _spot = sp;
   const pad = 8, place = () => {
@@ -4857,18 +4871,29 @@ function startApp() {
 }
 function setSplashMsg(t) { const el = document.querySelector("#splash .splash-tag"); if (el) el.textContent = t; }
 function hideSplash() {
+  if (window.__splashDone) return;          // idempotente: a rede de segurança do load NÃO repete a abertura
   const sp = document.getElementById("splash");
   // mantém tabbar/+ escondidos ATÉ o splash sumir de vez (senão a tabbar reaparece no meio da
   // revelação e "pisca" uma faixa no rodapé no iOS, por causa da camada de GPU dela).
   if (sp && !sp.classList.contains("reveal") && !sp.classList.contains("loading-out")) {
+    window.__splashDone = true;
     // 1) o spinner SAI primeiro (esvaece/encolhe) — sincronizado pra NÃO encavalar com a abertura
     sp.classList.add("loading-out");
     // 2) só com o spinner já fora, revela o app (cortina do bg desce)
     setTimeout(() => {
       sp.classList.add("reveal");
-      setTimeout(() => { try { sp.remove(); } catch (e) {} document.body.classList.remove("splash-on"); tabbarEntrance(); maybeStartOnboarding(); }, 1050);
+      setTimeout(() => { try { sp.remove(); } catch (e) {} finishOpening(); }, 1050);
     }, 320);
-  } else if (!sp) { document.body.classList.remove("splash-on"); tabbarEntrance(); maybeStartOnboarding(); }
+  } else if (!sp) { window.__splashDone = true; finishOpening(); }
+}
+// Fecha a abertura: tira o splash do body, blinda contra holofote por uns instantes, toca a entrada
+// da tabbar e, por garantia, mata qualquer holofote que tenha escapado durante a abertura.
+function finishOpening() {
+  document.body.classList.remove("splash-on");
+  window.__openGuardUntil = performance.now() + 1400;   // janela em que holofote/deep-link ficam suspensos
+  try { document.querySelectorAll(".spotlight").forEach(s => s.remove()); _spot = null; } catch (e) {}
+  tabbarEntrance();
+  maybeStartOnboarding();
 }
 /* Entrada da tab bar ao abrir: a pílula SOBE de baixo com fade, os ícones surgem em sequência, e
    por fim a lâmina de vidro verde DESLIZA da direita pra esquerda até a aba ativa. Toca 1x. */
