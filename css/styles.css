@@ -218,13 +218,13 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
 .av-import { display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; color: var(--accent-2);
   background: var(--card-2); border: 2px dashed var(--line); }
 /* ⬆️ Voltar ao topo — aparece ao descer, some no topo (canto inferior esquerdo, não bate no +) */
-.scroll-top { position: fixed; left: 18px; bottom: calc(78px + var(--safe-bottom)); width: 46px; height: 46px; border-radius: 50%;
+.scroll-top { position: fixed; left: 50%; bottom: calc(78px + var(--safe-bottom)); width: 46px; height: 46px; border-radius: 50%;
   border: 1px solid var(--line); background: var(--card); color: var(--ink); display: flex; align-items: center; justify-content: center; padding: 0;
   box-shadow: 0 8px 22px rgba(0,0,0,.3); z-index: 44; cursor: pointer;
-  opacity: 0; transform: translateY(12px); pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
+  opacity: 0; transform: translate(-50%, 12px); pointer-events: none; transition: opacity .25s ease, transform .25s ease; }
 .scroll-top svg { width: 22px; height: 22px; }
-.scroll-top.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
-.scroll-top:active { transform: scale(.9); }
+.scroll-top.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.scroll-top:active { transform: translate(-50%, 0) scale(.9); }
 body.kbd-open .scroll-top, body.lock-on .scroll-top, body.splash-on .scroll-top { display: none !important; }
 @media (prefers-reduced-motion: reduce) { .scroll-top { transition: opacity .2s ease; } }
 /* 🐾 Bichinhos animados (avatar) — SVG inline, cada um com movimento próprio */
@@ -1136,6 +1136,24 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
 .card-lim-fill.lim-bad { background: linear-gradient(90deg, #c0353a, #e5484d); }
 .card-lim-foot { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
 .card-lim-foot b { color: var(--accent); }
+/* ===== Projeção do ano + Medalhas (gamificação) ===== */
+.proj-card { border: 1px solid rgba(31,217,122,.28); }
+.medals-card .medal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.medal { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 12px 6px; border-radius: 14px;
+  background: var(--card-2); border: 1px solid var(--line); text-align: center; transition: transform .15s ease; }
+.medal.got { border-color: rgba(245,166,35,.5); background: linear-gradient(160deg, rgba(245,166,35,.12), var(--card-2)); }
+.medal.locked { opacity: .55; }
+.medal.locked .md-ic { filter: grayscale(1); opacity: .65; }
+.medal .md-ic { font-size: 30px; width: 38px; height: 38px; line-height: 38px; display: inline-flex; align-items: center; justify-content: center; }
+.medal .md-ic.emoji-anim { width: 38px; height: 38px; vertical-align: middle; }
+.medal .md-n { font-size: 11.5px; font-weight: 800; color: var(--ink); line-height: 1.15; }
+.medal .md-v { font-size: 10.5px; color: var(--muted); font-weight: 600; }
+.medal-prog { margin-top: 14px; }
+.medal-prog .mp-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.medal-prog .mp-head b { color: var(--ink); }
+.medal-prog .mp-bar { height: 9px; border-radius: 6px; background: var(--card-2); border: 1px solid var(--line); overflow: hidden; }
+.medal-prog .mp-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--green-2), var(--green)); transition: width .6s cubic-bezier(.2,.7,.2,1); }
+.medal-done { text-align: center; font-size: 13px; margin: 14px 0 2px; color: var(--accent); font-weight: 700; }
 /* Botões das configurações: largos, centralizados, com ícone alinhado */
 .settings-buttons { display: flex; flex-direction: column; gap: 11px; margin: 10px 0 14px; }
 .settings-buttons .btn, #notifWrap .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 15px; }

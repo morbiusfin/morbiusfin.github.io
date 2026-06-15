@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.95";
+const APP_VERSION = "3.11.96";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.96",
+    bullets: [
+      "Nova Projeção do ano nos Insights: te digo quando suas contas/parcelas terminam e você passa a sobrar mais, seu mês mais folgado e como fecha o ano",
+      "Medalhas de acúmulo (gamificação) com emoji animado: conquiste marcos pelo seu pico de saldo guardado, com barra de progresso pra próxima",
+      "Botão de subir agora fica no centro da tela (e some sozinho ao chegar no topo, sem tampar os dados)",
+    ]
+  },
   {
     version: "3.11.95",
     bullets: [
@@ -1030,6 +1038,68 @@ function renderInsights(m) {
     ins.map(i => `<div class="insight ${i.tone}"><span class="ic">${i.ic}</span><span>${i.text}</span></div>`).join("")
   }</div></div>`;
 }
+/* 🔮 Projeção do ano (inteligência financeira local): quando suas contas/parcelas terminam e você
+   passa a sobrar mais, o mês mais folgado, e como você fecha o ano. Tudo a partir do fluxo de caixa. */
+function projectionInsights(m) {
+  const out = [], base = curYear() * 12, cm = m - base;
+  // 1) maior queda de despesa nos próximos meses = parcela/conta terminando → "sobra mais a partir de X"
+  let bestDrop = null;
+  for (let i = Math.max(1, cm + 1); i < 12; i++) {
+    const drop = despesaMes(base + i - 1) - despesaMes(base + i);
+    if (drop >= 50 && (!bestDrop || drop > bestDrop.drop)) bestDrop = { i: i, drop: drop };
+  }
+  if (bestDrop) out.push({ ic: "🎉", tone: "good", text: `A partir de <b>${mLong(base + bestDrop.i)}</b>, suas despesas caem ~<b>${brl(bestDrop.drop)}/mês</b> (contas ou parcelas terminando) — é quando você passa a <b>sobrar mais</b>.` });
+  // 2) mês mais folgado do ano (maior sobra dentro do próprio mês)
+  let best = { i: -1, v: -Infinity };
+  for (let i = 0; i < 12; i++) { const v = receitaMes(base + i) - despesaMes(base + i); if (v > best.v) best = { i: i, v: v }; }
+  if (best.v > 0) out.push({ ic: "🌟", tone: "info", text: `Seu mês mais folgado do ano é <b>${mLong(base + best.i)}</b> — sobra ~<b>${brl(best.v)}</b> só naquele mês.` });
+  // 3) pico de saldo acumulado e fechamento do ano
+  const fim = sobraMes(base + 11);
+  out.push({ ic: fim >= 0 ? "🔮" : "⚠️", tone: fim >= 0 ? "good" : "bad",
+    text: fim >= 0 ? `No ritmo atual, você <b>fecha o ano com ~${brl(fim)}</b> guardado. Continue assim! 💪`
+                   : `No ritmo atual, o ano fecha <b>negativo (${brl(fim)})</b> — vale segurar os gastos não essenciais.` });
+  return out;
+}
+function renderProjection(m) {
+  const ins = projectionInsights(m);
+  if (!ins.length) return "";
+  return `<div class="section-card fade-in proj-card"><h3>🔮 Projeção do ano</h3><div class="insights">${
+    ins.map(i => `<div class="insight ${i.tone}"><span class="ic">${i.ic}</span><span>${i.text}</span></div>`).join("")
+  }</div></div>`;
+}
+/* 🏅 Medalhas de acúmulo (gamificação): conquistas pelo pico de saldo guardado no ano.
+   Usa os emojis ANIMADOS do Noto (animEmoji cai no emoji estático se faltar o WebP). */
+const MEDALS = [
+  { v: 1000,   e: "broto",   emoji: "🌱", n: "Primeiro mil" },
+  { v: 5000,   e: "estrela", emoji: "⭐", n: "Cinco mil" },
+  { v: 10000,  e: "alvo",    emoji: "🎯", n: "Dez mil" },
+  { v: 25000,  e: "trofeu",  emoji: "🏆", n: "Vinte e cinco mil" },
+  { v: 50000,  e: "fogo",    emoji: "🔥", n: "Cinquenta mil" },
+  { v: 100000, e: "festa",   emoji: "🎉", n: "Cem mil" },
+];
+function peakSaldo() { const s = serieSaldo(); let mx = 0; for (let i = 0; i < s.length; i++) if (s[i] > mx) mx = s[i]; return mx; }
+function renderMedals() {
+  const peak = peakSaldo(), earned = MEDALS.filter(x => peak >= x.v).length;
+  const grid = MEDALS.map(x => {
+    const got = peak >= x.v;
+    const ic = got ? animEmoji(x.e, x.emoji, "md-ic") : '<span class="md-ic">' + x.emoji + '</span>';
+    return '<div class="medal ' + (got ? "got" : "locked") + '">' + ic
+      + '<span class="md-n">' + x.n + '</span><span class="md-v">' + brl(x.v) + '</span></div>';
+  }).join("");
+  const idx = MEDALS.findIndex(x => peak < x.v);
+  let prog;
+  if (idx >= 0) {
+    const nx = MEDALS[idx], base = idx > 0 ? MEDALS[idx - 1].v : 0;
+    const pct = Math.max(0, Math.min(100, Math.round((peak - base) / (nx.v - base) * 100)));
+    prog = '<div class="medal-prog"><div class="mp-head"><span>Próxima: <b>' + nx.n + '</b></span><span>faltam <b>' + brl(nx.v - peak) + '</b></span></div>'
+      + '<div class="mp-bar"><div class="mp-fill" style="width:' + pct + '%"></div></div></div>';
+  } else {
+    prog = '<p class="medal-done">🏅 Você desbloqueou <b>todas</b> as medalhas. Lendário!</p>';
+  }
+  return '<div class="section-card fade-in medals-card"><h3>🏅 Medalhas de acúmulo</h3>'
+    + '<p class="hint" style="text-align:left;margin:-2px 0 12px">Pico de saldo guardado no ano: <b>' + brl(peak) + '</b> · <b>' + earned + '/' + MEDALS.length + '</b> conquistadas</p>'
+    + '<div class="medal-grid">' + grid + '</div>' + prog + '</div>';
+}
 
 /* ---------- "Leitura do mês": narrativa local (sem IA externa) — prioriza o que pede atenção
    + 1 estatística simples (cobertura e chance de fechar no positivo). NÃO repete os Insights. ---------- */
@@ -1158,12 +1228,12 @@ function renderResumo(view) {
     rvStaggerChildren();
     return;
   }
-  if (resumoView === "insights") {                 // 💡 Leitura do mês + Insights juntos (opção do topo)
+  if (resumoView === "insights") {                 // 💡 Leitura do mês + Insights + Projeção + Medalhas
     const ins = renderInsights(m);
     view.innerHTML = toggle + `<div class="rv-pane${pane}">` + renderNarrative(m) + (ins ||
       `<div class="section-card fade-in"><h3>💡 Insights</h3><div class="insights">
         <div class="insight"><span class="ic">🌱</span><span>Lance algumas receitas e despesas do mês pra eu gerar os insights.</span></div>
-      </div></div>`) + `</div>`;
+      </div></div>`) + renderProjection(m) + renderMedals() + `</div>`;
     bindViewToggle();
     rvStaggerChildren();
     return;

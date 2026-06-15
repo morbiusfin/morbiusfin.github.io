@@ -1,5 +1,5 @@
 /* Service Worker — network-first (sempre busca a versão nova; cache só offline) */
-const CACHE = "financas-v135";
+const CACHE = "financas-v136";
 const ASSETS = [
   "./", "./index.html",
   "./css/styles.css",
@@ -11,7 +11,10 @@ const ASSETS = [
   // avatares com emoji animado (Noto) — cache p/ funcionar offline
   "./emoji/raposa.webp", "./emoji/leao.webp", "./emoji/panda.webp", "./emoji/gato.webp",
   "./emoji/coruja.webp", "./emoji/pinguim.webp", "./emoji/unicornio.webp", "./emoji/sapo.webp",
-  "./emoji/pintinho.webp", "./emoji/golfinho.webp"
+  "./emoji/pintinho.webp", "./emoji/golfinho.webp",
+  // medalhas/comemoração (Insights)
+  "./emoji/broto.webp", "./emoji/estrela.webp", "./emoji/alvo.webp", "./emoji/trofeu.webp",
+  "./emoji/fogo.webp", "./emoji/festa.webp"
 ];
 
 self.addEventListener("install", (e) => {
