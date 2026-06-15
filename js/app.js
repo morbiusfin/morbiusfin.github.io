@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.92";
+const APP_VERSION = "3.11.93";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.93",
+    bullets: [
+      "Simulador: agora você escolhe o MÊS da compra — dá pra simular um parcelado começando em agosto, por exemplo, e o cálculo parte de lá",
+      "Cartões: cadastre o LIMITE do cartão e acompanhe quanto da fatura do mês já foi usado (barra que fica amarela/vermelha perto do limite)",
+    ]
+  },
   {
     version: "3.11.92",
     bullets: [
@@ -1277,7 +1284,18 @@ function focarEl(sel, dur) {
 }
 
 /* ---------- Simulador "vale a pena comprar?" (à vista ou parcelado) ---------- */
-let simBuy = 0, simN = 1;
+let simBuy = 0, simN = 1, simStart = -1;   // simStart = mês ABSOLUTO da compra; -1 = "este mês" (curMonth)
+const simStartAbs = () => (simStart >= curMonth ? simStart : curMonth);   // nunca antes do mês atual
+const simMonthLabel = (m) => MESES_CURTO[((m % 12) + 12) % 12] + "/" + (DATA.year + Math.floor(m / 12));
+function simMonthOptions() {
+  const start = curMonth, end = Math.max(curMonth + 13, yearsCount() * 12 - 1), cur = simStartAbs();
+  let out = "";
+  for (let m = start; m <= end; m++) {
+    const lbl = (m === curMonth ? "Este mês · " : "") + simMonthLabel(m);
+    out += `<option value="${m}"${m === cur ? " selected" : ""}>${lbl}</option>`;
+  }
+  return out;
+}
 function bindSimulador(m) {
   const inp = $("#simInput"), inpN = $("#simN"); if (!inp) return;
   if (charts.sim) { try { charts.sim.destroy(); } catch (e) {} charts.sim = null; }   // canvas foi recriado no render
@@ -1299,37 +1317,39 @@ function simBalForStart(total, n, start) {
   for (let k = 0; k < H; k++) { const pagas = Math.max(0, Math.min(n, k - start + 1)); out.push(sobraMes(k) - parcela * pagas); }
   return out;
 }
-const simBalArray = () => simBalForStart(simBuy, simN, curMonth);
+const simBalArray = () => simBalForStart(simBuy, simN, simStartAbs());
 function minFrom(arr, from) { let mn = Infinity, idx = from; for (let k = from; k < arr.length; k++) if (arr[k] < mn) { mn = arr[k]; idx = k; } return { mn, idx }; }
 // menor mês a partir do qual a compra (no mesmo parcelamento) cabe sem ficar negativo (busca até ~3 anos à frente)
 function earliestFeasibleMonth(total, n) { const lim = curMonth + 36; for (let s = curMonth; s < lim; s++) if (minFrom(simBalForStart(total, n, s), s).mn >= 0) return s; return null; }
-// menor nº de parcelas que cabe JÁ neste mês com folga (>=10% da receita)
-function suggestParcelas(total) { const rec = receitaMes(curMonth) || 1; for (let n = 1; n <= 48; n++) if (minFrom(simBalForStart(total, n, curMonth), curMonth).mn >= rec * 0.1) return n; return null; }
+// menor nº de parcelas que cabe a partir do mês `start` com folga (>=10% da receita)
+function suggestParcelasAt(total, start) { const rec = receitaMes(start) || 1; for (let n = 1; n <= 48; n++) if (minFrom(simBalForStart(total, n, start), start).mn >= rec * 0.1) return n; return null; }
+function suggestParcelas(total) { return suggestParcelasAt(total, curMonth); }
 
 function verdictData() {
   if (!simBuy || simBuy <= 0) return null;
-  const m = curMonth, total = simBuy, n = simN, parcela = total / n, rec = receitaMes(m) || 1, comfort = rec * 0.1;
+  const m = simStartAbs(), total = simBuy, n = simN, parcela = total / n, rec = receitaMes(m) || 1, comfort = rec * 0.1;
   const bal = simBalForStart(total, n, m), { mn, idx } = minFrom(bal, m);
+  const quando = m === curMonth ? "agora" : "em " + simMonthLabel(m);          // respeita o mês escolhido
   const comoPaga = n > 1 ? `em <b>${n}× de ${brl(parcela)}</b>` : "<b>à vista</b>";
   const comoMant = n > 1 ? `em ${n}× de ${brl(parcela)}` : "à vista";
   let cls, icon, head, extra = "";
   if (mn < 0) {
     cls = "bad"; icon = "⛔";
     // "mês mais apertado" explicado; déficit como valor POSITIVO ("ficaria devendo")
-    head = `Comprando <b>agora</b> ${comoPaga}, em algum mês você <b>ficaria no vermelho</b> em <b>${brl(Math.abs(mn))}</b> — o mês mais apertado seria <b>${mLong(idx)}</b>.`;
-    const e = earliestFeasibleMonth(total, n), sug = suggestParcelas(total), parts = [];
-    if (e !== null && e > m) parts.push(`📅 <b>Quando dá pra comprar:</b> a partir de <b>${mLong(e)}</b>, ${comoMant} — aí cabe sem ficar no vermelho.`);
-    if (sug !== null && sug > n) parts.push(`💳 <b>Pra comprar já em ${mLong(m)}:</b> parcele em <b>${sug}× de ${brl(total / sug)}</b>.`);
+    head = `Comprando <b>${quando}</b> ${comoPaga}, em algum mês você <b>ficaria no vermelho</b> em <b>${brl(Math.abs(mn))}</b> — o mês mais apertado seria <b>${simMonthLabel(idx)}</b>.`;
+    const e = earliestFeasibleMonth(total, n), sug = suggestParcelasAt(total, m), parts = [];
+    if (e !== null && e > m) parts.push(`📅 <b>Quando dá pra comprar:</b> a partir de <b>${simMonthLabel(e)}</b>, ${comoMant} — aí cabe sem ficar no vermelho.`);
+    if (sug !== null && sug > n) parts.push(`💳 <b>Pra comprar ${quando}:</b> parcele em <b>${sug}× de ${brl(total / sug)}</b>.`);
     if (!parts.length) parts.push(`Mesmo parcelando bastante não cabe nos próximos 3 anos — o valor é alto demais pro seu fluxo. Vale reduzir.`);
     extra = parts.join("<br>");
   } else if (mn < comfort) {
     cls = "warn"; icon = "🟡";
-    head = `<b>Dá pra comprar agora</b> ${comoPaga}, mas fica apertado: depois de pagar, no mês mais apertado (<b>${mLong(idx)}</b>) sobra só <b>${brl(mn)}</b>.`;
-    const sug = suggestParcelas(total);
+    head = `<b>Dá pra comprar ${quando}</b> ${comoPaga}, mas fica apertado: depois de pagar, no mês mais apertado (<b>${simMonthLabel(idx)}</b>) sobra só <b>${brl(mn)}</b>.`;
+    const sug = suggestParcelasAt(total, m);
     if (sug !== null && sug > n) extra = `💳 Pra ficar tranquilo, parcele em <b>${sug}× de ${brl(total / sug)}</b>.`;
   } else {
     cls = "good"; icon = "✅";
-    head = `<b>Pode comprar agora</b> ${comoPaga}. Depois de pagar, no mês mais apertado (<b>${mLong(idx)}</b>) ainda sobra <b>${brl(mn)}</b>.`;
+    head = `<b>Pode comprar ${quando}</b> ${comoPaga}. Depois de pagar, no mês mais apertado (<b>${simMonthLabel(idx)}</b>) ainda sobra <b>${brl(mn)}</b>.`;
   }
   return { cls, icon, head, extra };
 }
@@ -1772,6 +1792,9 @@ function renderGraficos(host) {
           <label class="field" style="margin:0;flex:1"><span>Parcelas</span><select id="gSimN" class="sel">${Array.from({ length: 60 }, (_, i) => `<option value="${i + 1}"${i === 0 ? " selected" : ""}>${i + 1}×</option>`).join("")}</select></label>
           <button type="button" id="gSimClear" class="sim-clear" title="Limpar">↺</button>
         </div>
+        <div class="field-row">
+          <label class="field" style="margin:0;flex:1"><span>📅 Mês da compra</span><select id="gSimMonth" class="sel">${simMonthOptions()}</select></label>
+        </div>
         <div id="gSimVerdict" class="sim-verdict hint">Digite um valor pra simular em cima do gráfico.</div>
       </div>
       <div class="chart-wrap"><canvas id="gSaldo" height="210"></canvas></div>
@@ -1846,19 +1869,22 @@ function makeSaldoChart(labels) {
       scales: { y: { display: false, grace: "16%" }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } } });
 }
 function bindGSim() {
-  const inp = $("#gSimInput"), inpN = $("#gSimN"); if (!inp) return;
+  const inp = $("#gSimInput"), inpN = $("#gSimN"), inpM = $("#gSimMonth"); if (!inp) return;
   bindMoney(inp);
   inp.value = simBuy ? fmtMoneyBR(simBuy) : ""; if (inpN) inpN.value = simN || 1;
+  if (inpM) inpM.value = String(simStartAbs());
   // debounce: recriar o Chart a cada dígito esgotava contextos canvas no iOS (risco de travar).
   // O veredito (texto) atualiza na hora; o gráfico só ~220ms após parar de digitar.
   let _gsT = null;
   const upd = () => {
     simBuy = moneyVal(inp); simN = Math.max(1, parseInt(inpN && inpN.value) || 1);
+    if (inpM) simStart = parseInt(inpM.value); if (!(simStart >= 0)) simStart = -1;
     renderVerdictInto($("#gSimVerdict"));
     clearTimeout(_gsT); _gsT = setTimeout(updateGSim, 220);
   };
   inp.oninput = upd; if (inpN) inpN.oninput = upd;
-  const clr = $("#gSimClear"); if (clr) clr.onclick = () => { simBuy = 0; simN = 1; inp.value = ""; if (inpN) inpN.value = "1"; updateGSim(); inp.focus(); };
+  if (inpM) inpM.onchange = () => { simStart = parseInt(inpM.value); if (!(simStart >= 0)) simStart = -1; renderVerdictInto($("#gSimVerdict")); updateGSim(); };
+  const clr = $("#gSimClear"); if (clr) clr.onclick = () => { simBuy = 0; simN = 1; simStart = -1; inp.value = ""; if (inpN) inpN.value = "1"; if (inpM) inpM.value = String(curMonth); updateGSim(); inp.focus(); };
   updateGSim();
 }
 function updateGSim() {
@@ -2360,14 +2386,40 @@ function realizadoPorCategoria(m) {
   (DATA.diaria || []).filter(d => d.mes === m).forEach(d => add(entryCatId(d), Number(d.valor) || 0));
   return out;
 }
+// fatura do cartão no mês m. As compras referenciam o cartão pelo campo `cartao` (que guarda o
+// last4 OU o nome). Casamos por last4/nome/1ª palavra; compras sem cartão contam se só há 1 cadastrado.
+const c0 = (s) => String(s || "").split(" ")[0];
+function faturaCartaoNoMes(card, m) {
+  if (!card) return 0;
+  const only = (DATA.cartoes || []).length === 1;
+  const keys = [card.last4, card.nome, c0(card.nome)].filter(Boolean).map(String);
+  return (DATA.cartao || []).reduce((s, l) => {
+    const tag = String(l.cartao || "");
+    const dele = (tag && keys.indexOf(tag) >= 0) || (only && !tag);
+    return s + (dele ? (Number(l.vals[m]) || 0) : 0);
+  }, 0);
+}
+function cardLimitHTML(c) {
+  if (!c || !c.limite) return "";
+  const usado = faturaCartaoNoMes(c, curMonth), lim = c.limite, pct = Math.max(0, Math.min(100, Math.round(usado / lim * 100)));
+  const cls = pct >= 90 ? "lim-bad" : pct >= 70 ? "lim-warn" : "lim-ok";
+  const livre = Math.max(0, lim - usado);
+  return `<div class="card-lim">
+    <div class="card-lim-head"><span>Fatura de ${mLong(curMonth)}</span><span><b>${brl(usado)}</b> de ${brl(lim)} · ${pct}%</span></div>
+    <div class="card-lim-bar"><div class="card-lim-fill ${cls}" style="width:${pct}%"></div></div>
+    <div class="card-lim-foot">Disponível no limite: <b>${brl(livre)}</b></div>
+  </div>`;
+}
 function renderCardsSection() {
   const cs = DATA.cartoes || [];
   if (!cs.length) return "";                                   // cadastro agora é pelo + (toque no botão flutuante)
-  const itens = cs.map((c, i) => `<div class="card-line" data-cidx="${i}">
+  const itens = cs.map((c, i) => `<div class="card-block">
+    <div class="card-line" data-cidx="${i}">
       <div class="card-ic">💳</div>
       <div class="desc"><div class="name">${esc(c.nome || "Cartão")}${c.last4 ? ` <span class="card-last4">•••• ${esc(c.last4)}</span>` : ""}</div>
         <div class="sub">fecha dia <b>${c.fechamento || "—"}</b> · vence dia <b>${c.vencimento || "—"}</b></div></div>
-      <span class="card-edit">editar ›</span></div>`).join("");
+      <span class="card-edit">editar ›</span></div>
+    ${cardLimitHTML(c)}</div>`).join("");
   return `<div class="section-card fade-in"><h3>💳 Meus cartões</h3><div class="card-list">${itens}</div></div>`;
 }
 function bindCardsSection(view) {
@@ -2384,13 +2436,14 @@ function openCardModal(idx) {
       <label class="field"><span>Fecha a fatura (dia)</span><input id="c_fech" type="number" min="1" max="31" inputmode="numeric" value="${isNew || !c.fechamento ? "" : c.fechamento}" placeholder="ex.: 29" /></label>
       <label class="field"><span>Vence / paga (dia)</span><input id="c_venc" type="number" min="1" max="31" inputmode="numeric" value="${isNew || !c.vencimento ? "" : c.vencimento}" placeholder="ex.: 7" /></label>
     </div>
-    <p class="hint" style="text-align:left">Compras feitas <b>até o dia do fechamento</b> entram na fatura do mês; depois disso, vão para o mês seguinte.</p>`;
+    <label class="field"><span>Limite do cartão (R$) — opcional</span><input id="c_limite" class="money" value="${isNew || !c.limite ? "" : fmtMoneyBR(c.limite)}" placeholder="ex.: 5.000,00" /></label>
+    <p class="hint" style="text-align:left">Compras feitas <b>até o dia do fechamento</b> entram na fatura do mês; depois disso, vão para o mês seguinte. O <b>limite</b> ajuda a acompanhar quanto da fatura você já usou.</p>`;
   $("#btnDelete").classList.toggle("hidden", isNew);
   $("#btnDelete").onclick = () => { DATA.cartoes.splice(idx, 1); persist(); closeModal(); toast("Cartão removido"); };
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
     const last4 = ($("#c_last4").value.match(/\d/g) || []).join("").slice(-4) || null;
-    const o = { nome: $("#c_nome").value.trim() || "Cartão", last4, fechamento: parseInt($("#c_fech").value) || null, vencimento: parseInt($("#c_venc").value) || null };
+    const o = { nome: $("#c_nome").value.trim() || "Cartão", last4, fechamento: parseInt($("#c_fech").value) || null, vencimento: parseInt($("#c_venc").value) || null, limite: moneyVal($("#c_limite")) || null };
     if (isNew) DATA.cartoes.push({ id: uid(), ...o }); else Object.assign(c, o);
     persist(); closeModal(); toast(isNew ? "Cartão cadastrado ✓" : "Cartão salvo ✓");
   };

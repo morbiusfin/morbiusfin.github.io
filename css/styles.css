@@ -1118,6 +1118,18 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
 .th-prev .th-card b { display: block; height: 9px; width: 55%; border-radius: 4px; margin-top: 6px; background: var(--accent); }
 .th-name { font-size: 13px; font-weight: 700; color: var(--muted); }
 .th-opt.on .th-name { color: var(--accent); }
+/* ===== Limite do cartão (acompanhamento de uso da fatura) ===== */
+.card-block { margin-bottom: 4px; }
+.card-lim { padding: 2px 14px 12px; }
+.card-lim-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+.card-lim-head b { color: var(--ink); }
+.card-lim-bar { height: 8px; border-radius: 6px; background: var(--card-2); overflow: hidden; border: 1px solid var(--line); }
+.card-lim-fill { height: 100%; border-radius: 6px; transition: width .5s cubic-bezier(.2,.7,.2,1); }
+.card-lim-fill.lim-ok { background: linear-gradient(90deg, var(--green-2), var(--green)); }
+.card-lim-fill.lim-warn { background: linear-gradient(90deg, #d98a0b, #f5a623); }
+.card-lim-fill.lim-bad { background: linear-gradient(90deg, #c0353a, #e5484d); }
+.card-lim-foot { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+.card-lim-foot b { color: var(--accent); }
 /* Botões das configurações: largos, centralizados, com ícone alinhado */
 .settings-buttons { display: flex; flex-direction: column; gap: 11px; margin: 10px 0 14px; }
 .settings-buttons .btn, #notifWrap .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 15px; }
