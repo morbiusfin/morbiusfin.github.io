@@ -1151,22 +1151,23 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
 .card-lim-foot b { color: var(--accent); }
 /* ===== Projeção do ano + Medalhas (gamificação) ===== */
 .proj-card { border: 1px solid rgba(31,217,122,.28); }
-.medals-card .medal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; grid-auto-rows: 1fr; }
-.medal { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; padding: 12px 6px 11px; border-radius: 14px;
-  background: var(--card-2); border: 1px solid var(--line); text-align: center; min-height: 108px; transition: transform .15s ease; }
+/* barra de progresso geral (X de 30) — limpa, com respiro das margens */
+.medal-overall { height: 9px; border-radius: 6px; background: var(--card-2); border: 1px solid var(--line); overflow: hidden; margin-bottom: 12px; }
+.medal-overall .mo-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--green-2), var(--green)); transition: width .7s cubic-bezier(.2,.8,.2,1); }
+/* caixa do MESMO tamanho com SCROLL interno (não cresce a página) */
+.medal-scroll { max-height: 286px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scrollbar-width: none;
+  padding: 2px 4px 2px 2px; margin: 0 -2px; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%); }
+.medal-scroll::-webkit-scrollbar { display: none; }
+.medals-card .medal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; grid-auto-rows: 1fr; padding: 4px 0; }
+.medal { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 5px; padding: 13px 9px 12px; border-radius: 14px;
+  background: var(--card-2); border: 1px solid var(--line); text-align: center; min-height: 116px; transition: transform .15s ease; }
 .medal.got { border-color: rgba(245,166,35,.5); background: linear-gradient(160deg, rgba(245,166,35,.12), var(--card-2)); }
-.medal.locked { opacity: .55; }
-.medal.locked .md-ic { filter: grayscale(1); opacity: .65; }
-.medal .md-ic { font-size: 30px; width: 40px; height: 40px; line-height: 1; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
-.medal .md-ic.emoji-anim { width: 40px; height: 40px; vertical-align: middle; }
-.medal .md-n { font-size: 11.5px; font-weight: 800; color: var(--ink); line-height: 1.2; min-height: 2.4em; display: flex; align-items: center; justify-content: center; }
-.medal .md-v { font-size: 10.5px; color: var(--muted); font-weight: 600; margin-top: auto; }
-.medal-prog { margin-top: 14px; }
-.medal-prog .mp-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-.medal-prog .mp-head b { color: var(--ink); }
-.medal-prog .mp-bar { height: 9px; border-radius: 6px; background: var(--card-2); border: 1px solid var(--line); overflow: hidden; }
-.medal-prog .mp-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--green-2), var(--green)); transition: width .6s cubic-bezier(.2,.7,.2,1); }
-.medal-done { text-align: center; font-size: 13px; margin: 14px 0 2px; color: var(--accent); font-weight: 700; }
+.medal.locked { opacity: .5; }
+.medal.locked .md-ic { filter: grayscale(1); opacity: .6; }
+.medal .md-ic { font-size: 28px; width: 38px; height: 38px; line-height: 1; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.medal .md-ic.emoji-anim { width: 38px; height: 38px; vertical-align: middle; }
+.medal .md-n { font-size: 11px; font-weight: 800; color: var(--ink); line-height: 1.18; min-height: 2.36em; display: flex; align-items: center; justify-content: center; padding: 0 1px; }
+.medal .md-v { font-size: 9.8px; color: var(--muted); font-weight: 600; line-height: 1.2; margin-top: auto; padding: 0 1px; }
 /* ===== Metas (objetivos) — barra estilo Duolingo, emoji animado que se mexe ao digitar ===== */
 .metas-card { max-width: 420px; }
 .meta-emoji { width: 1.7em; height: 1.7em; }

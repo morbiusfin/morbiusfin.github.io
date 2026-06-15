@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.98";
+const APP_VERSION = "3.11.99";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.99",
+    bullets: [
+      "Medalhas turbinadas: agora são 31 conquistas em várias frentes — saldo, organização, cartões, contas fixas, gastos do dia, tempo de uso, meses no azul, metas e exploração do app",
+      "A caixa de medalhas fica do mesmo tamanho e rola por dentro — nada empurra a página",
+      "Textos com mais respiro (sem colar na margem), cards alinhados e barra de progresso geral mais limpa",
+    ]
+  },
   {
     version: "3.11.98",
     bullets: [
@@ -1085,42 +1093,88 @@ function renderProjection(m) {
     ins.map(i => `<div class="insight ${i.tone}"><span class="ic">${i.ic}</span><span>${i.text}</span></div>`).join("")
   }</div></div>`;
 }
-/* 🏅 Medalhas de acúmulo (gamificação): conquistas pelo pico de saldo guardado no ano.
-   Usa os emojis ANIMADOS do Noto (animEmoji cai no emoji estático se faltar o WebP). */
-const MEDALS = [
-  { v: 100,    e: "broto",    emoji: "🌱", n: "Primeiro passo" },
-  { v: 500,    e: "estrela",  emoji: "⭐", n: "Pegando o jeito" },
-  { v: 1000,   e: "alvo",     emoji: "🎯", n: "Primeiro mil" },
-  { v: 2500,   e: "fogo",     emoji: "🔥", n: "Esquentando" },
-  { v: 5000,   e: "moeda",    emoji: "🪙", n: "Cofrinho cheio" },
-  { v: 10000,  e: "trofeu",   emoji: "🏆", n: "Dez mil!" },
-  { v: 25000,  e: "diamante", emoji: "💎", n: "Reserva forte" },
-  { v: 50000,  e: "foguete",  emoji: "🚀", n: "Decolando" },
-  { v: 100000, e: "festa",    emoji: "🎉", n: "Seis dígitos" },
-  { v: 250000, e: "coroa",    emoji: "👑", n: "Lendário" },
-];
+/* 🏅 Medalhas (gamificação): ~30 conquistas em várias frentes — saldo, organização, cartões,
+   fixas, débitos, tempo, saúde, metas e exploração. Emojis ANIMADOS do Noto (reusados; o que muda
+   é a conquista). got(s) testa contra as estatísticas locais. NÃO afeta nenhum dado/fluxo. */
 function peakSaldo() { const s = serieSaldo(); let mx = 0; for (let i = 0; i < s.length; i++) if (s[i] > mx) mx = s[i]; return mx; }
-function renderMedals() {
-  const peak = peakSaldo(), earned = MEDALS.filter(x => peak >= x.v).length;
-  const grid = MEDALS.map(x => {
-    const got = peak >= x.v;
-    const ic = got ? animEmoji(x.e, x.emoji, "md-ic") : '<span class="md-ic">' + x.emoji + '</span>';
-    return '<div class="medal ' + (got ? "got" : "locked") + '">' + ic
-      + '<span class="md-n">' + x.n + '</span><span class="md-v">' + brl(x.v) + '</span></div>';
-  }).join("");
-  const idx = MEDALS.findIndex(x => peak < x.v);
-  let prog;
-  if (idx >= 0) {
-    const nx = MEDALS[idx], base = idx > 0 ? MEDALS[idx - 1].v : 0;
-    const pct = Math.max(0, Math.min(100, Math.round((peak - base) / (nx.v - base) * 100)));
-    prog = '<div class="medal-prog"><div class="mp-head"><span>Próxima: <b>' + nx.n + '</b></span><span>faltam <b>' + brl(nx.v - peak) + '</b></span></div>'
-      + '<div class="mp-bar"><div class="mp-fill" style="width:' + pct + '%"></div></div></div>';
-  } else {
-    prog = '<p class="medal-done">🏅 Você desbloqueou <b>todas</b> as medalhas. Lendário!</p>';
+function medalStats() {
+  const base = curYear() * 12;
+  const R = DATA.receitas || [], F = DATA.fixas || [], C = DATA.cartao || [], D = DATA.diaria || [];
+  let mesesAtivos = 0, mesesEcon = 0;
+  for (let i = 0; i < 12; i++) {
+    const r = receitaMes(base + i), d = despesaMes(base + i);
+    if (r > 0 || d > 0) { mesesAtivos++; if (r > 0 && r >= d) mesesEcon++; }
   }
-  return '<div class="section-card fade-in medals-card"><h3>🏅 Medalhas de acúmulo</h3>'
-    + '<p class="hint" style="text-align:left;margin:-2px 0 12px">Pico de saldo guardado no ano: <b>' + brl(peak) + '</b> · <b>' + earned + '/' + MEDALS.length + '</b> conquistadas</p>'
-    + '<div class="medal-grid">' + grid + '</div>' + prog + '</div>';
+  const obs = DATA.objetivos || [];
+  let insSeen = false; try { insSeen = !!localStorage.getItem("financas2026.insSeen"); } catch (e) {}
+  return {
+    peak: peakSaldo(),
+    totalLanc: R.length + F.length + C.length + D.length,
+    nReceitas: R.length, nFixas: F.length, nCartao: C.length, nDiaria: D.length,
+    maxParc: C.reduce((m, l) => Math.max(m, l.parcTotal || 1), 0),
+    temLimite: (DATA.cartoes || []).some(c => (c.limite || 0) > 0),
+    mesesAtivos: mesesAtivos, mesesEcon: mesesEcon,
+    nMetas: obs.length, metasFeitas: obs.filter(o => (o.alvo || 0) > 0 && (o.guardado || 0) >= o.alvo).length,
+    temOrcamento: Object.keys(DATA.orcamento || {}).some(k => (DATA.orcamento[k] || 0) > 0),
+    insights: insSeen,
+  };
+}
+const MEDALS = [
+  // 💰 Acúmulo de saldo
+  { e: "broto",    emoji: "🌱", n: "Primeiro passo", l: "Guardou R$ 100",     got: s => s.peak >= 100 },
+  { e: "estrela",  emoji: "⭐", n: "Pegando o jeito", l: "R$ 500 guardados",   got: s => s.peak >= 500 },
+  { e: "alvo",     emoji: "🎯", n: "Primeiro mil",    l: "R$ 1.000",           got: s => s.peak >= 1000 },
+  { e: "fogo",     emoji: "🔥", n: "Esquentando",     l: "R$ 2.500",           got: s => s.peak >= 2500 },
+  { e: "moeda",    emoji: "🪙", n: "Cofrinho cheio",  l: "R$ 5.000",           got: s => s.peak >= 5000 },
+  { e: "trofeu",   emoji: "🏆", n: "Dez mil!",        l: "R$ 10.000",          got: s => s.peak >= 10000 },
+  { e: "diamante", emoji: "💎", n: "Reserva forte",   l: "R$ 25.000",          got: s => s.peak >= 25000 },
+  { e: "foguete",  emoji: "🚀", n: "Decolando",       l: "R$ 50.000",          got: s => s.peak >= 50000 },
+  { e: "festa",    emoji: "🎉", n: "Seis dígitos",    l: "R$ 100.000",         got: s => s.peak >= 100000 },
+  { e: "coroa",    emoji: "👑", n: "Lendário",        l: "R$ 250.000",         got: s => s.peak >= 250000 },
+  // 📝 Organização
+  { e: "estrela",  emoji: "✨", n: "Começou!",        l: "1º lançamento",      got: s => s.totalLanc >= 1 },
+  { e: "alvo",     emoji: "🎯", n: "Engrenando",      l: "10 lançamentos",     got: s => s.totalLanc >= 10 },
+  { e: "foguete",  emoji: "🚀", n: "No controle",     l: "50 lançamentos",     got: s => s.totalLanc >= 50 },
+  { e: "coroa",    emoji: "👑", n: "Mestre do app",   l: "100 lançamentos",    got: s => s.totalLanc >= 100 },
+  // 💳 Cartões
+  { e: "dinheiroalado", emoji: "💳", n: "Primeira fatura", l: "1ª compra no cartão", got: s => s.nCartao >= 1 },
+  { e: "fogo",     emoji: "💸", n: "Cartão quente",   l: "10 compras no cartão", got: s => s.nCartao >= 10 },
+  { e: "diamante", emoji: "💎", n: "Parcelador",      l: "Parcelou em 12×+",   got: s => s.maxParc >= 12 },
+  { e: "alvo",     emoji: "🎯", n: "No limite certo", l: "Cartão com limite",  got: s => s.temLimite },
+  // 📌 Contas fixas
+  { e: "casa",     emoji: "🏠", n: "Conta na conta",  l: "1ª conta fixa",      got: s => s.nFixas >= 1 },
+  { e: "trofeu",   emoji: "🏆", n: "Tudo mapeado",    l: "5 contas fixas",     got: s => s.nFixas >= 5 },
+  // 🛒 Débitos do dia a dia
+  { e: "moeda",    emoji: "🪙", n: "Dia a dia",       l: "1º gasto do dia",    got: s => s.nDiaria >= 1 },
+  { e: "fogo",     emoji: "🔥", n: "Olho no centavo", l: "20 gastos do dia",   got: s => s.nDiaria >= 20 },
+  // 📅 Tempo de uso
+  { e: "broto",    emoji: "🌱", n: "Criando hábito",  l: "3 meses ativos",     got: s => s.mesesAtivos >= 3 },
+  { e: "estrela",  emoji: "⭐", n: "Meio ano!",       l: "6 meses ativos",     got: s => s.mesesAtivos >= 6 },
+  { e: "coroa",    emoji: "👑", n: "Um ano inteiro",  l: "12 meses ativos",    got: s => s.mesesAtivos >= 12 },
+  // 📈 Saúde financeira
+  { e: "foguete",  emoji: "🚀", n: "No azul",         l: "3 meses economizando", got: s => s.mesesEcon >= 3 },
+  { e: "diamante", emoji: "💎", n: "Disciplinado",    l: "6 meses economizando", got: s => s.mesesEcon >= 6 },
+  // 🎯 Metas
+  { e: "presente", emoji: "🎁", n: "Sonhador",        l: "Criou uma meta",     got: s => s.nMetas >= 1 },
+  { e: "festa",    emoji: "🎉", n: "Realizador",      l: "Concluiu uma meta",  got: s => s.metasFeitas >= 1 },
+  // 🔍 Exploração
+  { e: "estrela",  emoji: "💡", n: "Curioso",         l: "Abriu os Insights",  got: s => s.insights },
+  { e: "anel",     emoji: "🏷️", n: "Organizado",      l: "Definiu um orçamento", got: s => s.temOrcamento },
+];
+function renderMedals() {
+  const s = medalStats();
+  const rows = MEDALS.map(m => ({ m: m, got: !!m.got(s) }));
+  const earned = rows.filter(x => x.got).length, total = MEDALS.length;
+  const pct = Math.round(earned / total * 100);
+  const grid = rows.map(x => {
+    const ic = x.got ? animEmoji(x.m.e, x.m.emoji, "md-ic") : '<span class="md-ic">' + x.m.emoji + '</span>';
+    return '<div class="medal ' + (x.got ? "got" : "locked") + '">' + ic
+      + '<span class="md-n">' + esc(x.m.n) + '</span><span class="md-v">' + esc(x.m.l) + '</span></div>';
+  }).join("");
+  return '<div class="section-card fade-in medals-card"><h3>🏅 Medalhas</h3>'
+    + '<p class="hint" style="text-align:left;margin:-2px 0 9px"><b>' + earned + '</b> de <b>' + total + '</b> conquistadas · pico de saldo <b>' + brl(s.peak) + '</b></p>'
+    + '<div class="medal-overall"><div class="mo-fill" style="width:' + pct + '%"></div></div>'
+    + '<div class="medal-scroll"><div class="medal-grid">' + grid + '</div></div></div>';
 }
 
 /* ---------- "Leitura do mês": narrativa local (sem IA externa) — prioriza o que pede atenção
