@@ -995,6 +995,15 @@ body.party-on .tabbar, body.party-on #fab {
 .tabbar.tb-enter .tab:nth-child(5) { animation-delay: .40s; }
 .tabbar.tb-enter .tab:nth-child(6) { animation-delay: .48s; }
 @keyframes tabItemIn { from { opacity: 0; transform: translateY(11px); } to { opacity: 1; transform: none; } }
+/* Entrada do seletor do topo (Resumo·Gráficos·Insights·Metas) ao abrir o app — mesmo efeito da tabbar */
+@keyframes vtRise { 0% { transform: translateY(-14px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+#view .view-toggle.vt-enter { animation: vtRise .5s cubic-bezier(.2,.85,.25,1) both !important; }   /* especificidade p/ vencer o #view.no-anim > * */
+.view-toggle.vt-enter .seg-glass { opacity: 0; }                  /* o vidro entra depois, deslizando (JS) */
+.view-toggle.vt-enter .vt-btn { animation: tabItemIn .45s ease both; }
+.view-toggle.vt-enter .vt-btn:nth-child(2) { animation-delay: .1s; }
+.view-toggle.vt-enter .vt-btn:nth-child(3) { animation-delay: .18s; }
+.view-toggle.vt-enter .vt-btn:nth-child(4) { animation-delay: .26s; }
+@media (prefers-reduced-motion: reduce) { .view-toggle.vt-enter, .view-toggle.vt-enter .vt-btn { animation: none; } }
 .tab { flex: 1; background: 0; border: 0; padding: 8px 0 7px; border-radius: 15px; margin: 0 1px; font-size: 10.5px; color: var(--muted);
   display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 700; position: relative; z-index: 1;
   transition: color .2s ease, transform .12s ease; }

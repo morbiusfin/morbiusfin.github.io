@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.14";
+const APP_VERSION = "3.13.15";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.15",
+    bullets: [
+      "Ao abrir o app, o seletor do topo (Resumo · Gráficos · Insights · Metas) entra com o mesmo efeito da barra de baixo: o painel surge, as abas escalonam e o vidro verde desliza até a ativa",
+    ]
+  },
   {
     version: "3.13.14",
     bullets: [
@@ -5041,6 +5047,7 @@ function finishOpening() {
   window.__openGuardUntil = performance.now() + 1400;   // janela em que holofote/deep-link ficam suspensos
   try { document.querySelectorAll(".spotlight").forEach(s => s.remove()); _spot = null; } catch (e) {}
   tabbarEntrance();
+  viewToggleEntrance();   // o seletor do topo (Resumo·Gráficos·Insights·Metas) entra junto, mesmo efeito
   maybeStartOnboarding();
 }
 /* Entrada da tab bar ao abrir: a pílula SOBE de baixo com fade, os ícones surgem em sequência, e
@@ -5064,6 +5071,29 @@ function tabbarEntrance() {
       );
     } catch (e) {}
   }, 560);
+}
+/* Mesma entrada da tabbar, mas no seletor do topo do Resumo: o painel surge, as 4 abas escalonam e
+   por fim o vidro verde desliza da direita até a aba ativa. Toca 1x na abertura do app. */
+function viewToggleEntrance() {
+  const tg = document.querySelector(".view-toggle"); if (!tg) return;   // só existe no Resumo
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  tg.classList.remove("vt-enter"); void tg.offsetWidth; tg.classList.add("vt-enter");
+  // inline !important garante o vtRise mesmo se #view estiver em no-anim no instante da abertura
+  tg.style.setProperty("animation", "vtRise .5s cubic-bezier(.2,.85,.25,1) both", "important");
+  setTimeout(() => { tg.classList.remove("vt-enter"); tg.style.animation = ""; }, 900);
+  setTimeout(() => {
+    const g = tg.querySelector(".seg-glass"); if (!g || !g.animate) return;
+    const cw = tg.getBoundingClientRect().width || 320;
+    const rest = getComputedStyle(g).transform;
+    try {
+      g.animate(
+        [{ transform: "translateX(" + (cw + 40) + "px)", opacity: 0 },
+         { transform: "translateX(" + (cw + 40) + "px)", opacity: 0, offset: 0.15 },
+         { transform: rest, opacity: 1 }],
+        { duration: 560, easing: "cubic-bezier(.2,.85,.25,1)" }
+      );
+    } catch (e) {}
+  }, 420);
 }
 // rede de segurança: nunca deixar o splash preso
 window.addEventListener("load", () => setTimeout(hideSplash, 4000));
