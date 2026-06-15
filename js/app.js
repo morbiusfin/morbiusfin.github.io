@@ -1,15 +1,15 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.7";
+const APP_VERSION = "3.13.8";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
   {
-    version: "3.13.7",
+    version: "3.13.8",
     bullets: [
-      "Explorou o app 100%? Agora rola uma festa: um 🎉 grande no centro e vários subindo a tela de ponta a ponta",
+      "Explorou o app 100%? Agora aparece um card de Parabéns 🎉 explicando a conquista e te convidando a continuar usando o app no dia a dia",
     ]
   },
   {
@@ -1322,23 +1322,24 @@ function celebrateExploreDone() {
   partyConfetti();
 }
 function partyConfetti() {
-  const wrap = document.createElement("div");
-  wrap.className = "party-fx";
+  const ov = document.createElement("div");
+  ov.className = "party-fx";
+  ov.innerHTML =
+    '<div class="party-card">'
+    + '<div class="party-emoji-wrap"></div>'
+    + '<h2 class="party-title">Parabéns!</h2>'
+    + '<p class="party-sub">Você explorou <b>100% do MorbiusFin</b> — agora já conhece tudo o que o app faz por você.</p>'
+    + '<p class="party-invite">Continue explorando no dia a dia: lance seus gastos e receitas, crie suas <b>metas</b> 🎯 e acompanhe sua evolução mês a mês. Quanto mais você usa, mais claro fica pra onde vai o seu dinheiro. 🚀</p>'
+    + '<button type="button" class="btn primary party-ok">Continuar</button>'
+    + '</div>';
+  // 🎉 animado (Noto) no topo do card
   const big = new Image(); big.src = "emoji/festa.webp"; big.className = "party-center"; big.alt = ""; big.setAttribute("aria-hidden", "true");
-  wrap.appendChild(big);
-  const N = 16;
-  for (let i = 0; i < N; i++) {
-    const im = new Image(); im.src = "emoji/festa.webp"; im.className = "party-rise"; im.alt = ""; im.setAttribute("aria-hidden", "true");
-    im.style.left = Math.round((i / (N - 1)) * 100) + "%";          // distribui de uma ponta à outra
-    im.style.animationDelay = (Math.random() * 1.4).toFixed(2) + "s";
-    im.style.animationDuration = (2.6 + Math.random() * 1.7).toFixed(2) + "s";
-    const sz = 30 + Math.round(Math.random() * 36);
-    im.style.width = sz + "px"; im.style.height = sz + "px";
-    wrap.appendChild(im);
-  }
-  document.body.appendChild(wrap);
-  setTimeout(() => { try { wrap.remove(); } catch (e) {} }, 5200);
-  toast("🎉 Você explorou o app inteiro!");
+  ov.querySelector(".party-emoji-wrap").appendChild(big);
+  const close = () => { try { ov.remove(); } catch (e) {} document.body.classList.remove("party-on"); };
+  ov.querySelector(".party-ok").onclick = close;
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  document.body.classList.add("party-on");        // some com a tabbar/+ atrás (igual aos modais)
+  document.body.appendChild(ov);
 }
 let _coachT = null;
 function coachTip(label, tip, pct) {

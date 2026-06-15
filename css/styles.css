@@ -965,7 +965,8 @@ select.sel { cursor: pointer; }
 #fab { transition: transform .25s cubic-bezier(.34,1.56,.64,1), opacity .2s ease; }
 /* Pop-up aberto (scroll travado): a barra de baixo flutuante e o + SOMEM — senão ficam "ilhados"
    atrás do backdrop translúcido, com um vão escuro embaixo (parece que a base quebrou). Voltam ao fechar. */
-body.scroll-locked .tabbar, body.scroll-locked #fab { opacity: 0 !important; pointer-events: none !important; }
+body.scroll-locked .tabbar, body.scroll-locked #fab,
+body.party-on .tabbar, body.party-on #fab { opacity: 0 !important; pointer-events: none !important; }
 /* ===== Entrada da tab bar (ao abrir o app): pílula sobe + fade, ícones em sequência, vidro depois ===== */
 @keyframes tabbarRise { 0% { transform: translateY(130%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
 .tabbar.tb-enter { animation: tabbarRise .6s cubic-bezier(.2,.85,.25,1) both; }
@@ -1395,32 +1396,26 @@ html.theme-dark #rain { opacity: .7; }
 @keyframes focusRow { 0%,100% { background: transparent; } 35% { background: rgba(245,166,35,.18); } }
 .focus-row { animation: focusRow 1.2s ease-in-out 2; }
 
-/* ===== 🎉 Comemoração de 100% explorado: party-popper no centro + vários subindo a tela ===== */
-.party-fx { position: fixed; inset: 0; z-index: 1400; pointer-events: none; overflow: hidden; }
-.party-center { position: absolute; left: 50%; top: 42%; width: 136px; height: 136px;
-  filter: drop-shadow(0 10px 26px rgba(0,0,0,.45));
-  transform: translate(-50%,-50%) scale(.3); opacity: 0; animation: partyPop 2.6s cubic-bezier(.2,.9,.2,1.1) both; }
+/* ===== 🎉 Comemoração de 100% explorado: card central de Parabéns com um party-popper animado ===== */
+.party-fx { position: fixed; inset: 0; z-index: 1400; display: flex; align-items: center; justify-content: center;
+  padding: 26px 18px; background: rgba(0,0,0,.5); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  animation: fadeInUp .25s ease both; }
+.party-card { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 22px;
+  padding: 24px 22px 22px; max-width: 360px; width: 100%; text-align: center; box-shadow: var(--shadow-lg);
+  animation: popIn .3s cubic-bezier(.2,.8,.2,1) both; }
+.party-emoji-wrap { display: flex; justify-content: center; }
+.party-center { width: 100px; height: 100px; filter: drop-shadow(0 10px 24px rgba(0,0,0,.42));
+  transform: scale(.3) rotate(-12deg); opacity: 0; animation: partyPop 1.5s cubic-bezier(.2,.9,.2,1.1) both; }
 @keyframes partyPop {
-  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.3); }
-  16%  { opacity: 1; transform: translate(-50%,-50%) scale(1.14); }
-  70%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%,-60%) scale(1); }
+  0%   { opacity: 0; transform: scale(.3)  rotate(-12deg); }
+  55%  { opacity: 1; transform: scale(1.14) rotate(4deg); }
+  100% { opacity: 1; transform: scale(1)   rotate(0deg); }
 }
-.party-rise { position: absolute; bottom: -10%; width: 44px; height: 44px;
-  filter: drop-shadow(0 6px 12px rgba(0,0,0,.35));
-  transform: translateY(0) rotate(0deg); opacity: 0;
-  animation-name: partyRise; animation-timing-function: cubic-bezier(.4,0,.5,1); animation-fill-mode: both;
-  will-change: transform, opacity; }
-@keyframes partyRise {
-  0%   { transform: translateY(0) rotate(-8deg);   opacity: 0; }
-  12%  { opacity: 1; }
-  85%  { opacity: 1; }
-  100% { transform: translateY(-120vh) rotate(14deg); opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .party-rise { display: none; }
-  .party-center { animation-duration: 1.6s; }
-}
+.party-title { margin: 12px 0 8px; font-size: 24px; font-weight: 800; letter-spacing: -.3px; }
+.party-sub { margin: 0 0 12px; font-size: 14.5px; line-height: 1.55; color: var(--ink); }
+.party-invite { margin: 0 0 18px; font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+.party-card .party-ok { width: 100%; }
+@media (prefers-reduced-motion: reduce) { .party-center { animation-duration: .8s; } }
 
 /* ===== Simulador "vale a pena comprar?" ===== */
 .sim-card h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
