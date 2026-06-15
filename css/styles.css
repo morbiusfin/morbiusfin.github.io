@@ -994,7 +994,7 @@ select.sel { cursor: pointer; }
   background: var(--glass-ins-bg);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -2px 6px rgba(0,0,0,.14), 0 6px 16px rgba(23,99,214,.3);
 }
-.tabbar .seg-glass { border-radius: 15px; }
+.tabbar .seg-glass { border-radius: 22px; }   /* concêntrico com a pílula (raio 30 − folga ~8 = 22) */
 /* enquanto arrasta, a opção sob o vidro fica branca (legível sobre o vidro) */
 .view-toggle .vt-btn.glass-near, .tabbar .tab.glass-near { color: #fff; }
 @media (prefers-reduced-motion: reduce) { .seg-glass { transition: none; } }
@@ -1153,8 +1153,11 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
 .card-lim-foot b { color: var(--accent); }
 /* ===== Projeção do ano + Medalhas (gamificação) ===== */
 .proj-card { border: 1px solid rgba(31,217,122,.28); }
-/* barra de progresso geral (X de 30) — limpa, com respiro das margens */
-.medal-overall { height: 9px; border-radius: 6px; background: var(--card-2); border: 1px solid var(--line); overflow: hidden; margin-bottom: 12px; }
+/* respiro lateral do conteúdo das medalhas (o .section-card não tem padding próprio) */
+.medals-card > .hint { padding: 0 16px; }
+.medal-scroll { padding-left: 14px !important; padding-right: 14px !important; }
+/* barra de progresso geral (X de 123) — limpa, com respiro das margens */
+.medal-overall { height: 9px; border-radius: 6px; background: var(--card-2); border: 1px solid var(--line); overflow: hidden; margin: 0 16px 12px; }
 .medal-overall .mo-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--green-2), var(--green)); transition: width .7s cubic-bezier(.2,.8,.2,1); }
 /* caixa do MESMO tamanho com SCROLL interno (não cresce a página) */
 .medal-scroll { max-height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scrollbar-width: none;
