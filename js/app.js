@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.19";
+const APP_VERSION = "3.13.20";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.20",
+    bullets: [
+      "Entrada do seletor do topo 100% fluida: tirei a piscada que dava quando o vidro verde chegava (o seletor reanimava o fade ao terminar)",
+    ]
+  },
   {
     version: "3.13.19",
     bullets: [
@@ -5102,7 +5108,8 @@ function viewToggleEntrance() {
   const tg = document.querySelector(".view-toggle"); if (!tg) return;   // só existe no Resumo
   const ativa = () => tg.querySelector(".vt-btn.active") || tg.querySelector(".vt-btn");
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const settle = () => { tg.classList.remove("vt-enter"); tg.style.animation = ""; const g = tg.querySelector(".seg-glass"); if (g) g.style.opacity = ""; };
+  // ao fim: trava em "none" (NÃO deixa reverter pro fadeInUp do `main > *` → era esse re-fade que piscava)
+  const settle = () => { tg.classList.remove("vt-enter"); tg.style.setProperty("animation", "none", "important"); const g = tg.querySelector(".seg-glass"); if (g) g.style.opacity = ""; };
   // 1) ESCONDE o vidro primeiro (vt-enter → opacity:0). 2) SÓ ENTÃO posiciona — já invisível, sem flash.
   tg.classList.remove("vt-enter"); void tg.offsetWidth; tg.classList.add("vt-enter");
   try { placeGlassTo(tg, ativa(), false, "vt"); } catch (e) {}   // posiciona o vidro JÁ oculto (sem piscar)
