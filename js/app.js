@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.89";
+const APP_VERSION = "3.11.90";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.90",
+    bullets: [
+      "Avatares: voltei os emojis (mais bonitos) — agora animados de verdade, cada bichinho com um movimento diferente",
+      "Círculo da foto do perfil ficou perfeito (preenche a borda toda, com anel limpo) — sem mais aquele desalinho",
+      "12 opções de avatar pra escolher",
+    ]
+  },
   {
     version: "3.11.89",
     bullets: [
@@ -3060,7 +3068,16 @@ function setPerfil(p) { try { localStorage.setItem(PERFIL_KEY, JSON.stringify(p)
 /* ---------- Avatares predefinidos (estilo Netflix) — SVG inline, offline, sem download ---------- */
 /* Avatares de BICHINHOS ANIMADOS — SVG inline (anima de verdade; imagem de fundo não animaria).
    Cada animal tem movimento próprio (CSS em .animal-svg). Flat, sem gradiente (sem rebarba). */
-const ANIMALS = ["raposa", "gato", "panda", "sapo", "coruja", "pinguim"];
+const ANIMALS = [
+  { id: "raposa", e: "🦊", bg: "#ffe0cc" }, { id: "panda", e: "🐼", bg: "#eceff3" },
+  { id: "leao", e: "🦁", bg: "#ffe7b3" }, { id: "gato", e: "🐱", bg: "#ffd9e6" },
+  { id: "macaco", e: "🐵", bg: "#ecdcc6" }, { id: "sapo", e: "🐸", bg: "#d7f3dd" },
+  { id: "coruja", e: "🦉", bg: "#efe0c8" }, { id: "tigre", e: "🐯", bg: "#ffe0b0" },
+  { id: "pinguim", e: "🐧", bg: "#dce8f1" }, { id: "pintinho", e: "🐥", bg: "#fff3c4" },
+  { id: "unicornio", e: "🦄", bg: "#f0e0ff" }, { id: "golfinho", e: "🐬", bg: "#d6f0f5" }
+];
+const ANIMAL_BY = {}; ANIMALS.forEach(a => ANIMAL_BY[a.id] = a);
+const _UNUSED_ANIMAL_PARTS_BELOW = 1;   // (o objeto abaixo não é mais usado — avatares agora são emoji animado)
 const ANIMAL_PARTS = {
   raposa: '<circle cx="50" cy="52" r="48" fill="#ffe3d0"/><g class="ani-bob">'
     + '<path class="ani-ear" d="M33 35 L28 10 L52 27 Z" fill="#ef7d3e"/><path d="M35 29 L33 16 L46 25 Z" fill="#ffd0b0"/>'
@@ -3114,14 +3131,17 @@ const ANIMAL_PARTS = {
     + '<path d="M50 58 l-5 6 5 4 5-4 Z" fill="#f5a623"/></g>'
 };
 function animalSVG(id) {
-  const parts = ANIMAL_PARTS[id] || ANIMAL_PARTS.gato;
-  return '<svg class="animal-svg ' + id + '" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' + parts + '</svg>';
+  const a = ANIMAL_BY[id] || ANIMALS[0];
+  // círculo r50 preenche TODO o viewBox → o contêiner redondo recorta num círculo perfeito (sem falha na borda)
+  return '<svg class="animal-svg ' + a.id + '" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    + '<circle cx="50" cy="50" r="50" fill="' + a.bg + '"/>'
+    + '<g class="ani-bob"><text x="50" y="53" font-size="56" text-anchor="middle" dominant-baseline="central">' + a.e + '</text></g></svg>';
 }
 const isAnimalAvatar = (f) => typeof f === "string" && f.indexOf("av:") === 0;
 function defaultAnimal(name) {
   const s = (name || "").trim();
   let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
-  return ANIMALS[h % ANIMALS.length];
+  return ANIMALS[h % ANIMALS.length].id;
 }
 // preenche um elemento redondo com o avatar: SVG animado (bichinho) ou imagem (foto importada)
 function setAvatarInto(el, foto, nome) {
@@ -3167,9 +3187,9 @@ function refreshProfPhoto() {
 }
 function renderAvatarPicker() {
   const row = $("#avatarRow"); if (!row) return;
-  row.innerHTML = ANIMALS.map(id => {
-    const on = _profFotoTmp === ("av:" + id) ? " on" : "";
-    return '<button type="button" class="av-opt' + on + '" data-an="' + id + '" aria-label="Avatar ' + id + '">' + animalSVG(id) + '</button>';
+  row.innerHTML = ANIMALS.map(a => {
+    const on = _profFotoTmp === ("av:" + a.id) ? " on" : "";
+    return '<button type="button" class="av-opt' + on + '" data-an="' + a.id + '" aria-label="Avatar ' + a.id + '">' + animalSVG(a.id) + '</button>';
   }).join("") + '<button type="button" class="av-opt av-import" id="avImport" aria-label="Importar foto">＋</button>';
   $$(".av-opt[data-an]", row).forEach(b => b.onclick = () => { _profFotoTmp = "av:" + b.dataset.an; refreshProfPhoto(); });
   const imp = $("#avImport", row); if (imp) imp.onclick = () => $("#profFile").click();

@@ -226,16 +226,24 @@ body.kbd-open .scroll-top, body.lock-on .scroll-top, body.splash-on .scroll-top 
 @keyframes aniBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes aniBlink { 0%,92%,100% { transform: scaleY(0); } 96% { transform: scaleY(1); } }
 @keyframes aniEar { 0%,86%,100% { transform: rotate(0); } 90% { transform: rotate(-7deg); } 94% { transform: rotate(5deg); } }
+@keyframes aniHop { 0%,68%,100% { transform: translateY(0); } 82% { transform: translateY(-7px); } }
+@keyframes aniTilt { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+@keyframes aniWaddle { 0%,100% { transform: rotate(-5deg) translateY(0); } 50% { transform: rotate(5deg) translateY(-1px); } }
+@keyframes aniWiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(7deg); } 75% { transform: rotate(-7deg); } }
+@keyframes aniPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
 .animal-svg.raposa .ani-bob { animation-duration: 2.8s; }
 .animal-svg.gato .ani-bob { animation-duration: 3.4s; }
-.animal-svg.panda .ani-bob { animation-duration: 3.1s; }
-.animal-svg.sapo .ani-bob { animation: aniHop 2.6s ease-in-out infinite; }
-@keyframes aniHop { 0%,68%,100% { transform: translateY(0); } 82% { transform: translateY(-6px); } }
+.animal-svg.golfinho .ani-bob { animation-duration: 3.1s; }
+.animal-svg.pintinho .ani-bob { animation-duration: 2.2s; }
+.animal-svg.panda .ani-bob { animation: aniPulse 3s ease-in-out infinite; }
+.animal-svg.leao .ani-bob { animation: aniWiggle 3.2s ease-in-out infinite; }
+.animal-svg.tigre .ani-bob { animation: aniWiggle 2.7s ease-in-out infinite; }
+.animal-svg.macaco .ani-bob { animation: aniHop 2.6s ease-in-out infinite; }
+.animal-svg.sapo .ani-bob { animation: aniHop 2.3s ease-in-out infinite; }
 .animal-svg.coruja .ani-bob { animation: aniTilt 3.6s ease-in-out infinite; }
-@keyframes aniTilt { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+.animal-svg.unicornio .ani-bob { animation: aniTilt 3.3s ease-in-out infinite; }
 .animal-svg.pinguim .ani-bob { animation: aniWaddle 2.4s ease-in-out infinite; }
-@keyframes aniWaddle { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
-@media (prefers-reduced-motion: reduce) { .animal-svg .ani-bob, .animal-svg .ani-lid, .animal-svg .ani-ear { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .animal-svg .ani-bob { animation: none; } }
 /* 🔒 Oferta de senha no 1º acesso (onboarding) */
 .onb-pin { display: flex; gap: 10px; margin: 10px 0; }
 .onb-pin input { flex: 1; min-width: 0; text-align: center; letter-spacing: 6px; font-size: 20px; padding: 12px; border-radius: 12px;
