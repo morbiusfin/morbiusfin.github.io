@@ -87,6 +87,9 @@ html:has(body.splash-on) { background: #05110c; }
    só o verde (nunca o app). Esconde também o conteúdo do app pra não vazar no vão do teclado (iOS). */
 html:has(body.lock-on) { background: linear-gradient(160deg, #0b3d2e 0%, #12734d 100%); }
 body.lock-on { background: linear-gradient(160deg, #0b3d2e 0%, #12734d 100%); }
+/* com um pop-up aberto (scroll travado): a faixa do home indicator passa a usar o fundo do APP
+   (não a cor da tabbar) → sob o escurecido do modal ela some, sem aquela banda mais clara embaixo. */
+html:has(body.scroll-locked) { background: var(--bg); }
 body.lock-on > *:not(#lockScreen):not(#unlockReveal):not(#splash) { visibility: hidden !important; }
 body {
   font-family: var(--font);
@@ -639,7 +642,7 @@ body:has(#fab:not(.hidden)) main { padding-bottom: 104px; }
 }
 
 /* ===== Modal de novidades / changelog ===== */
-.wn-card { position: relative; text-align: left; padding-bottom: calc(20px + var(--safe-bottom)); max-width: 400px; }
+.wn-card { position: relative; text-align: left; max-width: 400px; }
 .wn-close { position: absolute; top: 14px; right: 14px; background: var(--card-2); border: 1px solid var(--line);
   color: var(--muted); border-radius: 50%; width: 32px; height: 32px; font-size: 14px;
   display: flex; align-items: center; justify-content: center; padding: 0;
@@ -655,7 +658,7 @@ body:has(#fab:not(.hidden)) main { padding-bottom: 104px; }
 @media (prefers-reduced-motion: reduce) { .wn-spark { animation: none; } }
 .wn-card h2 { font-size: 22px; font-weight: 800; letter-spacing: -.4px; margin: 0 0 4px; }
 .wn-version { font-size: 12.5px; color: var(--accent); font-weight: 700; margin: 0; letter-spacing: .3px; }
-.wn-body { max-height: 52vh; overflow-y: auto; margin-bottom: 14px; }
+.wn-body { max-height: 46dvh; overflow-y: auto; margin-bottom: 4px; }
 /* bloco de cada versão no changelog */
 .wn-entry { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .wn-entry:last-child { border-bottom: 0; }
@@ -1005,14 +1008,13 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
   touch-action: none; overscroll-behavior: none; }   /* TODOS os pop-ups no MEIO da tela; backdrop não rola a tela atrás (iOS) */
 .modal.hidden { display: none; }
 .modal-card { background: var(--card); color: var(--ink); width: 100%; max-width: 440px; border-radius: 22px;
-  padding: 22px 18px calc(20px + var(--safe-bottom)); max-height: 88dvh; overflow-y: auto; box-shadow: var(--shadow-lg);
+  padding: 22px 18px 22px; max-height: 88dvh; overflow-y: auto; box-shadow: var(--shadow-lg);
   border: 1px solid var(--line); animation: popIn .24s cubic-bezier(.2,.8,.2,1);
-  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }   /* contain → não "prende" o scroll no body travado (iOS); pan-y → o card rola por dentro */
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }   /* centralizado → sem safe-area embaixo (não encosta na borda); pan-y → o card rola por dentro */
 /* Rodapé de ações FIXO (Cancelar/Salvar sempre visíveis): o conteúdo rola por dentro, o modal nunca
    "vaza" os botões pra fora da tela. Padrão para todas as inclusões (+) e formulários. */
 .modal-card > .modal-actions { position: sticky; bottom: 0; z-index: 4; background: var(--card);
-  margin: 16px -18px calc(-20px - var(--safe-bottom)); padding: 12px 18px calc(12px + var(--safe-bottom));
-  border-top: 1px solid var(--line); }
+  margin: 16px -18px -22px; padding: 14px 18px 0; }   /* rodapé flush no fim do card (sem vão) */
 
 /* Modais altos (Categorias, Emoji): cabeçalho FIXO (título + ✕ sempre visíveis) e só o corpo rola */
 .modal-card.sheet-tall { display: flex; flex-direction: column; overflow: hidden; padding-top: 24px; }
