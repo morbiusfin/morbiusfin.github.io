@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.25";
+const APP_VERSION = "3.13.26";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.26",
+    bullets: [
+      "Tutorial com emoji-gif animado em todos os 9 passos (👋 📊 🔔 ➕ 🪙 🎯 🏆 ❤️ ❓)",
+    ]
+  },
   {
     version: "3.13.25",
     bullets: [
@@ -4571,15 +4577,15 @@ function openFaq(keepIdx) {
 }
 
 const TUTORIAL = [
-  ["👋", "Bem-vindo ao MorbiusFin", "Seu controle financeiro do mês, simples e no celular. Vou te mostrar o essencial em alguns passos — pode pular quando quiser."],
-  ["📋", "Resumo do mês", "Aqui você vê o caminho do seu dinheiro: o que entrou, o que saiu e o que sobra. No topo dá pra trocar para Gráficos e Insights."],
-  ["🔔", "Contas a vencer", "O sino no topo avisa quando há conta perto de vencer ou atrasada. Toque para ver e pagar — ele para de piscar depois."],
-  ["➕", "Lançar gastos e ganhos", "Nas abas de baixo (Receitas, Fixas, Cartão, Débito), use o + para adicionar. No Cartão dá pra parcelar até 60×."],
-  ["🏷️", "Categorias e metas", "No menu, crie categorias com emoji e defina metas de orçamento. Verde = dentro, vermelho = estourou."],
-  ["🎯", "Metas (objetivos)", "No topo do Resumo, toque em 🎯 Metas (ao lado de Insights). Crie objetivos como viagem, casa ou carro — diga quanto custa e quanto já guardou. A barrinha mostra o progresso e o emoji muda conforme o objetivo."],
-  ["🏅", "Medalhas de acúmulo", "Em Insights, você desbloqueia medalhas conforme o seu saldo guardado cresce — do Primeiro passo ao Lendário. É a forma divertida de ver sua reserva subir e se motivar a guardar mais."],
-  ["💑", "Conta de casal", "No perfil, escolha Conjunta e pareie os 2 celulares por QR. O que um lança aparece no outro, sem nuvem."],
-  ["❓", "Ajuda sempre à mão", "Viu um “?” numa parte do app? Toque para saber o que ela faz. E este tutorial fica no menu quando quiser rever."],
+  ["👋", "Bem-vindo ao MorbiusFin", "Seu controle financeiro do mês, simples e no celular. Vou te mostrar o essencial em alguns passos — pode pular quando quiser.", "aceno"],
+  ["📋", "Resumo do mês", "Aqui você vê o caminho do seu dinheiro: o que entrou, o que saiu e o que sobra. No topo dá pra trocar para Gráficos e Insights.", "grafico"],
+  ["🔔", "Contas a vencer", "O sino no topo avisa quando há conta perto de vencer ou atrasada. Toque para ver e pagar — ele para de piscar depois.", "sino"],
+  ["➕", "Lançar gastos e ganhos", "Nas abas de baixo (Receitas, Fixas, Cartão, Débito), use o + para adicionar. No Cartão dá pra parcelar até 60×.", "mais"],
+  ["🏷️", "Categorias e metas", "No menu, crie categorias com emoji e defina metas de orçamento. Verde = dentro, vermelho = estourou.", "moeda"],
+  ["🎯", "Metas (objetivos)", "No topo do Resumo, toque em 🎯 Metas (ao lado de Insights). Crie objetivos como viagem, casa ou carro — diga quanto custa e quanto já guardou. A barrinha mostra o progresso e o emoji muda conforme o objetivo.", "alvo"],
+  ["🏅", "Medalhas de acúmulo", "Em Insights, você desbloqueia medalhas conforme o seu saldo guardado cresce — do Primeiro passo ao Lendário. É a forma divertida de ver sua reserva subir e se motivar a guardar mais.", "trofeu"],
+  ["💑", "Conta de casal", "No perfil, escolha Conjunta e pareie os 2 celulares por QR. O que um lança aparece no outro, sem nuvem.", "coracao"],
+  ["❓", "Ajuda sempre à mão", "Viu um “?” numa parte do app? Toque para saber o que ela faz. E este tutorial fica no menu quando quiser rever.", "interrogacao"],
 ];
 let _tutI = 0;
 function ensureTutModal() {
@@ -4600,7 +4606,7 @@ function renderTut() {
   document.getElementById("tutDots").innerHTML = TUTORIAL.map((_, i) => `<span class="${i === _tutI ? "on" : ""}"></span>`).join("");
   document.getElementById("tutPrev").style.visibility = _tutI === 0 ? "hidden" : "";
   document.getElementById("tutNext").textContent = _tutI === TUTORIAL.length - 1 ? "Começar a usar" : "Próximo";
-  const ic = document.getElementById("tutIc"); ic.textContent = s[0]; ic.classList.remove("pop"); void ic.offsetWidth; ic.classList.add("pop");
+  const ic = document.getElementById("tutIc"); ic.innerHTML = animEmoji(s[3], s[0], "tut-ic-img"); ic.classList.remove("pop"); void ic.offsetWidth; ic.classList.add("pop");
 }
 function openTutorial() { _tutI = 0; ensureTutModal(); renderTut(); document.getElementById("tutModal").classList.remove("hidden"); }
 function closeTut() { const m = document.getElementById("tutModal"); if (m) m.classList.add("hidden"); try { localStorage.setItem("financas2026.tutDone", "1"); } catch (e) {} }

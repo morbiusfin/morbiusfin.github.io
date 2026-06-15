@@ -459,6 +459,7 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 /* Tutorial */
 .tut-card { max-width: 340px; text-align: center; }
 .tut-ic { font-size: 56px; margin: 4px 0 12px; display: inline-block; }
+.tut-ic .tut-ic-img { width: 66px; height: 66px; display: block; }   /* emoji-gif animado em cada passo */
 .tut-ic.pop { animation: nePop .45s cubic-bezier(.34,1.6,.5,1) both; }
 .tut-card h2 { margin: 0 0 10px; }
 .tut-card p { font-size: 14px; line-height: 1.6; color: var(--ink); margin: 0 0 18px; min-height: 70px; }

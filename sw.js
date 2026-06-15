@@ -1,5 +1,5 @@
 /* Service Worker — network-first (sempre busca a versão nova; cache só offline) */
-const CACHE = "financas-v173";
+const CACHE = "financas-v174";
 const ASSETS = [
   "./", "./index.html",
   "./css/styles.css",
@@ -22,7 +22,9 @@ const ASSETS = [
   // cabeçalho: sino (alertas) e brilho (novidades)
   "./emoji/sino.webp", "./emoji/brilho.webp",
   // status de saúde financeira (gauge) — músculo/sorriso/alerta/sos
-  "./emoji/musculo.webp", "./emoji/sorriso.webp", "./emoji/alerta.webp", "./emoji/sos.webp"
+  "./emoji/musculo.webp", "./emoji/sorriso.webp", "./emoji/alerta.webp", "./emoji/sos.webp",
+  // tutorial (passos) — aceno/gráfico/mais/coração/interrogação (sino, moeda, alvo, trofeu já no cache)
+  "./emoji/aceno.webp", "./emoji/grafico.webp", "./emoji/mais.webp", "./emoji/coracao.webp", "./emoji/interrogacao.webp"
 ];
 
 self.addEventListener("install", (e) => {
