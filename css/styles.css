@@ -206,6 +206,13 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
 .av-opt.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
 .av-import { display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; color: var(--accent-2);
   background: var(--card-2); border: 2px dashed var(--line); }
+/* 🔒 Oferta de senha no 1º acesso (onboarding) */
+.onb-pin { display: flex; gap: 10px; margin: 10px 0; }
+.onb-pin input { flex: 1; min-width: 0; text-align: center; letter-spacing: 6px; font-size: 20px; padding: 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--card-2); color: var(--ink); }
+.onb-pin input::placeholder { letter-spacing: normal; font-size: 14px; }
+.onb-pin input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--ring); }
+.onb-warn { font-size: 11.5px; color: var(--muted); line-height: 1.4; margin-top: 10px; }
 /* 💑 Conta conjunta: desativar + histórico */
 .prof-couple-on { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .btn.couple-off { background: rgba(229,72,77,.14); border: 1px solid rgba(229,72,77,.45); color: #ff8a8d; font-weight: 700; }

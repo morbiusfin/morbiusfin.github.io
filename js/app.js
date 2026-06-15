@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.86";
+const APP_VERSION = "3.11.87";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.87",
+    bullets: [
+      "No 1º acesso, depois do tutorial, o app pergunta se você quer uma senha de 4 dígitos — dá pra criar agora ou depois",
+      "Criar senha funciona direto no app (não usa mais aquele pop-up do sistema que travava no iPhone)",
+      "Sem senha, o app abre direto; com senha, abre com a animação do cadeado. Dá pra ativar quando quiser em Menu → Conta e acesso",
+    ]
+  },
   {
     version: "3.11.86",
     bullets: [
@@ -3816,17 +3824,20 @@ function autoBackup() {
     toast("Backup baixado ⬇️"); return true;
   } catch (e) { return false; }
 }
-async function protectWithPin() {
-  const p1 = ($("#accPin") || {}).value || "", p2 = ($("#accPin2") || {}).value || "";
-  if (!/^\d{4}$/.test(p1)) { toast("Use exatamente 4 dígitos numéricos"); return; }
-  if (p1 === TEST_CODE) { toast("Esse código é reservado — escolha outro"); return; }
-  if (p1 !== p2) { toast("Os PINs não conferem"); return; }
+// Aplica um PIN de 4 dígitos (valida + backup + criptografa). Reutilizado pelo menu e pelo 1º acesso.
+async function applyPin4(p1, p2) {
+  if (!/^\d{4}$/.test(p1)) { toast("Use exatamente 4 dígitos numéricos"); return false; }
+  if (p1 === TEST_CODE) { toast("Esse código é reservado — escolha outro"); return false; }
+  if (p1 !== p2) { toast("As senhas não conferem"); return false; }
   autoBackup();                                   // backup ANTES de criptografar
   window.CRYPTO_KEY = await deriveKey(p1);
   localStorage.setItem("financas2026.profile", "real");
   saveData(DATA);                                 // criptografa os dados reais (financas2026.v2)
-  toast("Dados reais protegidos 🔒");
-  openAccessModal();                              // atualiza o status na tela
+  return true;
+}
+async function protectWithPin() {
+  const ok = await applyPin4(($("#accPin") || {}).value || "", ($("#accPin2") || {}).value || "");
+  if (ok) { toast("Dados reais protegidos 🔒"); openAccessModal(); }
 }
 function exitTestMode() {
   localStorage.setItem("financas2026.profile", "real");
@@ -4270,6 +4281,23 @@ function renderOnb() {
     $("#onbSkip").onclick = () => finishOnboarding();
     return;
   }
+  if (onbStep === 4) {   // após o tour: oferta de senha de 4 dígitos (agora ou depois)
+    body.innerHTML = onbStepIcon("shield")
+      + '<div class="onb-tourtitle" id="onbTitle">Quer proteger com senha?</div>'
+      + '<p class="onb-tourtext">Você pode bloquear o app com uma <b>senha de 4 dígitos</b>. Crie agora ou depois (Menu → Conta e acesso). Sem senha, o app abre direto.</p>'
+      + '<div class="onb-pin"><input id="onbPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off" />'
+      + '<input id="onbPin2" type="password" inputmode="numeric" maxlength="4" placeholder="repita" autocomplete="off" /></div>'
+      + '<button class="btn primary" id="onbPinSet">🔒 Criar senha agora</button>'
+      + '<button class="btn ghost" id="onbPinLater">Agora não — faço depois</button>'
+      + '<p class="onb-warn">⚠️ Se esquecer a senha, os dados deste app não podem ser recuperados. Exporte um backup em ⚙️.</p>';
+    $("#onbPinSet").onclick = async () => {
+      const ok = await applyPin4(($("#onbPin") || {}).value || "", ($("#onbPin2") || {}).value || "");
+      if (ok) { toast("App protegido 🔒"); finishOnboarding(); }
+    };
+    $("#onbPinLater").onclick = () => { toast("Quando quiser: Menu → Conta e acesso"); finishOnboarding(); };
+    const fp = $("#onbPin"); if (fp) setTimeout(() => { try { fp.focus(); } catch (e) {} }, 60);
+    return;
+  }
   const steps = [
     { ic: "layout", t: "Tudo separado por aba", x: "Resumo mostra o mês inteiro. Receitas, Fixas, Cartão e Débito guardam cada tipo de lançamento." },
     { ic: "plus", t: "Adicione com o +", x: "Toque no + para lançar uma receita, conta, compra no cartão ou gasto do dia. Ele se adapta à aba aberta." },
@@ -4282,11 +4310,16 @@ function renderOnb() {
     + '<div class="onb-foot">'
     +   '<button class="onb-skip" style="width:auto;padding:4px 2px" id="onbTourSkip">Pular</button>'
     +   '<div class="onb-dots" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="' + onbStep + '" aria-label="Passo ' + onbStep + ' de 3">' + [1, 2, 3].map(i => '<i class="' + (i === onbStep ? "on" : "") + '"></i>').join("") + '</div>'
-    +   '<div class="onb-nav">' + (onbStep > 1 ? '<button class="btn ghost" id="onbBack">Voltar</button>' : '') + '<button class="btn primary" id="onbNext">' + (last ? "Começar" : "Próximo") + '</button></div>'
+    +   '<div class="onb-nav">' + (onbStep > 1 ? '<button class="btn ghost" id="onbBack">Voltar</button>' : '') + '<button class="btn primary" id="onbNext">Próximo</button></div>'
     + '</div>';
   $("#onbTourSkip").onclick = () => finishOnboarding();
   const bk = $("#onbBack"); if (bk) bk.onclick = () => { onbStep--; renderOnb(); };
-  $("#onbNext").onclick = () => { if (last) finishOnboarding(); else { onbStep++; renderOnb(); } };
+  $("#onbNext").onclick = () => {
+    if (last) {   // fim do tour → oferece senha (a não ser que já tenha PIN ou modo teste)
+      if (window.CRYPTO_KEY || localStorage.getItem("financas2026.profile") === "test") finishOnboarding();
+      else { onbStep = 4; renderOnb(); }
+    } else { onbStep++; renderOnb(); }
+  };
 }
 function finishOnboarding() {
   localStorage.setItem("financas2026.onboarded", "1");
