@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.11";
+const APP_VERSION = "3.13.12";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.12",
+    bullets: [
+      "Metas agora têm aba própria no topo do Resumo: 📋 Resumo · 📊 Gráficos · 💡 Insights · 🎯 Metas — tudo no mesmo seletor",
+      "Criar/editar metas acontece ali mesmo, sem abrir janela (o atalho do menu leva direto pra aba)",
+    ]
+  },
   {
     version: "3.13.11",
     bullets: [
@@ -1539,22 +1546,13 @@ function metaEmojiFor(nome) {
 }
 function objetivos() { return (DATA.objetivos = DATA.objetivos || []); }
 let _metaEdit = null;   // id em edição (ou null = novo)
+// Metas agora moram numa aba do topo do Resumo (Resumo · Gráficos · Insights · Metas).
+// Qualquer atalho que abria o modal (menu ☰, FAQ) leva o usuário pra essa aba.
 function openMetasModal() {
-  markExplored("metas");
-  let m = document.getElementById("metasModal");
-  if (!m) {
-    m = document.createElement("div"); m.id = "metasModal"; m.className = "modal hidden";
-    m.innerHTML = '<div class="modal-card metas-card"><button type="button" class="wn-close" id="metasClose">✕</button>'
-      + '<div class="faq-head">' + animEmoji("alvo", "🎯", "fh-ic") + '<h2>Minhas metas</h2></div>'
-      + '<div id="metasList"></div>'
-      + '<div id="metasForm"></div></div>';
-    document.body.appendChild(m);
-    m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
-    m.querySelector("#metasClose").onclick = () => m.classList.add("hidden");
-  }
-  _metaEdit = null;
-  renderMetasList(); renderMetaForm();
-  m.classList.remove("hidden");
+  closeMenu();
+  annual = false; curTab = "resumo"; resumoView = "metas"; markExplored("metas");
+  $$(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === "resumo"));
+  suppressNextAnim = true; window.scrollTo(0, 0); render();
 }
 function renderMetasList() {
   const wrap = document.getElementById("metasList"); if (!wrap) return;
@@ -1638,6 +1636,17 @@ function renderResumo(view) {
     view.innerHTML = toggle + `<div class="rv-pane${pane}"><div id="gfxHost"></div></div>`;
     bindViewToggle();
     renderGraficos($("#gfxHost"));
+    rvStaggerChildren();
+    return;
+  }
+  if (resumoView === "metas") {                    // 🎯 Metas (objetivos) — agora vive junto do toggle
+    view.innerHTML = toggle + `<div class="rv-pane${pane}">`
+      + `<div class="section-card metas-inline fade-in">`
+      +   `<div class="faq-head">${animEmoji("alvo", "🎯", "fh-ic")}<h2>Minhas metas</h2></div>`
+      +   `<div id="metasList"></div><div id="metasForm"></div>`
+      + `</div></div>`;
+    bindViewToggle();
+    _metaEdit = null; renderMetasList(); renderMetaForm();
     rvStaggerChildren();
     return;
   }
@@ -2157,10 +2166,11 @@ function chartOpts(legend) {
 function viewToggleHTML() {
   const insSeen = localStorage.getItem("financas2026.insSeen") === "1";
   const pulse = (!insSeen && resumoView !== "insights") ? " pulse" : "";   // pulsa (azul) até abrir a 1ª vez → "de atenção"
-  return `<div class="view-toggle">
+  return `<div class="view-toggle vt-4">
     <button type="button" class="vt-btn ${resumoView === "resumo" ? "active" : ""}" data-rv="resumo">📋 Resumo</button>
     <button type="button" class="vt-btn ${resumoView === "graficos" ? "active" : ""}" data-rv="graficos">📊 Gráficos</button>
     <button type="button" class="vt-btn vt-ins${pulse} ${resumoView === "insights" ? "active" : ""}" data-rv="insights">💡 Insights</button>
+    <button type="button" class="vt-btn ${resumoView === "metas" ? "active" : ""}" data-rv="metas">🎯 Metas</button>
   </div>`;
 }
 const RV_ORDER = { resumo: 0, graficos: 1, insights: 2 };
