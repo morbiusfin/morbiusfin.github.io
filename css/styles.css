@@ -683,13 +683,9 @@ body:has(#fab:not(.hidden)) main { padding-bottom: 178px; }   /* o + flutua até
   font-family: var(--font); cursor: pointer; transition: background .15s ease, transform .12s ease; }
 .wn-close:active { transform: scale(.9); }
 .wn-header { text-align: center; margin-bottom: 16px; padding-top: 4px; }
-.wn-spark { font-size: 38px; display: block; margin-bottom: 4px;
-  animation: wnSparkSpin 3s ease-in-out infinite; }
-@keyframes wnSparkSpin {
-  0%,100% { transform: scale(1) rotate(-5deg); }
-  50%      { transform: scale(1.14) rotate(10deg); }
-}
-@media (prefers-reduced-motion: reduce) { .wn-spark { animation: none; } }
+/* emoji animado (Noto brilho.webp) no lugar do ✨ estático — ele já anima sozinho */
+.wn-spark { width: 64px; height: 64px; display: block; margin: 0 auto 4px;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,.35)); }
 .wn-card h2 { font-size: 22px; font-weight: 800; letter-spacing: -.4px; margin: 0 0 4px; }
 .wn-version { font-size: 12.5px; color: var(--accent); font-weight: 700; margin: 0; letter-spacing: .3px; }
 .wn-body { max-height: 46dvh; overflow-y: auto; margin-bottom: 4px; }
