@@ -92,17 +92,21 @@ body.lock-on { background: linear-gradient(160deg, #0b3d2e 0%, #12734d 100%); }
    independente do tema. (regra via :has + reforço por JS em lockScroll, p/ Safari sem :has) */
 html:has(body.scroll-locked), html:has(body.party-on) { background: #0a100d; }
 body.lock-on > *:not(#lockScreen):not(#unlockReveal):not(#splash) { visibility: hidden !important; }
+/* Fundo (degradês) numa camada FIXA própria — em vez de background-attachment:fixed no body, que no
+   iOS Safari deixa emendas/linhas verticais nas bordas. Cobre a tela toda, sem romper a UI. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(900px 520px at 100% -8%, rgba(21,194,102,.10), transparent 58%),
+    radial-gradient(800px 500px at -10% 102%, rgba(18,115,77,.08), transparent 55%),
+    linear-gradient(180deg, var(--bg-grad-1) 0%, var(--bg-grad-2) 78%, var(--card) 100%);
+}
 body {
   font-family: var(--font);
   /* coluna que ocupa a tela inteira → o conteúdo preenche igual em TODAS as abas
      (some o buraco preto do Receitas/Débito; a faixa fica consistente) */
   display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh;
-  background:
-    radial-gradient(900px 520px at 100% -8%, rgba(21,194,102,.10), transparent 58%),
-    radial-gradient(800px 500px at -10% 102%, rgba(18,115,77,.08), transparent 55%),
-    linear-gradient(180deg, var(--bg-grad-1) 0%, var(--bg-grad-2) 78%, var(--card) 100%);
-  background-color: var(--card);   /* base sólida = cor da tabbar; o rodapé do fundo termina nessa cor (sem faixa) */
-  background-attachment: fixed;
+  background-color: transparent;   /* base sólida fica no <html> (var(--card)); o degradê no ::before fixo */
   color: var(--ink);
   padding-bottom: calc(96px + var(--safe-bottom));   /* espaço pra pílula flutuante (elevada) + FAB */
   -webkit-font-smoothing: antialiased;
@@ -807,10 +811,11 @@ body.lock-on .tabbar, body.lock-on #fab { visibility: hidden; }
   background: linear-gradient(180deg, rgba(21,194,102,.10), transparent 58%), var(--card); }
 .ai-badge { display: inline-block; font-size: 11.5px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
   color: var(--accent-2); padding: 13px 16px 0; }
-.ai-line { margin: 9px 16px 0; font-size: 14.5px; line-height: 1.5; color: var(--ink); font-weight: 600; display: flex; gap: 10px; align-items: flex-start; }
+.ai-line { margin: 10px 16px 0; font-size: 14.5px; line-height: 1.5; color: var(--ink); font-weight: 600; display: flex; gap: 10px; align-items: flex-start; }
+.ai-line:last-child { margin-bottom: 16px; }   /* mês sem stat: texto não cola na borda de baixo do card */
 .ai-stat { margin: 11px 16px 15px; padding-top: 11px; border-top: 1px solid var(--line);
   font-size: 13px; line-height: 1.5; color: var(--muted); font-weight: 600; display: flex; gap: 10px; align-items: flex-start; }
-.ai-ic { flex: 0 0 auto; font-size: 18px; line-height: 1.25; }
+.ai-ic { flex: 0 0 auto; font-size: 18px; line-height: 1.5; }   /* alinha o emoji com a 1ª linha do texto */
 .ai-line b { color: var(--ink); font-weight: 800; }
 .ai-stat b { font-weight: 800; }
 
@@ -1024,7 +1029,9 @@ body.party-on .tabbar, body.party-on #fab { opacity: 0 !important; pointer-event
 /* Teclado aberto: a tabbar SAI do render tree (display:none) → no iOS não tem como driftar/subir
    no scroll. Reaparece ao fechar o teclado. O FAB também some. */
 body.kbd-open .tabbar { display: none !important; }
-body.kbd-open #fab { transform: translateY(160%) scale(.8); opacity: 0; pointer-events: none; }
+/* teclado aberto / pop-up: o + SOME no lugar (sem deslizar). Senão, ao salvar e o teclado fechar,
+   ele "saltava" de baixo pra cima (parecia que o + e a barra se levantavam). Agora só aparece/some. */
+body.kbd-open #fab { opacity: 0; pointer-events: none; transform: none; }
 
 /* fundo congelado enquanto um modal está aberto (não rola por trás do bottom-sheet) */
 body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; overscroll-behavior: none; }
