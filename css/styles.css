@@ -111,14 +111,17 @@ body {
 .transitions, body, .section-card, .kpi, .list, .flow-card, .modal-card, .tabbar, .alert-banner, .ver-banner {
   transition: background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease;
 }
-/* PREENCHEDOR da área do home indicator (iPhone): pinta essa faixa com a cor EXATA da tabbar,
-   por cima do fundo do body. Mata a faixa que aparecia mais escura no rodapé. Fica atrás da
-   tabbar (z-45) e dos modais; some sob o splash/lock (que cobrem tudo). */
+/* RODAPÉ contínuo p/ a tabbar FLUTUANTE: um degradê com a cor do fundo (var(--card)) que vai do
+   sólido embaixo (cobre o vão abaixo da pílula e a área do home indicator) e dissolve o conteúdo
+   pra cima — assim o fundo ocupa a tela toda, sem "quebra" nem conteúdo espiando atrás da pílula.
+   Fica ATRÁS da pílula (z-45) e ACIMA do conteúdo; some sob splash/lock/modais. */
 body::after {
   content: ""; position: fixed; left: 0; right: 0; bottom: 0;
-  height: var(--safe-bottom); background: var(--card);   /* preenche a área do home indicator com a cor do app */
-  z-index: 38; pointer-events: none;
+  height: calc(98px + var(--safe-bottom));
+  background: linear-gradient(to top, var(--card) calc(56px + var(--safe-bottom)), transparent);
+  z-index: 39; pointer-events: none;   /* acima do conteúdo, abaixo do FAB (40)/scroll-top (44)/tabbar (45) */
 }
+body.splash-on::after, body.lock-on::after, body.scroll-locked::after { display: none; }
 
 /* tabular numbers nos valores monetários */
 .value, .amount, .total, .flow-row b, .kpi .value, .cval, .gauge-num { font-variant-numeric: tabular-nums; }
