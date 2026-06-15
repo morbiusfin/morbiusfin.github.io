@@ -1,11 +1,23 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.90";
+const APP_VERSION = "3.11.91";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.91",
+    bullets: [
+      "Estabilidade: o app não fecha mais sozinho — otimizei o cálculo do saldo (era pesado e travava em quem tem muitos lançamentos)",
+      "A barra de baixo nunca mais levanta depois de abrir e fechar o +",
+      "Não dá mais pra selecionar/copiar texto à toa: segurar um item só abre a opção de apagar (sem o menu Copiar/Pesquisar)",
+      "Perguntas frequentes mais completas — e cada uma tem um botão que leva direto à opção (a borda pisca pra você achar)",
+      "No menu, Simular gastos abre já no simulador (não joga mais pro topo)",
+      "Excluir, apagar e remover PIN agora usam uma janela própria (no iPhone instalado a confirmação antiga às vezes não respondia)",
+      "Vários ajustes finos de robustez e desempenho por baixo do capô",
+    ]
+  },
   {
     version: "3.11.90",
     bullets: [
@@ -691,10 +703,20 @@ const pago      = (m) => sumStatus(DATA.fixas, m, ["pago"]) + sumStatus(DATA.car
 const aPagar    = (m) => sumStatus(DATA.fixas, m, ["programado"]) + sumStatus(DATA.cartao, m, ["programado"]);
 
 // Fluxo de caixa: saldo inicial (mês ant.) -> disponível -> sobra
+// MEMOIZADO: sem cache, sobraMes(m) era O(m) e é chamado centenas de vezes por render
+// (gráficos, insights, simulador 0..72) → O(m²) → travava o app e o iOS derrubava a aba.
+// O cache é invalidado no topo de render() (todo dado muda seguido de render), então fica
+// sempre fresco e é reusado nas chamadas quentes (ex.: simulador a cada tecla, sem recomputar).
+let _sobraCache = null;
+function invalidateSobra() { _sobraCache = null; }
 function sobraMes(m) {
+  if (m < 0) return Number(DATA.saldoInicial) || 0;
+  if (_sobraCache && m < _sobraCache.length) return _sobraCache[m];
+  const n = m + 1, arr = new Array(n);
   let acc = Number(DATA.saldoInicial) || 0;
-  for (let i = 0; i <= m; i++) acc += receitaMes(i) - despesaMes(i);
-  return acc;
+  for (let i = 0; i < n; i++) { acc += receitaMes(i) - despesaMes(i); arr[i] = acc; }
+  _sobraCache = arr;
+  return arr[m];
 }
 const saldoInicialMes = (m) => m === 0 ? (Number(DATA.saldoInicial) || 0) : sobraMes(m - 1);
 const disponivelMes = (m) => saldoInicialMes(m) + receitaMes(m);
@@ -850,6 +872,7 @@ function renderYearSelect() {
 let suppressNextAnim = false;       // (legado — mantido p/ não quebrar chamadas antigas; render é estático por padrão)
 let forceAnimOnce = false;          // SÓ a 1ª carga (intro) anima; toda inclusão/edição/exclusão/sync/troca = estático e suave (sem piscar)
 function render() {
+  invalidateSobra();   // dado pode ter mudado desde o último render → recalcula o saldo do zero (1x por render)
   const maxM = yearsCount() * 12 - 1; if (curMonth > maxM) curMonth = maxM; if (curMonth < 0) curMonth = 0;
   // sai da seleção se mudou de aba ou de mês (a seleção é por aba+mês)
   if (selMode && (curTab !== selTab || curMonth !== selMonth)) { selMode = false; selected = new Set(); selTab = null; selMonth = -1; }
@@ -1192,6 +1215,15 @@ function focarVencimentos() {
   rows.forEach((r, i) => { r.classList.remove("focus-row"); void r.offsetWidth; r.style.animationDelay = (i * 0.14) + "s"; r.classList.add("focus-row"); });
   setTimeout(() => { card.classList.remove("focus-pulse"); rows.forEach(r => { r.classList.remove("focus-row"); r.style.animationDelay = ""; }); }, 4800);
 }
+/* Rola até um elemento e faz a borda PISCAR (mesmo destaque das contas a vencer).
+   Usado pelos deep-links do FAQ e do menu — o alvo aparece na tela e chama atenção. */
+function focarEl(sel, dur) {
+  const el = $(sel); if (!el) return;
+  // scrollIntoView funciona tanto na página quanto dentro de modal/drawer com scroll próprio
+  try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) { scrollToEl(sel); }
+  el.classList.remove("focus-pulse"); void el.offsetWidth; el.classList.add("focus-pulse");
+  setTimeout(() => el.classList.remove("focus-pulse"), dur || 3200);
+}
 
 /* ---------- Simulador "vale a pena comprar?" (à vista ou parcelado) ---------- */
 let simBuy = 0, simN = 1;
@@ -1510,9 +1542,11 @@ function renderSobraChart() {
   const yi0 = curYear() * 12, yi1 = yi0 + 12;
   const labelsH = [], data = [];
   for (let i = yi0; i < yi1; i++) { labelsH.push(MESES_CURTO[i % 12]); data.push(receitaMes(i) - despesaMes(i)); }
-  charts.sobra = new Chart($("#sobraChart"), { type: "bar",
+  { const _sc = $("#sobraChart"); if (!_sc) return;
+  charts.sobra = new Chart(_sc, { type: "bar",
     data: { labels: labelsH, datasets: [{ data, backgroundColor: data.map(v => v >= 0 ? "#1d6fe5" : "#e5484d"), borderRadius: 4 }] },
     options: { ...chartOpts(false), plugins: { legend: { display: false }, valueLabels: { on: true }, tooltip: { callbacks: { label: c => brl(c.raw) } } } } });
+  }
 }
 function chartOpts(legend) {
   return { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20, bottom: 4 } },
@@ -1544,11 +1578,14 @@ function ensureGlass(container) {
   if (!g) { g = document.createElement("div"); g.className = "seg-glass noanim"; container.insertBefore(g, container.firstChild); }
   return g;
 }
-function placeGlassTo(container, el, animate, key) {
-  if (!container || !el) return;
+function placeGlassTo(container, el, animate, key, _try) {
+  if (!container || !el || !el.isConnected) return;          // elemento já saiu do DOM → não insiste
   const g = ensureGlass(container);
   const cr = container.getBoundingClientRect(), er = el.getBoundingClientRect();
-  if (!er.width) { setTimeout(() => placeGlassTo(container, el, animate, key), 30); return; }   // ainda sem layout → tenta de novo (setTimeout não depende de rAF)
+  if (!er.width) {
+    const t = (_try || 0) + 1; if (t > 8) return;            // sem layout após ~240ms → desiste (sem fila infinita)
+    setTimeout(() => placeGlassTo(container, el, animate, key, t), 30); return;
+  }
   const t = { x: er.left - cr.left, ty: er.top - cr.top, w: er.width, h: er.height };
   const prev = key ? _glassPrev[key] : null;
   // 1) define o estado FINAL na hora (sempre correto, não depende de rAF) → nunca fica preso
@@ -1673,7 +1710,7 @@ function renderGraficos(host) {
       <div id="orcWrap" class="chart-wrap"></div>
       <div class="g-detail" id="orcResumo"></div>
     </div>
-    <div class="section-card g-card fade-in">
+    <div class="section-card g-card fade-in" id="simCard">
       <h3>💰 Saldo acumulado por mês — ${ano}</h3>
       <p class="hint" style="text-align:left;margin:-2px 0 8px">Simule uma compra aqui que a linha aparece <b>em cima do gráfico</b> — fica preciso se dá pra comprar.</p>
       <div class="g-sim">
@@ -1759,7 +1796,14 @@ function bindGSim() {
   const inp = $("#gSimInput"), inpN = $("#gSimN"); if (!inp) return;
   bindMoney(inp);
   inp.value = simBuy ? fmtMoneyBR(simBuy) : ""; if (inpN) inpN.value = simN || 1;
-  const upd = () => { simBuy = moneyVal(inp); simN = Math.max(1, parseInt(inpN && inpN.value) || 1); updateGSim(); };
+  // debounce: recriar o Chart a cada dígito esgotava contextos canvas no iOS (risco de travar).
+  // O veredito (texto) atualiza na hora; o gráfico só ~220ms após parar de digitar.
+  let _gsT = null;
+  const upd = () => {
+    simBuy = moneyVal(inp); simN = Math.max(1, parseInt(inpN && inpN.value) || 1);
+    renderVerdictInto($("#gSimVerdict"));
+    clearTimeout(_gsT); _gsT = setTimeout(updateGSim, 220);
+  };
   inp.oninput = upd; if (inpN) inpN.oninput = upd;
   const clr = $("#gSimClear"); if (clr) clr.onclick = () => { simBuy = 0; simN = 1; inp.value = ""; if (inpN) inpN.value = "1"; updateGSim(); inp.focus(); };
   updateGSim();
@@ -2439,7 +2483,7 @@ function openEntryModal(tab, idx) {
   updateImpact(isExpenseE, oldValAt(curMonth));
 
   $("#btnDelete").classList.toggle("hidden", isNew);
-  $("#btnDelete").onclick = () => { if (confirm("Excluir este lançamento (todos os meses)?")) { tombstone(DATA[tab][idx].id); DATA[tab].splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
+  $("#btnDelete").onclick = () => modalConfirm("Excluir este lançamento (todos os meses)?", () => { tombstone(DATA[tab][idx].id); DATA[tab].splice(idx, 1); persist(); closeModal(); toast("Excluído"); }, "Excluir");
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
     const val = moneyVal($("#f_val")), st = $("#f_st").value, all = $("#f_all").checked;
@@ -2559,12 +2603,12 @@ function openDiariaModal(idx, method) {
   $("#f_metToggle").onclick = () => { metodo = metodo === "pix" ? "debito" : "pix"; const t = $("#f_metTag"); t.className = "method-tag " + metodo; t.querySelector(".mt-label").textContent = metLabel(metodo); };
   updateImpact(true, oldValD);
   $("#btnDelete").classList.toggle("hidden", isNew);
-  $("#btnDelete").onclick = () => { if (confirm("Excluir esta compra?")) { tombstone(DATA.diaria[idx].id); DATA.diaria.splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
+  $("#btnDelete").onclick = () => modalConfirm("Excluir esta compra?", () => { tombstone(DATA.diaria[idx].id); DATA.diaria.splice(idx, 1); persist(); closeModal(); toast("Excluído"); }, "Excluir");
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
     const val = moneyVal($("#f_val")), mes = +$("#f_mes").value;
     const catId = $("#f_catId") ? ($("#f_catId").value || null) : null;
-    const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, catId, categoria: catId ? (catById(catId).nome) : "Geral", metodo };
+    const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, catId, categoria: catId ? ((catById(catId) || {}).nome || "Geral") : "Geral", metodo };
     if (isNew) DATA.diaria.push({ id: uid(), mes, ...o, m: nowMs() });
     else { Object.assign(d, o); d.mes = mes; d.m = nowMs(); }
     persist(); closeModal();
@@ -2606,10 +2650,11 @@ function renderCatMgr() {
   }; });
   $$(".cat-del", wrap).forEach(b => b.onclick = () => {
     const id = b.dataset.delFor;
-    if (!confirm("Excluir esta categoria? Os lançamentos dela ficam sem categoria.")) return;
-    DATA.categorias = catList().filter(c => c.id !== id); delete orc[id];
-    [].concat(DATA.fixas || [], DATA.cartao || [], DATA.diaria || []).forEach(l => { if (l.catId === id) l.catId = null; });
-    persist(); renderCatMgr();
+    modalConfirm("Excluir esta categoria? Os lançamentos dela ficam sem categoria.", () => {
+      DATA.categorias = catList().filter(c => c.id !== id); delete orc[id];
+      [].concat(DATA.fixas || [], DATA.cartao || [], DATA.diaria || []).forEach(l => { if (l.catId === id) l.catId = null; });
+      persist(); renderCatMgr();
+    }, "Excluir");
   });
 }
 function addCategoria() {
@@ -2702,6 +2747,27 @@ function renderOrcRealChart(m) {
 function showModal(s) { const el = $(s); el.classList.remove("hidden"); bindMoneyAll(el); }
 function closeModal() { $("#modal").classList.add("hidden"); }
 
+/* Confirmação em modal HTML (NÃO usar confirm() nativo: no PWA instalado no iOS ele é
+   bloqueado e retorna false silenciosamente → exclusões "não funcionavam"). Callback no OK. */
+function modalConfirm(msg, onOk, okLabel) {
+  let m = document.getElementById("confirmModal");
+  if (!m) {
+    m = document.createElement("div"); m.id = "confirmModal"; m.className = "modal center hidden";
+    m.innerHTML = '<div class="modal-card confirm-card"><p id="cfMsg" class="confirm-msg"></p>'
+      + '<div class="confirm-actions"><button type="button" class="btn ghost" id="cfNo">Cancelar</button>'
+      + '<button type="button" class="btn danger" id="cfYes">Confirmar</button></div></div>';
+    document.body.appendChild(m);
+    const close = () => { m.classList.add("hidden"); m._onOk = null; };
+    m.addEventListener("click", e => { if (e.target === m) close(); });
+    m.querySelector("#cfNo").onclick = close;
+    m.querySelector("#cfYes").onclick = () => { const f = m._onOk; close(); if (typeof f === "function") f(); };
+  }
+  m.querySelector("#cfMsg").textContent = msg;
+  m.querySelector("#cfYes").textContent = okLabel || "Confirmar";
+  m._onOk = onOk;
+  m.classList.remove("hidden");
+}
+
 /* ---------- Trava de scroll do fundo enquanto um modal está aberto ----------
    No iOS, sem isso o scroll "vaza" pra página atrás do modal/bottom-sheet.
    position:fixed no body (com top = -scrollY) congela o fundo; restaura ao fechar.
@@ -2720,15 +2786,26 @@ function unlockScroll() {
   document.body.style.top = "";
   window.scrollTo(0, _scrollLockY);
 }
-let _slRaf = 0;
+let _slRaf = 0, _slBusy = false;
 function refreshScrollLock() {
-  if (_slRaf) return;
+  if (_slRaf || _slBusy) return;          // guarda dupla: nem reentrante nem múltiplos rAF na fila
   _slRaf = requestAnimationFrame(() => {
-    _slRaf = 0;
-    if (document.querySelector(".modal:not(.hidden)")) lockScroll(); else unlockScroll();
+    _slRaf = 0; _slBusy = true;
+    if (document.querySelector(".modal:not(.hidden)")) lockScroll();
+    else {
+      // modal FECHOU: tira o foco de qualquer campo → o teclado começa a fechar de forma
+      // previsível e a tabbar reaparece ancorada (sem "levantar" com vão branco no iOS).
+      const a = document.activeElement;
+      if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.blur) a.blur();
+      unlockScroll();
+    }
+    _slBusy = false;
   });
 }
 try {
+  // subtree:true é necessário: o que disparamos é o .hidden dos MODAIS (filhos do body).
+  // O risco de loop (o callback muda a classe scroll-locked do body) é contido pelas guardas
+  // _slRaf + _slBusy em refreshScrollLock — nunca há execução reentrante nem fila de rAF.
   new MutationObserver(refreshScrollLock)
     .observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
 } catch (e) {}
@@ -2783,7 +2860,7 @@ $("#settingsModal").onclick = (e) => { if (e.target.id === "settingsModal") $("#
 $("#btnExport").onclick = () => { const b = new Blob([JSON.stringify(DATA, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `financas-${DATA.year}-backup.json`; a.click(); toast("Backup exportado"); };
 $("#btnImport").onclick = () => $("#importFile").click();
 $("#importFile").onchange = (e) => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { DATA = migrate(JSON.parse(r.result)); persist(); toast("Backup importado"); $("#settingsModal").classList.add("hidden"); } catch { toast("Arquivo inválido"); } }; r.readAsText(f); };
-$("#btnReset").onclick = () => { if (confirm("Apagar tudo e voltar aos dados de exemplo?")) { DATA = resetData(); persist(); toast("Restaurado"); $("#settingsModal").classList.add("hidden"); } };
+$("#btnReset").onclick = () => modalConfirm("Apagar tudo e voltar aos dados de exemplo?", () => { DATA = resetData(); persist(); toast("Restaurado"); $("#settingsModal").classList.add("hidden"); }, "Apagar tudo");
 
 /* ---------- Menu lateral (☰) — hub de opções ---------- */
 function openMenu() {
@@ -2803,7 +2880,14 @@ $("#menuDrawer").onclick = (e) => { if (e.target.id === "menuDrawer") closeMenu(
 $("#miImport").onclick = () => { closeMenu(); $("#importFile").click(); };
 $("#miExport").onclick = () => { closeMenu(); $("#btnExport").click(); };
 $("#miSync").onclick = () => { closeMenu(); if (syncCfg()) pullSync(true, null, true); else configurarSync(); };
-$("#miSim").onclick = () => { closeMenu(); curTab = "resumo"; resumoView = "graficos"; $$(".tab").forEach(x => x.classList.toggle("active", /Resumo/.test(x.textContent))); suppressNextAnim = true; window.scrollTo(0, 0); render(); };
+$("#miSim").onclick = () => {
+  closeMenu();
+  curTab = "resumo"; resumoView = "graficos";
+  $$(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === "resumo"));
+  suppressNextAnim = true; window.scrollTo(0, 0); render();
+  // não para no topo: rola até o simulador, pisca a borda e foca o campo de valor
+  setTimeout(() => { focarEl("#simCard", 3200); const i = $("#gSimInput"); if (i) { try { i.focus({ preventScroll: true }); } catch (e) {} } }, 120);
+};
 $("#miConfig").onclick = () => { closeMenu(); openSettings(); };
 { const ma = $("#miAviso"); if (ma) ma.onclick = () => { closeMenu(); openAvisoModal(); }; }
 { const mc = $("#miCategorias"); if (mc) mc.onclick = () => { closeMenu(); openCategoriasModal(); }; }
@@ -2965,7 +3049,8 @@ function renderNotifBtn() {
   const b = $("#btnNotif"); if (b) b.onclick = pedirNotificacao;
   const tb = $("#btnTest"); if (tb) tb.onclick = enviarTeste;
   const pb = $("#btnPush"); if (pb) pb.onclick = ativarPush;
-  const pin = $("#btnPin"); if (pin) pin.onclick = window.CRYPTO_KEY ? removerPin : definirPin;
+  // usa o fluxo HTML (modal de 4 dígitos) — prompt()/confirm() nativos são bloqueados no PWA do iOS
+  const pin = $("#btnPin"); if (pin) pin.onclick = () => openAccessModal();
   const sc = $("#btnSyncCfg"); if (sc) sc.onclick = configurarSync;
   const sn = $("#btnSync"); if (sn) sn.onclick = () => pullSync(true, null, true);
   const th = $("#btnTheme"); if (th) th.onclick = cycleTheme;
@@ -3077,59 +3162,7 @@ const ANIMALS = [
   { id: "unicornio", e: "🦄", bg: "#f0e0ff" }, { id: "golfinho", e: "🐬", bg: "#d6f0f5" }
 ];
 const ANIMAL_BY = {}; ANIMALS.forEach(a => ANIMAL_BY[a.id] = a);
-const _UNUSED_ANIMAL_PARTS_BELOW = 1;   // (o objeto abaixo não é mais usado — avatares agora são emoji animado)
-const ANIMAL_PARTS = {
-  raposa: '<circle cx="50" cy="52" r="48" fill="#ffe3d0"/><g class="ani-bob">'
-    + '<path class="ani-ear" d="M33 35 L28 10 L52 27 Z" fill="#ef7d3e"/><path d="M35 29 L33 16 L46 25 Z" fill="#ffd0b0"/>'
-    + '<path class="ani-ear" d="M67 35 L72 10 L48 27 Z" fill="#ef7d3e"/><path d="M65 29 L67 16 L54 25 Z" fill="#ffd0b0"/>'
-    + '<circle cx="50" cy="55" r="27" fill="#f59055"/><path d="M33 59 Q50 80 67 59 Q67 74 50 78 Q33 74 33 59 Z" fill="#fff7f1"/>'
-    + '<circle cx="40" cy="53" r="4.2" fill="#2a1c14"/><circle cx="60" cy="53" r="4.2" fill="#2a1c14"/>'
-    + '<circle cx="41.3" cy="51.7" r="1.3" fill="#fff"/><circle cx="61.3" cy="51.7" r="1.3" fill="#fff"/>'
-    + '<rect class="ani-lid" x="34" y="49" width="32" height="8.5" rx="4" fill="#f59055"/><circle cx="50" cy="63" r="3" fill="#2a1c14"/></g>',
-  gato: '<circle cx="50" cy="52" r="48" fill="#e7ecf2"/><g class="ani-bob">'
-    + '<path class="ani-ear" d="M34 34 L29 12 L52 28 Z" fill="#9aa7b3"/><path d="M36 29 L34 18 L46 27 Z" fill="#ffc2cf"/>'
-    + '<path class="ani-ear" d="M66 34 L71 12 L48 28 Z" fill="#9aa7b3"/><path d="M64 29 L66 18 L54 27 Z" fill="#ffc2cf"/>'
-    + '<circle cx="50" cy="55" r="27" fill="#aeb9c4"/>'
-    + '<circle cx="40" cy="53" r="4.2" fill="#23303a"/><circle cx="60" cy="53" r="4.2" fill="#23303a"/>'
-    + '<circle cx="41.3" cy="51.7" r="1.3" fill="#fff"/><circle cx="61.3" cy="51.7" r="1.3" fill="#fff"/>'
-    + '<rect class="ani-lid" x="34" y="49" width="32" height="8.5" rx="4" fill="#aeb9c4"/>'
-    + '<path d="M50 60 l-4 4 4 3 4-3 Z" fill="#ff9bb0"/>'
-    + '<path d="M56 62 q11 -2 17 -5 M56 66 q11 1 17 0" stroke="#7f8b97" stroke-width="1.4" fill="none" stroke-linecap="round"/>'
-    + '<path d="M44 62 q-11 -2 -17 -5 M44 66 q-11 1 -17 0" stroke="#7f8b97" stroke-width="1.4" fill="none" stroke-linecap="round"/></g>',
-  panda: '<circle cx="50" cy="52" r="48" fill="#eceff3"/><g class="ani-bob">'
-    + '<circle class="ani-ear" cx="30" cy="30" r="11" fill="#23303a"/><circle class="ani-ear" cx="70" cy="30" r="11" fill="#23303a"/>'
-    + '<circle cx="50" cy="55" r="28" fill="#fbfdff"/>'
-    + '<ellipse cx="40" cy="53" rx="8" ry="11" fill="#23303a" transform="rotate(-12 40 53)"/>'
-    + '<ellipse cx="60" cy="53" rx="8" ry="11" fill="#23303a" transform="rotate(12 60 53)"/>'
-    + '<circle cx="40" cy="52" r="3" fill="#fff"/><circle cx="60" cy="52" r="3" fill="#fff"/>'
-    + '<rect class="ani-lid" x="30" y="46" width="40" height="9" rx="4.5" fill="#fbfdff"/>'
-    + '<ellipse cx="50" cy="66" rx="4.5" ry="3.2" fill="#23303a"/></g>',
-  sapo: '<circle cx="50" cy="52" r="48" fill="#d7f3dd"/><g class="ani-bob">'
-    + '<circle cx="50" cy="60" r="28" fill="#67c272"/>'
-    + '<circle cx="36" cy="34" r="12" fill="#67c272"/><circle cx="64" cy="34" r="12" fill="#67c272"/>'
-    + '<circle cx="36" cy="33" r="8" fill="#fff"/><circle cx="64" cy="33" r="8" fill="#fff"/>'
-    + '<circle cx="37" cy="34" r="4" fill="#1c3a22"/><circle cx="63" cy="34" r="4" fill="#1c3a22"/>'
-    + '<circle cx="38.3" cy="32.7" r="1.3" fill="#fff"/><circle cx="64.3" cy="32.7" r="1.3" fill="#fff"/>'
-    + '<rect class="ani-lid" x="26" y="26" width="20" height="9" rx="4.5" fill="#67c272"/>'
-    + '<rect class="ani-lid" x="54" y="26" width="20" height="9" rx="4.5" fill="#67c272"/>'
-    + '<path d="M34 64 Q50 80 66 64" stroke="#1c3a22" stroke-width="3" fill="none" stroke-linecap="round"/>'
-    + '<circle cx="45" cy="56" r="1.5" fill="#2f6b3c"/><circle cx="55" cy="56" r="1.5" fill="#2f6b3c"/></g>',
-  coruja: '<circle cx="50" cy="52" r="48" fill="#f0e7d6"/><g class="ani-bob">'
-    + '<path class="ani-ear" d="M34 34 L28 16 L46 30 Z" fill="#9c6f43"/><path class="ani-ear" d="M66 34 L72 16 L54 30 Z" fill="#9c6f43"/>'
-    + '<circle cx="50" cy="55" r="28" fill="#b98a5a"/>'
-    + '<circle cx="40" cy="53" r="11" fill="#f6efe2"/><circle cx="60" cy="53" r="11" fill="#f6efe2"/>'
-    + '<circle cx="40" cy="53" r="5" fill="#2a1c10"/><circle cx="60" cy="53" r="5" fill="#2a1c10"/>'
-    + '<circle cx="41.6" cy="51.4" r="1.6" fill="#fff"/><circle cx="61.6" cy="51.4" r="1.6" fill="#fff"/>'
-    + '<rect class="ani-lid" x="29" y="46" width="42" height="10" rx="5" fill="#b98a5a"/>'
-    + '<path d="M50 58 l-5 6 5 4 5-4 Z" fill="#f5a623"/></g>',
-  pinguim: '<circle cx="50" cy="52" r="48" fill="#dce8f1"/><g class="ani-bob">'
-    + '<path d="M50 24 C68 24 76 42 76 58 C76 76 64 86 50 86 C36 86 24 76 24 58 C24 42 32 24 50 24 Z" fill="#2b3742"/>'
-    + '<path d="M50 36 C62 36 69 48 69 60 C69 74 60 80 50 80 C40 80 31 74 31 60 C31 48 38 36 50 36 Z" fill="#f4f8fb"/>'
-    + '<circle cx="42" cy="52" r="4" fill="#23303a"/><circle cx="58" cy="52" r="4" fill="#23303a"/>'
-    + '<circle cx="43.2" cy="50.8" r="1.2" fill="#fff"/><circle cx="59.2" cy="50.8" r="1.2" fill="#fff"/>'
-    + '<rect class="ani-lid" x="36" y="48" width="28" height="8.5" rx="4" fill="#f4f8fb"/>'
-    + '<path d="M50 58 l-5 6 5 4 5-4 Z" fill="#f5a623"/></g>'
-};
+/* (avatares antigos em SVG vetorial foram removidos — agora são emoji animado via animalSVG) */
 function animalSVG(id) {
   const a = ANIMAL_BY[id] || ANIMALS[0];
   // círculo r50 preenche TODO o viewBox → o contêiner redondo recorta num círculo perfeito (sem falha na borda)
@@ -3397,10 +3430,11 @@ function cpApplyRemote(remote) {
   const lt = (DATA && DATA.updatedAt) || 0, rt = (remote && remote.updatedAt) || 0;
   if (rt > lt) {
     _cp.applying = true;
-    DATA = migrate(remote); if (!DATA.updatedAt) DATA.updatedAt = rt;
-    saveData(DATA); lastSnap = JSON.stringify(DATA); render();
-    _cp.applying = false;
-    toast("Atualizado pelo parceiro ⤓");
+    try {
+      DATA = migrate(remote); if (!DATA.updatedAt) DATA.updatedAt = rt;
+      saveData(DATA); lastSnap = JSON.stringify(DATA); render();
+      toast("Atualizado pelo parceiro ⤓");
+    } finally { _cp.applying = false; }   // nunca deixa preso → o envio ao parceiro não morre
   }
 }
 function cpSend() { if (!cpConnected() || _cp.applying) return; try { _cp.ch.send(JSON.stringify({ t: "data", data: DATA })); } catch (e) {} }
@@ -3606,7 +3640,7 @@ function openAvisoModal() {
 // abre direto pareando quando o app é aberto por um link de convite (#pair=…) — ex.: câmera nativa do celular
 function cpCheckHashPair() {
   const h = location.hash || ""; const i = h.indexOf("pair="); if (i < 0) return false;
-  const code = h.slice(i + 5); try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  const code = h.slice(i + 5); try { window.history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
   window.__pairing = true;                          // impede o onboarding de atropelar o pareamento
   const p = getPerfil(); p.tipo = "conjunta"; setPerfil(p);
   _profTipo = "conjunta"; _pairPrefill = code;
@@ -3646,20 +3680,64 @@ function openHelp(key) {
 }
 document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest(".help-q"); if (b) { e.preventDefault(); e.stopPropagation(); openHelp(b.dataset.help); } });
 
+/* FAQ: cada item tem título, um texto RICO (passo a passo, dicas, o que observar) e um
+   deep-link (go) — o botão "Ir até" fecha o FAQ, leva exatamente à opção e faz a borda piscar. */
 const FAQ = [
-  ["📋 Resumo", "A tela inicial do mês: contas a vencer, saúde financeira, o caminho do dinheiro e os gráficos."],
-  ["💡 Insights & Leitura do mês", "Toque na opção azul <b>Insights</b> no topo: a leitura do mês te diz o que pede atenção e dá dicas simples."],
-  ["💰 Receitas · 📌 Fixas · 💳 Cartão · 🛒 Débito", "As abas de baixo. Cada uma lista os lançamentos daquele tipo no mês."],
-  ["➕ Botão +", "Em qualquer aba (menos Resumo), o + adiciona um novo lançamento. No Cartão dá pra parcelar até 60×."],
-  ["🔔 Sino de alertas", "No topo: avisa quando há conta a pagar. Toque para ver e pagar; para de piscar depois que você abre."],
-  ["👤 Perfil", "Sua foto, nome e tipo de conta (Pessoal ou Conjunta de casal)."],
-  ["💑 Conta conjunta", "Casal: pareie os 2 celulares por QR/código. O que um lança aparece no outro em tempo real, <b>sem nuvem</b>."],
-  ["🏷️ Categorias e orçamento", "No menu: crie categorias com emoji e defina metas de gasto por categoria."],
-  ["🧪 Simular gastos", "No menu: veja se vale a pena uma compra à vista ou parcelada antes de comprar."],
-  ["🔄 Sincronização", "No menu: sobe/baixa seus dados da sua nuvem privada (opcional)."],
-  ["⬆️ Importar · ⬇️ Exportar", "Backup: salve tudo num arquivo ou recupere de um backup .json."],
-  ["🌗 Tema", "Claro, escuro ou automático."],
+  { t: "📋 Resumo do mês", go: "resumo", btn: "Abrir o Resumo",
+    d: "É a tela inicial. No topo aparecem as <b>contas a vencer</b> (o que está perto de vencer ou atrasado). Logo abaixo, a <b>saúde financeira</b> (quanto entra, quanto sai e quanto sobra) e o <b>caminho do dinheiro</b> do mês. Use o seletor de mês no topo para navegar entre meses e o de ano para trocar o ano." },
+  { t: "📊 Gráficos", go: "resumo", btn: "Abrir o Resumo",
+    d: "Dentro do Resumo, toque em <b>📊 Gráficos</b> no seletor do topo. Você vê <b>Orçamento × Realizado</b> por categoria (verde = dentro da meta, vermelho = estourou), o <b>saldo acumulado</b> mês a mês e as <b>despesas e receitas</b> por mês. Toque numa barra do gráfico para ver os lançamentos daquele mês." },
+  { t: "💡 Insights & Leitura do mês", go: "insights", btn: "Ver os Insights",
+    d: "No Resumo, toque na opção azul <b>💡 Insights</b> no topo. A <b>leitura do mês</b> resume em linguagem simples o que está indo bem e o que pede atenção — por exemplo, categoria que estourou a meta, mês com saldo negativo ou gasto fora do padrão. Ela pisca em azul até você abrir pela primeira vez." },
+  { t: "💰 📌 💳 🛒 As 4 abas de baixo", go: "tabs", btn: "Mostrar as abas",
+    d: "São os 4 tipos de lançamento do mês:<br>• <b>💰 Receitas</b> — o que entra (salário, extras).<br>• <b>📌 Fixas</b> — contas que se repetem (aluguel, assinaturas).<br>• <b>💳 Cartões</b> — compras no cartão, com parcelamento.<br>• <b>🛒 Débito</b> — gastos do dia a dia.<br>Cada aba lista só os itens daquele tipo no mês selecionado e mostra o total no topo." },
+  { t: "➕ Botão de adicionar", go: "fab", btn: "Mostrar o botão +",
+    d: "O botão <b>+</b> verde (canto inferior direito) adiciona um lançamento na aba em que você está — menos no Resumo, que é só visão geral. No <b>Cartões</b> dá pra escolher à vista ou <b>parcelado em até 60×</b>, e o app distribui as parcelas nos meses seguintes automaticamente. A data já vem preenchida com o dia de hoje." },
+  { t: "✋ Apagar e editar lançamentos", go: "tabs", btn: "Ir para as abas",
+    d: "<b>Toque</b> num lançamento para editar. Para apagar, <b>toque e segure</b> (toque longo) o item — ele entra no modo de seleção, aí você marca um ou vários e confirma em <b>Apagar</b>. Use também <b>Selecionar todos</b> para limpar tudo de uma vez. Apagou sem querer? O botão <b>↩︎ Desfazer</b> no topo recupera." },
+  { t: "🔔 Sino de alertas", go: "bell", btn: "Mostrar o sino",
+    d: "O <b>🔔</b> no topo avisa quando há conta perto de vencer ou já atrasada — e fica <b>piscando</b> para chamar atenção. Toque nele para ver a lista e marcar como pago. Depois que você abre, ele para de piscar e só volta a avisar quando surge algo novo. O sino some quando não há nenhuma conta pendente." },
+  { t: "👤 Perfil", go: "perfil", btn: "Abrir meu perfil",
+    d: "Toque no avatar no canto superior direito. Lá você define <b>foto</b> (escolha um dos bichinhos animados ou importe a sua), <b>nome</b> e o <b>tipo de conta</b>: Pessoal (só você) ou Conjunta (casal). Esses dados ficam só no seu aparelho." },
+  { t: "💑 Conta conjunta (casal)", go: "conjunta", btn: "Abrir o perfil",
+    d: "No perfil, escolha <b>Conjunta</b> e pareie os dois celulares por <b>QR ou código</b>. O que um lança aparece no outro, com <b>mesclagem por item</b>: ninguém sobrescreve o lançamento do outro e nada se perde, mesmo lançando ao mesmo tempo. Dá pra <b>desativar</b> quando quiser (com aviso dos impactos) e ver o histórico de ativações." },
+  { t: "🏷️ Categorias e orçamento", go: "categorias", btn: "Abrir Categorias",
+    d: "No menu ☰. Crie categorias com <b>emoji</b> e defina uma <b>meta de gasto</b> (orçamento) para cada uma. Nos Gráficos, o <b>Orçamento × Realizado</b> mostra em verde quando você está dentro da meta e em vermelho quando estourou — fica fácil ver onde está gastando demais." },
+  { t: "🧪 Simular gastos", go: "sim", btn: "Abrir o simulador",
+    d: "No menu ☰. Antes de comprar, digite o valor e o número de parcelas: o app desenha a compra <b>em cima do gráfico de saldo</b> e te diz se você termina o mês no positivo ou no vermelho. Serve pra responder “vale a pena?” sem arriscar." },
+  { t: "🔄 Sincronização (nuvem privada)", go: "sync", btn: "Abrir Sincronização",
+    d: "No menu ☰. Opcional: sobe e baixa seus dados de uma <b>nuvem privada sua</b> (você configura o endereço e o token). Serve pra ter os dados em mais de um aparelho. Sem configurar, tudo continua só no seu celular." },
+  { t: "⬆️⬇️ Importar e Exportar (backup)", go: "backup", btn: "Mostrar no menu",
+    d: "No menu ☰. <b>Exportar</b> salva <u>tudo</u> num arquivo <code>.json</code> — faça isso de vez em quando como backup. <b>Importar</b> recupera de um arquivo desses (ao trocar de celular, por exemplo). Atenção: importar substitui os dados atuais pelos do arquivo." },
+  { t: "🔒 Conta e acesso (PIN)", go: "tema", btn: "Abrir o menu",
+    d: "No menu ☰ → <b>Conta e acesso</b>. Você pode proteger o app com um <b>PIN de 4 dígitos</b> (com a animação do cadeado ao abrir). Se não criar senha, o app abre direto. Tem também o modo teste com dados fictícios, que nunca toca nos seus dados reais." },
+  { t: "🌗 Tema", go: "tema", btn: "Abrir o menu",
+    d: "No menu ☰ → <b>Tema</b>: alterne entre <b>Claro</b>, <b>Escuro</b> e <b>Automático</b> (segue o sistema). A troca é suave, sem piscar a tela." },
 ];
+function faqGo(action) {
+  const faqM = document.getElementById("faqModal"); if (faqM) faqM.classList.add("hidden");
+  const goResumo = (view) => {
+    curTab = "resumo"; resumoView = view;
+    $$(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === "resumo"));
+    suppressNextAnim = true; window.scrollTo(0, 0); render();
+  };
+  setTimeout(() => {
+    switch (action) {
+      case "resumo":     goResumo("resumo");   setTimeout(() => focarEl(".view-toggle"), 120); break;
+      case "insights":   goResumo("insights"); setTimeout(() => focarEl(".view-toggle"), 120); break;
+      case "tabs":       focarEl(".tabbar"); break;
+      case "fab":        focarEl("#fab"); break;
+      case "bell": {     const b = $("#btnBell"); if (b && !b.classList.contains("hidden")) focarEl("#btnBell"); else toast("O 🔔 aparece quando há conta a vencer"); break; }
+      case "perfil":     openProfile();         setTimeout(() => focarEl("#profileModal .modal-card", 2600), 140); break;
+      case "conjunta":   openProfile();         setTimeout(() => focarEl("#profileModal .modal-card", 2600), 140); break;
+      case "categorias": openCategoriasModal(); setTimeout(() => focarEl("#catModal .modal-card", 2600), 140); break;
+      case "sim":        { const h = $("#miSim"); if (h && h.onclick) h.onclick(); break; }
+      case "sync":       if (syncCfg()) pullSync(true, null, true); else configurarSync(); break;
+      case "backup":     openMenu(); setTimeout(() => focarEl("#miImport"), 380); break;
+      case "tema":       openMenu(); setTimeout(() => focarEl("#miTema"), 380); break;
+    }
+  }, 60);
+}
 function openFaq() {
   let m = document.getElementById("faqModal");
   if (!m) {
@@ -3668,8 +3746,18 @@ function openFaq() {
     document.body.appendChild(m);
     m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
     m.querySelector("#faqClose").onclick = () => m.classList.add("hidden");
+    // delegação: cada botão "Ir até" carrega o deep-link no data-go
+    m.querySelector("#faqBody").addEventListener("click", (e) => {
+      const b = e.target.closest && e.target.closest(".faq-go");
+      if (b) { e.preventDefault(); e.stopPropagation(); faqGo(b.dataset.go); }
+    });
   }
-  m.querySelector("#faqBody").innerHTML = FAQ.map((q, i) => `<details class="faq-item"${i === 0 ? " open" : ""}><summary>${q[0]}</summary><p>${q[1]}</p></details>`).join("");
+  m.querySelector("#faqBody").innerHTML = FAQ.map((q, i) =>
+    `<details class="faq-item"${i === 0 ? " open" : ""}><summary>${q.t}</summary>`
+    + `<div class="faq-content"><p>${q.d}</p>`
+    + `<button type="button" class="faq-go" data-go="${q.go}">➜ ${q.btn}</button>`
+    + `</div></details>`
+  ).join("");
   m.classList.remove("hidden");
 }
 
@@ -3747,10 +3835,11 @@ async function definirPin() {
 }
 function removerPin() {
   if (!window.CRYPTO_KEY) { toast("Não há PIN definido"); return; }
-  if (!confirm("Remover o PIN? Os dados ficarão sem criptografia neste aparelho.")) return;
-  window.CRYPTO_KEY = null;
-  localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
-  toast("PIN removido"); renderNotifBtn();
+  modalConfirm("Remover o PIN? Os dados ficarão sem criptografia neste aparelho.", () => {
+    window.CRYPTO_KEY = null;
+    localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
+    toast("PIN removido"); renderNotifBtn();
+  }, "Remover PIN");
 }
 const TEST_CODE = "8040";   // código do modo teste (privado — sem dica na tela)
 // Mantém o quadro de código SEMPRE centralizado na área visível: quando o teclado abre,
@@ -3887,7 +3976,7 @@ function openAccessModal() {
   const et = body.querySelector("#accEnterTest"); if (et) et.onclick = () => { m.classList.add("hidden"); loadTestProfile(); };
   const pr = body.querySelector("#accProtect"); if (pr) pr.onclick = protectWithPin;
   const rm = body.querySelector("#accRemove");
-  if (rm) rm.onclick = () => { if (confirm("Remover o PIN? Os dados reais ficarão sem criptografia neste aparelho.")) { window.CRYPTO_KEY = null; localStorage.setItem(STORE_KEY, JSON.stringify(DATA)); toast("Proteção removida"); openAccessModal(); } };
+  if (rm) rm.onclick = () => modalConfirm("Remover o PIN? Os dados reais ficarão sem criptografia neste aparelho.", () => { window.CRYPTO_KEY = null; localStorage.setItem(STORE_KEY, JSON.stringify(DATA)); toast("Proteção removida"); openAccessModal(); }, "Remover PIN");
 }
 function autoBackup() {
   try {
@@ -4153,10 +4242,17 @@ function startLiveSync() {
   liveT = setInterval(() => { if (document.visibilityState === "visible" && navigator.onLine !== false) pullSync(false); }, LIVE_MS);
 }
 function stopLiveSync() { if (liveT) { clearInterval(liveT); liveT = null; } }
-// Voltou pro app (destrava tela, troca de aba, abre do início) → puxa na hora
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { if (syncCfg()) pullSync(false); checkForUpdate(); } });
-window.addEventListener("focus", () => { if (syncCfg()) pullSync(false); checkForUpdate(); });
-window.addEventListener("online", () => { if (syncCfg()) pullSync(false); checkForUpdate(); });
+// Voltou pro app (destrava tela, troca de aba, abre do início) → puxa na hora.
+// visibilitychange + focus + online costumavam disparar quase juntos ao reabrir → 3 pulls/3 checks
+// em sequência. Debounce de 1,2s junta tudo num disparo só (menos tráfego, sem corridas).
+let _focusSyncT = null;
+function onAppFocus() {
+  clearTimeout(_focusSyncT);
+  _focusSyncT = setTimeout(() => { if (syncCfg()) pullSync(false); checkForUpdate(); }, 1200);
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") onAppFocus(); });
+window.addEventListener("focus", onAppFocus);
+window.addEventListener("online", onAppFocus);
 // checa atualização ao abrir (após o splash) e a cada 5 min
 setTimeout(checkForUpdate, 6500);
 setInterval(checkForUpdate, 5 * 60 * 1000);
@@ -4258,20 +4354,28 @@ function showFullscreenHint() {
     drops = Array(cols).fill(0).map(() => Math.random() * (H / font));
     speed = Array(cols).fill(0).map(() => 0.30 + Math.random() * 0.45);   // quedas lentas e variadas (calmo)
   }
-  resize(); addEventListener("resize", resize);
-  function palette() {
+  resize(); addEventListener("resize", resize, { passive: true });
+  // paleta cacheada: recalcular matchMedia a cada frame era desperdício; atualiza só quando muda
+  let _pal = null;
+  function computePalette() {
     const dark = document.documentElement.classList.contains("theme-dark") ||
       (!document.documentElement.classList.contains("theme-light") && matchMedia("(prefers-color-scheme: dark)").matches);
     // bem fraco, quase na cor do fundo; rastro curto (fade mais forte) pra não virar "barra" sólida
-    return dark ? { fade: "rgba(9,18,14,0.20)", g: "rgba(95,210,160,0.16)", head: "rgba(160,255,210,0.34)" }
+    _pal = dark ? { fade: "rgba(9,18,14,0.20)", g: "rgba(95,210,160,0.16)", head: "rgba(160,255,210,0.34)" }
                 : { fade: "rgba(238,241,240,0.20)", g: "rgba(20,120,80,0.11)", head: "rgba(15,150,90,0.24)" };
   }
-  let last = 0;
+  computePalette();
+  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", computePalette); } catch (e) {}
+  const _palObs = new MutationObserver(computePalette);
+  try { _palObs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] }); } catch (e) {}
+  // rAF cancelável: enquanto a aba/app está oculto NÃO mantemos o loop vivo (economia de GPU/CPU
+  // e evita o iOS derrubar o processo por uso contínuo em background).
+  let _raf = null, last = 0;
   function frame(t) {
-    requestAnimationFrame(frame);
-    if (document.hidden) return;
+    _raf = requestAnimationFrame(frame);
+    if (document.hidden) { cancelAnimationFrame(_raf); _raf = null; return; }
     if (t - last < 75) return; last = t;            // ~13fps → queda calma e suave
-    const c = palette();
+    const c = _pal;
     ctx.fillStyle = c.fade; ctx.fillRect(0, 0, W, H);
     ctx.font = font + "px ui-monospace, monospace";
     for (let i = 0; i < cols; i++) {
@@ -4283,7 +4387,11 @@ function showFullscreenHint() {
       drops[i] += speed[i];
     }
   }
-  requestAnimationFrame(frame);
+  // (re)liga o loop ao voltar pro app; desliga ao sair (o frame já cancela quando oculto)
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && _raf === null) { last = 0; _raf = requestAnimationFrame(frame); }
+  });
+  _raf = requestAnimationFrame(frame);
 })();
 
 /* Auto-configura a sincronização a partir de um link (#cfg=base64).
@@ -4500,24 +4608,41 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
     !/^(button|submit|checkbox|radio|range)$/i.test(el.type || "");
   const vv = window.visualViewport;
   const setKbd = (on) => document.body.classList.toggle("kbd-open", !!on);
+  const gap = () => vv ? (window.innerHeight - vv.height) : 0;   // altura aproximada do teclado
 
-  // (b) tabbar segue PURAMENTE o encolhimento da viewport: enquanto o teclado ocupa espaço
-  //     (>140px), fica escondida; só REAPARECE quando a viewport volta ao normal (teclado 100% fechado).
-  //     Assim ela nunca reaparece "levantada" no meio da animação de fechar.
-  if (vv) vv.addEventListener("resize", () => setKbd((window.innerHeight - vv.height) > 140));
+  // Re-ancora elementos position:fixed depois que o teclado fecha. No iOS Safari a fixed
+  // pode ficar presa na viewport ENCOLHIDA (barra "levantada" com vão branco embaixo); um
+  // nudge de scroll de 1px força o Safari a recalcular contra a viewport já restaurada.
+  function reanchor() {
+    const y = window.scrollY || window.pageYOffset || 0;
+    window.scrollTo(0, y + 1); window.scrollTo(0, y);
+  }
 
-  // (a) foco em campo de texto — esconde JÁ no foco (antes do teclado terminar de abrir)
+  // Só REVELA a tabbar quando a viewport ESTABILIZA (teclado 100% fechado). Durante a
+  // animação de fechar o iOS dispara vários 'resize' — reagir a um intermediário deixava
+  // a barra ancorada num ponto torto. Por isso debounce + reanchor ao assentar.
+  let settleT = null;
+  function settle() {
+    clearTimeout(settleT);
+    settleT = setTimeout(() => {
+      const open = gap() > 120;
+      setKbd(open);
+      if (!open) { reanchor(); requestAnimationFrame(reanchor); }
+    }, 140);
+  }
+
+  if (vv) vv.addEventListener("resize", () => {
+    if (gap() > 120) { clearTimeout(settleT); setKbd(true); }   // abriu → esconde JÁ
+    else settle();                                              // fechando → espera assentar
+  });
+
+  // foco em campo de texto — esconde JÁ no foco (antes do teclado terminar de abrir)
   let blurT = null;
-  document.addEventListener("focusin", (e) => { if (isField(e.target)) { clearTimeout(blurT); setKbd(true); } });
+  document.addEventListener("focusin", (e) => { if (isField(e.target)) { clearTimeout(blurT); clearTimeout(settleT); setKbd(true); } });
   document.addEventListener("focusout", (e) => {
     if (isField(e.target)) {
       clearTimeout(blurT);
-      blurT = setTimeout(() => {
-        if (isField(document.activeElement)) return;
-        // só revela se o teclado JÁ fechou (viewport restaurada). Se ainda está fechando,
-        // quem revela é o resize do visualViewport ao terminar — sem "levantar".
-        if (!vv || (window.innerHeight - vv.height) <= 140) setKbd(false);
-      }, 250);
+      blurT = setTimeout(() => { if (!isField(document.activeElement)) settle(); }, 180);
     }
   });
 })();

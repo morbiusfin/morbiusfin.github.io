@@ -124,6 +124,11 @@ function migrate(d) {
   (d.cartao || []).forEach(l => { if (l.cartao === undefined) l.cartao = ""; if (l.parcAtual === undefined) l.parcAtual = null; if (l.parcTotal === undefined) l.parcTotal = null; if (l.nec === undefined) l.nec = false; if (l.catId === undefined) l.catId = null; });
   (d.diaria || []).forEach(l => { if (l.categoria === undefined) l.categoria = "Geral"; if (l.catId === undefined) l.catId = null; });
   (d.receitas || []).forEach(l => { if (l.tipo === undefined) l.tipo = "Ativa"; });
+  // garante que TODO lançamento tenha o array vals (backup muito antigo podia não ter) →
+  // sem isso, l.vals[m] lançava TypeError ao montar as listas/gráficos e travava a tela.
+  ["receitas", "fixas", "cartao", "diaria"].forEach(k => (d[k] || []).forEach(l => {
+    if (!Array.isArray(l.vals)) l.vals = Array(12).fill(0);
+  }));
   return d;
 }
 
@@ -145,11 +150,20 @@ function profileKey() {
 }
 function saveData(d) {
   const key = profileKey(), isReal = (key === STORE_KEY);
+  const put = (k, v) => {
+    try { localStorage.setItem(k, v); }
+    catch (e) {
+      // QuotaExceededError (ou modo privado): não pode derrubar o app no meio de uma ação.
+      // Avisa de forma suave e segue — o dado fica na memória até liberar espaço/exportar.
+      try { if (typeof toast === "function") toast("Memória do app cheia — exporte um backup (⚙️)"); } catch (e2) {}
+      console.warn("saveData: falha ao gravar", e);
+    }
+  };
   if (isReal && window.CRYPTO_KEY && window.encryptEnvelope) {
     // grava criptografado (AES-GCM). Sem o PIN, ilegível. (só nos dados REAIS)
-    window.encryptEnvelope(window.CRYPTO_KEY, d).then(env => localStorage.setItem(key, JSON.stringify(env))).catch(() => {});
+    window.encryptEnvelope(window.CRYPTO_KEY, d).then(env => put(key, JSON.stringify(env))).catch(() => {});
   } else {
-    localStorage.setItem(key, JSON.stringify(d));
+    put(key, JSON.stringify(d));
   }
 }
 function resetData() { const s = buildSeed(); saveData(s); return s; }

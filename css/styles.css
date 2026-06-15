@@ -65,6 +65,17 @@ html.theme-dark {
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* App, não documento: nada de selecionar/copiar texto nem menu de contexto do iOS
+   (Copiar/Pesquisar/Traduzir) ao tocar e segurar. O toque-longo de apagar é nosso (JS).
+   Exceção: campos de digitação, onde a seleção é necessária pra editar. */
+html, body, .app, .tabbar, .modal, .menu-drawer, .list, .section-card {
+  -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, select, [contenteditable="true"], [contenteditable=""] {
+  -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; user-select: text;
+  -webkit-touch-callout: default;
+}
 html, body { margin: 0; padding: 0; width: 100%; overflow-x: clip; }   /* clip (não hidden) p/ NÃO quebrar o position:sticky do header no iOS */
 /* iOS/Android (área do home indicator + overscroll): o fundo do html é o que aparece nessa faixa.
    Igualamos à COR DA TABBAR (--card) → no app a faixa some (mesma cor da barra de baixo).
@@ -383,7 +394,14 @@ body.kbd-open .scroll-top, body.lock-on .scroll-top, body.splash-on .scroll-top 
 .faq-item summary::-webkit-details-marker { display: none; }
 .faq-item summary::after { content: "⌄"; color: var(--muted); transition: transform .2s ease; font-size: 16px; }
 .faq-item[open] summary::after { transform: rotate(180deg); }
-.faq-item p { margin: 0 0 13px; font-size: 13px; color: var(--muted); line-height: 1.55; }
+.faq-item p { margin: 0 0 11px; font-size: 13px; color: var(--muted); line-height: 1.55; }
+.faq-item p code { background: var(--card); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; font-size: 12px; }
+.faq-content { padding-bottom: 12px; }
+/* botão que leva direto à opção explicada (e faz a borda dela piscar) */
+.faq-go { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: #fff;
+  border: 0; border-radius: 11px; padding: 9px 14px; font-size: 12.5px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(31,217,122,.28); transition: transform .12s ease, box-shadow .2s ease; }
+.faq-go:active { transform: scale(.96); }
 
 /* Tutorial */
 .tut-card { max-width: 340px; text-align: center; }
@@ -1077,6 +1095,12 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
 .btn.ghost:hover { transform: translateY(-1px); box-shadow: var(--shadow); border-color: var(--accent); }
 .btn.danger { background: rgba(229,72,77,.12); color: var(--red); }
 .btn.danger:hover { background: rgba(229,72,77,.18); }
+/* modal de confirmação (substitui o confirm() nativo) */
+.confirm-card { max-width: 340px; text-align: center; }
+.confirm-msg { margin: 4px 0 18px; font-size: 14.5px; line-height: 1.5; color: var(--ink); font-weight: 600; }
+.confirm-actions { display: flex; gap: 10px; }
+.confirm-actions .btn { flex: 1; }
+.confirm-actions .btn.danger { background: var(--red); color: #fff; box-shadow: 0 6px 16px rgba(229,72,77,.3); }
 /* Botões das configurações: largos, centralizados, com ícone alinhado */
 .settings-buttons { display: flex; flex-direction: column; gap: 11px; margin: 10px 0 14px; }
 .settings-buttons .btn, #notifWrap .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 15px; }
