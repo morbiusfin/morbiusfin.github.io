@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.0";
+const APP_VERSION = "3.13.1";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.1",
+    bullets: [
+      "Abertura do app com mais charme: a barra de baixo sobe suave (com fade), os ícones surgem em sequência, e por fim a lâmina de vidro verde desliza da direita até a aba ativa",
+    ]
+  },
   {
     version: "3.13.0",
     bullets: [
@@ -4850,9 +4856,31 @@ function hideSplash() {
     // 2) só com o spinner já fora, revela o app (cortina do bg desce)
     setTimeout(() => {
       sp.classList.add("reveal");
-      setTimeout(() => { try { sp.remove(); } catch (e) {} document.body.classList.remove("splash-on"); maybeStartOnboarding(); }, 1050);
+      setTimeout(() => { try { sp.remove(); } catch (e) {} document.body.classList.remove("splash-on"); tabbarEntrance(); maybeStartOnboarding(); }, 1050);
     }, 320);
-  } else if (!sp) { document.body.classList.remove("splash-on"); maybeStartOnboarding(); }
+  } else if (!sp) { document.body.classList.remove("splash-on"); tabbarEntrance(); maybeStartOnboarding(); }
+}
+/* Entrada da tab bar ao abrir: a pílula SOBE de baixo com fade, os ícones surgem em sequência, e
+   por fim a lâmina de vidro verde DESLIZA da direita pra esquerda até a aba ativa. Toca 1x. */
+function tabbarEntrance() {
+  const bar = document.querySelector(".tabbar"); if (!bar) return;
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  bar.classList.remove("tb-enter"); void bar.offsetWidth; bar.classList.add("tb-enter");
+  setTimeout(() => bar.classList.remove("tb-enter"), 900);
+  // o vidro entra da direita depois que a pílula assenta
+  setTimeout(() => {
+    const g = bar.querySelector(".seg-glass"); if (!g || !g.animate) return;
+    const cw = bar.getBoundingClientRect().width || 320;
+    const rest = getComputedStyle(g).transform;   // posição final (matrix) da lâmina na aba ativa
+    try {
+      g.animate(
+        [{ transform: "translateX(" + (cw + 40) + "px)", opacity: 0 },
+         { transform: "translateX(" + (cw + 40) + "px)", opacity: 0, offset: 0.15 },
+         { transform: rest, opacity: 1 }],
+        { duration: 620, easing: "cubic-bezier(.2,.85,.25,1)" }
+      );
+    } catch (e) {}
+  }, 560);
 }
 // rede de segurança: nunca deixar o splash preso
 window.addEventListener("load", () => setTimeout(hideSplash, 4000));

@@ -963,6 +963,17 @@ select.sel { cursor: pointer; }
   transform: translateZ(0); -webkit-transform: translateZ(0); will-change: transform; backface-visibility: hidden;
   transition: background-color .35s ease, box-shadow .35s ease; }
 #fab { transition: transform .25s cubic-bezier(.34,1.56,.64,1), opacity .2s ease; }
+/* ===== Entrada da tab bar (ao abrir o app): pílula sobe + fade, ícones em sequência, vidro depois ===== */
+@keyframes tabbarRise { 0% { transform: translateY(130%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+.tabbar.tb-enter { animation: tabbarRise .6s cubic-bezier(.2,.85,.25,1) both; }
+.tabbar.tb-enter .seg-glass { opacity: 0; }                 /* lâmina some até a hora de deslizar da direita (JS) */
+.tabbar.tb-enter .tab { animation: tabItemIn .5s ease both; }
+.tabbar.tb-enter .tab:nth-child(2) { animation-delay: .16s; }
+.tabbar.tb-enter .tab:nth-child(3) { animation-delay: .24s; }
+.tabbar.tb-enter .tab:nth-child(4) { animation-delay: .32s; }
+.tabbar.tb-enter .tab:nth-child(5) { animation-delay: .40s; }
+.tabbar.tb-enter .tab:nth-child(6) { animation-delay: .48s; }
+@keyframes tabItemIn { from { opacity: 0; transform: translateY(11px); } to { opacity: 1; transform: none; } }
 .tab { flex: 1; background: 0; border: 0; padding: 8px 0 7px; border-radius: 15px; margin: 0 1px; font-size: 10.5px; color: var(--muted);
   display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 700; position: relative; z-index: 1;
   transition: color .2s ease, transform .12s ease; }
