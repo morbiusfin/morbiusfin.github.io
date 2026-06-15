@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.23";
+const APP_VERSION = "3.13.24";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.24",
+    bullets: [
+      "Emojis animados (gif) no status de Saúde financeira (💪🙂⚠️🆘) e nos sinos 🔔 (Contas a vencer, alerta e notificações) — a forma não balança, quem anima é o emoji",
+    ]
+  },
   {
     version: "3.13.23",
     bullets: [
@@ -1196,10 +1202,10 @@ function healthScore(m) {
   return Math.max(0, Math.min(100, score));
 }
 function healthMeta(s) {
-  if (s >= 75) return { c: "#1db954", t: "Ótima", e: "💪" };
-  if (s >= 55) return { c: "#3fae6b", t: "Boa", e: "🙂" };
-  if (s >= 35) return { c: "#f5a623", t: "Atenção", e: "⚠️" };
-  return { c: "#e5484d", t: "Crítica", e: "🆘" };
+  if (s >= 75) return { c: "#1db954", t: "Ótima", e: "💪", a: "musculo" };
+  if (s >= 55) return { c: "#3fae6b", t: "Boa", e: "🙂", a: "sorriso" };
+  if (s >= 35) return { c: "#f5a623", t: "Atenção", e: "⚠️", a: "alerta" };
+  return { c: "#e5484d", t: "Crítica", e: "🆘", a: "sos" };
 }
 function renderHealth(m) {
   const rec = receitaMes(m), desp = despesaMes(m);
@@ -1216,7 +1222,7 @@ function renderHealth(m) {
         <text x="90" y="103" text-anchor="middle" class="gauge-of">de 100</text>
       </svg>
       <div class="health-meta">
-        <div class="health-emoji">${meta.e}</div>
+        <div class="health-emoji">${animEmoji(meta.a, meta.e, "health-emoji-img")}</div>
         <div class="health-t" style="color:${meta.c}">${meta.t}</div>
         <div class="health-sub">${taxa >= 0 ? "guardou <b>" + taxa + "%</b> do que recebeu" : "<b>" + Math.abs(taxa) + "%</b> no vermelho"}</div>
       </div>
@@ -1739,7 +1745,7 @@ function renderResumo(view) {
   view.innerHTML = toggle + `<div class="rv-pane${pane}">
     ${alertas.length ? `<div class="section-card venc-card fade-in" id="vencCard">
       <div class="venc-head">
-        <span class="venc-bell">🔔</span>
+        <span class="venc-bell">${animEmoji("sino", "🔔", "venc-bell-img")}</span>
         <div class="venc-htxt"><div class="venc-title">Contas a vencer ${helpQ("venc")}</div>
           <div class="venc-meta">${alertas.length} conta(s) · total <b>${brl(totalVenc)}</b></div></div>
       </div>
@@ -2615,7 +2621,8 @@ function insightsSaldo() {
   const poup = liq.reduce((a, x) => a + x, 0), totRec = serieRec().reduce((a, x) => a + x, 0);
   const taxa = totRec > 0 ? Math.round(poup / totRec * 100) : 0;
   const minI = bal.indexOf(Math.min.apply(null, bal)), neg = bal.filter(v => v < 0).length, fim = bal[11];
-  const nota = taxa >= 20 ? "💪 Excelente" : taxa >= 10 ? "🙂 Boa" : taxa >= 0 ? "⚠️ Apertada" : "🆘 Crítica";
+  const _ni = taxa >= 20 ? ["musculo", "💪", "Excelente"] : taxa >= 10 ? ["sorriso", "🙂", "Boa"] : taxa >= 0 ? ["alerta", "⚠️", "Apertada"] : ["sos", "🆘", "Crítica"];
+  const nota = animEmoji(_ni[0], _ni[1], "ind-ic") + " " + _ni[2];
   const rows = [
     ["Saúde", nota],
     ["Sobra média/mês", brl(media)],

@@ -1510,6 +1510,16 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
 @keyframes emojiBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 .health-emoji { animation: emojiBob 2.8s ease-in-out infinite; }
 .health-meta { animation: fadeInUp .5s ease .15s both; }
+/* emojis-gif (Noto) no lugar dos estáticos: a FORMA não balança — quem anima é o próprio webp */
+.health-emoji { animation: none; }
+.health-emoji .emoji-anim { width: 46px; height: 46px; display: block; margin: 0 auto; }
+.venc-bell { animation: none !important; }
+.venc-bell .emoji-anim { width: 28px; height: 28px; display: block; }
+.alert-emoji { animation: none !important; }
+.alert-emoji .emoji-anim { width: 56px; height: 56px; display: block; margin: 0 auto; }
+.notif-bell { animation: none !important; }
+.notif-bell .emoji-anim { width: 24px; height: 24px; display: block; }
+.ind-ic { width: 1.15em; height: 1.15em; vertical-align: -.22em; display: inline-block; }
 /* Sobra do mês: brilho que passa de tempos em tempos */
 .flow-row.total { position: relative; overflow: hidden; }
 .flow-row.total::after { content: ""; position: absolute; top: 0; left: -60%; width: 50%; height: 100%;
