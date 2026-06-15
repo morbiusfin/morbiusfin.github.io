@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.87";
+const APP_VERSION = "3.11.88";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.88",
+    bullets: [
+      "Tirei a pergunta 'foi feita hoje?' — a data já vem preenchida com o dia de hoje e você muda se quiser",
+      "Corrigido o bug da barra de baixo 'levantando': agora ela fica fixa e só reaparece quando o teclado fecha de vez (nunca no meio do caminho)",
+    ]
+  },
   {
     version: "3.11.87",
     bullets: [
@@ -2277,15 +2284,6 @@ function parcelaStartMonth(purchaseMonth, purchaseDay, fechamento) {
 }
 // data de hoje em ISO (YYYY-MM-DD) para o <input type="date">
 function todayISO() { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
-// pergunta "foi hoje mesmo?" ANTES de salvar quando a data está marcada como HOJE.
-// retorna true = pode salvar; false = usuário quer ajustar a data (não salva, foca o campo).
-function confirmaHoje(focaCampoSel) {
-  const d = new Date(), dd = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0");
-  if (confirm(`Esta compra está marcada para HOJE (${dd}). Foi feita hoje mesmo?\n\nOK = sim, pode salvar\nCancelar = quero ajustar a data antes`)) return true;
-  const el = focaCampoSel && $(focaCampoSel);
-  if (el) { el.focus(); if (el.showPicker) { try { el.showPicker(); } catch (e) {} } }
-  return false;
-}
 // converte a data escolhida em { dia, mes (índice absoluto a partir de Jan/DATA.year) }
 function dateParts(iso) {
   if (!iso) return { dia: null, mes: curMonth };
@@ -2327,10 +2325,8 @@ function openCartaoModal() {
   ["f_val", "f_n", "f_data", "f_card"].forEach(id => { const el = $("#" + id); if (el) { el.oninput = updateParcelaPreview; el.onchange = updateParcelaPreview; } });
   updateParcelaPreview();
   $("#btnDelete").classList.add("hidden");
-  let askedHoje = false;   // pergunta "foi hoje?" só UMA vez por inclusão (sem loop)
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
-    if (!askedHoje && $("#f_data").value === todayISO()) { askedHoje = true; if (!confirmaHoje("#f_data")) return; }
     const parc = $("#f_seg .seg-btn.active").dataset.pay === "parc";
     const valor = moneyVal($("#f_val"));
     const n = parc ? Math.min(60, Math.max(2, parseInt($("#f_n").value) || 2)) : 1;
@@ -2548,12 +2544,8 @@ function openDiariaModal(idx, method) {
   updateImpact(true, oldValD);
   $("#btnDelete").classList.toggle("hidden", isNew);
   $("#btnDelete").onclick = () => { if (confirm("Excluir esta compra?")) { tombstone(DATA.diaria[idx].id); DATA.diaria.splice(idx, 1); persist(); closeModal(); toast("Excluído"); } };
-  let askedHoje = false;   // pergunta "foi hoje?" só UMA vez por inclusão (sem loop)
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
-    if (!askedHoje && isNew && +$("#f_mes").value === realMesAbs() && (parseInt($("#f_dia").value) || 0) === REAL_TODAY.getDate()) {
-      askedHoje = true; if (!confirmaHoje("#f_dia")) return;
-    }
     const val = moneyVal($("#f_val")), mes = +$("#f_mes").value;
     const catId = $("#f_catId") ? ($("#f_catId").value || null) : null;
     const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, catId, categoria: catId ? (catById(catId).nome) : "Geral", metodo };
@@ -4428,14 +4420,24 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
   const vv = window.visualViewport;
   const setKbd = (on) => document.body.classList.toggle("kbd-open", !!on);
 
-  // (b) teclado encolhe a viewport visível em >140px
-  if (vv) vv.addEventListener("resize", () => setKbd((window.innerHeight - vv.height) > 140 && isField(document.activeElement)));
+  // (b) tabbar segue PURAMENTE o encolhimento da viewport: enquanto o teclado ocupa espaço
+  //     (>140px), fica escondida; só REAPARECE quando a viewport volta ao normal (teclado 100% fechado).
+  //     Assim ela nunca reaparece "levantada" no meio da animação de fechar.
+  if (vv) vv.addEventListener("resize", () => setKbd((window.innerHeight - vv.height) > 140));
 
-  // (a) foco/desfoco em campo de texto — esconde já no foco (antes do teclado terminar de abrir)
+  // (a) foco em campo de texto — esconde JÁ no foco (antes do teclado terminar de abrir)
   let blurT = null;
   document.addEventListener("focusin", (e) => { if (isField(e.target)) { clearTimeout(blurT); setKbd(true); } });
   document.addEventListener("focusout", (e) => {
-    if (isField(e.target)) { clearTimeout(blurT); blurT = setTimeout(() => { if (!isField(document.activeElement)) setKbd(false); }, 120); }
+    if (isField(e.target)) {
+      clearTimeout(blurT);
+      blurT = setTimeout(() => {
+        if (isField(document.activeElement)) return;
+        // só revela se o teclado JÁ fechou (viewport restaurada). Se ainda está fechando,
+        // quem revela é o resize do visualViewport ao terminar — sem "levantar".
+        if (!vv || (window.innerHeight - vv.height) <= 140) setKbd(false);
+      }, 250);
+    }
   });
 })();
 
