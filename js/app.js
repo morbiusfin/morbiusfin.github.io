@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.12";
+const APP_VERSION = "3.13.13";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.13",
+    bullets: [
+      "Perguntas frequentes e Tutorial atualizados: agora explicam a aba 🎯 Metas no topo do Resumo (com atalho 'Abrir Metas')",
+    ]
+  },
   {
     version: "3.13.12",
     bullets: [
@@ -4327,7 +4333,7 @@ function cpCheckHashPair() {
 
 /* ===================== ❓ Ajuda: "?" contextual + FAQ + Tutorial ===================== */
 const HELP = {
-  toggle: ["Resumo · Gráficos · Insights", "Troca a visão do mês: <b>📋 Resumo</b> (seu fluxo), <b>📊 Gráficos</b> e <b>💡 Insights</b> (a leitura do mês e dicas)."],
+  toggle: ["Resumo · Gráficos · Insights · Metas", "Troca a visão do mês: <b>📋 Resumo</b> (seu fluxo), <b>📊 Gráficos</b>, <b>💡 Insights</b> (a leitura do mês e dicas) e <b>🎯 Metas</b> (seus objetivos)."],
   venc: ["Contas a vencer", "Contas perto de vencer ou já atrasadas. Toque em <b>Pagar</b> quando quitar — ela some daqui e do sino."],
   health: ["Saúde financeira", "Uma nota de 0 a 100 pro seu mês. Quanto mais você guarda do que recebe, maior a nota."],
   flow: ["O caminho do dinheiro", "Mostra: o que <b>sobrou do mês passado</b> + <b>receitas</b> − <b>despesas</b> = <b>o que sobra</b> no mês."],
@@ -4361,6 +4367,8 @@ const FAQ = [
     d: "Dentro do Resumo, toque em <b>📊 Gráficos</b> no seletor do topo. Você vê <b>Orçamento × Realizado</b> por categoria (verde = dentro da meta, vermelho = estourou), o <b>saldo acumulado</b> mês a mês e as <b>despesas e receitas</b> por mês. Toque numa barra do gráfico para ver os lançamentos daquele mês." },
   { t: "💡 Insights & Leitura do mês", go: "insights", btn: "Ver os Insights",
     d: "No Resumo, toque na opção azul <b>💡 Insights</b> no topo. A <b>leitura do mês</b> resume em linguagem simples o que está indo bem e o que pede atenção — por exemplo, categoria que estourou a meta, mês com saldo negativo ou gasto fora do padrão. Ela pisca em azul até você abrir pela primeira vez." },
+  { t: "🎯 Metas (objetivos)", go: "metas", btn: "Abrir Metas",
+    d: "No Resumo, toque em <b>🎯 Metas</b> no seletor do topo (ao lado de Insights). Crie objetivos como <b>viagem, casa, carro ou presente</b>: diga quanto custa e quanto já guardou. A <b>barra de progresso</b> mostra o quanto falta e o <b>emoji muda sozinho</b> conforme o nome da meta. É tudo ali mesmo, sem abrir outra janela." },
   { t: "💰 📌 💳 🛒 As 4 abas de baixo", go: "tabs", btn: "Mostrar as abas",
     d: "São os 4 tipos de lançamento do mês:<br>• <b>💰 Receitas</b> — o que entra (salário, extras).<br>• <b>📌 Fixas</b> — contas que se repetem (aluguel, assinaturas).<br>• <b>💳 Cartões</b> — compras no cartão, com parcelamento.<br>• <b>🛒 Débito</b> — gastos do dia a dia.<br>Cada aba lista só os itens daquele tipo no mês selecionado e mostra o total no topo." },
   { t: "➕ Botão de adicionar", go: "fab", btn: "Mostrar o botão +",
@@ -4399,7 +4407,7 @@ function faqGo(action) {
   clearTimeout(_faqReturnT);
   // Deep-links que só DESTACAM algo na tela principal (não abrem outro modal): depois que o holofote
   // esmaece, o FAQ volta sozinho pra mesma pergunta, pro usuário continuar lendo de onde estava.
-  const voltaFaq = ["resumo", "graficos", "insights", "tabs", "fab", "bell"].indexOf(action) >= 0;
+  const voltaFaq = ["resumo", "graficos", "insights", "metas", "tabs", "fab", "bell"].indexOf(action) >= 0;
   if (voltaFaq) {
     _faqReturnT = setTimeout(() => {
       if (document.querySelector(".modal:not(.hidden)")) return;   // abriu outra coisa no meio → não interrompe
@@ -4418,6 +4426,7 @@ function faqGo(action) {
       case "resumo":     goResumo("resumo");   setTimeout(spotView, 130); break;
       case "graficos":   goResumo("graficos"); setTimeout(spotView, 130); break;
       case "insights":   goResumo("insights"); setTimeout(spotView, 130); break;
+      case "metas":      goResumo("metas");    setTimeout(spotView, 130); break;
       case "tabs":       focarEl(".tabbar"); break;
       case "fab":        focarEl("#fab"); break;
       case "bell": {     const b = $("#btnBell"); if (b && !b.classList.contains("hidden")) focarEl("#btnBell"); else toast("O 🔔 aparece quando há conta a vencer"); break; }
@@ -4469,7 +4478,7 @@ const TUTORIAL = [
   ["🔔", "Contas a vencer", "O sino no topo avisa quando há conta perto de vencer ou atrasada. Toque para ver e pagar — ele para de piscar depois."],
   ["➕", "Lançar gastos e ganhos", "Nas abas de baixo (Receitas, Fixas, Cartão, Débito), use o + para adicionar. No Cartão dá pra parcelar até 60×."],
   ["🏷️", "Categorias e metas", "No menu, crie categorias com emoji e defina metas de orçamento. Verde = dentro, vermelho = estourou."],
-  ["🎯", "Metas (objetivos)", "No menu, crie metas como viagem, casa ou carro — diga quanto custa e quanto já guardou. A barrinha mostra o progresso e o emoji muda conforme o objetivo."],
+  ["🎯", "Metas (objetivos)", "No topo do Resumo, toque em 🎯 Metas (ao lado de Insights). Crie objetivos como viagem, casa ou carro — diga quanto custa e quanto já guardou. A barrinha mostra o progresso e o emoji muda conforme o objetivo."],
   ["🏅", "Medalhas de acúmulo", "Em Insights, você desbloqueia medalhas conforme o seu saldo guardado cresce — do Primeiro passo ao Lendário. É a forma divertida de ver sua reserva subir e se motivar a guardar mais."],
   ["💑", "Conta de casal", "No perfil, escolha Conjunta e pareie os 2 celulares por QR. O que um lança aparece no outro, sem nuvem."],
   ["❓", "Ajuda sempre à mão", "Viu um “?” numa parte do app? Toque para saber o que ela faz. E este tutorial fica no menu quando quiser rever."],
