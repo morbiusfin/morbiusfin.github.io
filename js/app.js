@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.11.85";
+const APP_VERSION = "3.11.86";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.11.86",
+    bullets: [
+      "Tela de código: o quadro fica sempre centralizado — quando o teclado abre ele sobe pro meio da área visível e volta ao centro quando o teclado fecha",
+      "Conta conjunta: novo botão 'Desativar conta conjunta' com um alerta de verdade explicando os impactos antes de cortar",
+      "Conta conjunta: registro histórico das ativações e desativações (botão 'Histórico')",
+    ]
+  },
   {
     version: "3.11.85",
     bullets: [
@@ -3085,6 +3093,7 @@ function refreshProfTipo() {
   $$("#profTipoSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.tipo === _profTipo));
   const conj = $("#profConjunta"); if (conj) conj.classList.toggle("hidden", _profTipo !== "conjunta");
   const st = $("#profPairStatus"); if (st) st.innerHTML = coupleActive() ? '<span class="pair-ok">🟢 Conta conjunta ativa na nuvem</span>' : (syncCfg() ? '<span class="pair-ok">☁️ Sincronização ativa</span>' : "");
+  const on = $("#profCoupleOn"); if (on) on.classList.toggle("hidden", !coupleActive());   // botões de desativar/histórico só com conta conjunta ativa
 }
 function refreshProfPhoto() {
   const ph = $("#profPhotoBtn"); if (!ph) return;
@@ -3123,6 +3132,8 @@ function saveProfile() {
   $$("#profTipoSeg .seg-btn").forEach(b => b.onclick = () => { _profTipo = b.dataset.tipo; refreshProfTipo(); });
   const pair = $("#profPair"); if (pair) pair.onclick = () => openPairModal();
   const sh = $("#profSyncHelp"); if (sh) sh.onclick = () => openSyncHelp();
+  const dis = $("#profDisable"); if (dis) dis.onclick = () => openCoupleDisable();
+  const ch = $("#profCoupleHist"); if (ch) ch.onclick = () => openCoupleHistory();
   const sv = $("#profSave"); if (sv) sv.onclick = saveProfile;
   const f = $("#profFile"); if (f) f.onchange = (e) => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
@@ -3132,6 +3143,70 @@ function saveProfile() {
     e.target.value = "";   // permite reescolher o mesmo arquivo depois
   };
 })();
+
+/* ---------- 💑 Conta conjunta: registro histórico + desativar (com alerta de impactos reais) ---------- */
+const COUPLE_LOG_KEY = "financas2026.coupleLog";
+function getCoupleLog() { try { return JSON.parse(localStorage.getItem(COUPLE_LOG_KEY) || "[]") || []; } catch (e) { return []; } }
+function logCouple(acao) {
+  const log = getCoupleLog();
+  log.unshift({ t: Date.now(), acao: acao, ver: APP_VERSION });
+  if (log.length > 100) log.length = 100;
+  try { localStorage.setItem(COUPLE_LOG_KEY, JSON.stringify(log)); } catch (e) {}
+}
+function coupleLogTime(t) { try { return new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } }
+// ALERTA DE VERDADE: mostra os impactos antes de cortar a conta conjunta
+function openCoupleDisable() {
+  let m = document.getElementById("coupleDisableModal");
+  if (!m) {
+    m = document.createElement("div"); m.id = "coupleDisableModal"; m.className = "modal center hidden";
+    document.body.appendChild(m);
+    m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
+  }
+  m.innerHTML = '<div class="modal-card alert-card cd-card">'
+    + '<div class="alert-emoji">⚠️</div>'
+    + '<h2>Desativar conta conjunta?</h2>'
+    + '<p class="cd-sub">Isto <b>corta a ligação</b> com o aparelho do seu par. Antes de confirmar, entenda os impactos:</p>'
+    + '<ul class="cd-impacts">'
+    + '<li>🔌 Vocês <b>param de compartilhar</b>: o que cada um lançar daqui pra frente <b>não aparece mais</b> pro outro.</li>'
+    + '<li>☁️ A sincronização na nuvem é <b>desligada</b> neste aparelho.</li>'
+    + '<li>💾 Os lançamentos que já estão aqui <b>permanecem</b> neste celular — nada é apagado agora.</li>'
+    + '<li>⚠️ Se o seu par continuar lançando, essas mudanças <b>não chegam</b> até você (risco de ficarem com contas diferentes).</li>'
+    + '<li>🔁 Para voltar, será preciso <b>parear de novo</b> (compartilhar o link/QR).</li>'
+    + '</ul>'
+    + '<div class="cd-actions"><button type="button" class="btn couple-off" id="cdConfirm">✂️ Desativar mesmo assim</button>'
+    + '<button type="button" class="btn ghost" id="cdCancel">Cancelar</button></div></div>';
+  m.classList.remove("hidden");
+  m.querySelector("#cdCancel").onclick = () => m.classList.add("hidden");
+  m.querySelector("#cdConfirm").onclick = () => { m.classList.add("hidden"); deactivateCouple(); };
+}
+function deactivateCouple() {
+  logCouple("Desativou a conta conjunta (saiu do cofre compartilhado)");
+  try { localStorage.removeItem(SYNC_CFG_KEY); } catch (e) {}   // sai do cofre compartilhado
+  stopLiveSync();
+  const p = getPerfil(); p.tipo = "pessoal"; setPerfil(p);
+  _profTipo = "pessoal";
+  refreshProfTipo(); renderNotifBtn();
+  toast("Conta conjunta desativada ✂️");
+}
+function openCoupleHistory() {
+  let m = document.getElementById("coupleHistModal");
+  if (!m) {
+    m = document.createElement("div"); m.id = "coupleHistModal"; m.className = "modal center hidden";
+    document.body.appendChild(m);
+    m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
+  }
+  const log = getCoupleLog();
+  const rows = log.length
+    ? log.map(e => '<li><div class="ch-acao">' + esc(e.acao) + '</div><div class="ch-meta">' + coupleLogTime(e.t) + ' · v' + esc(e.ver || "") + '</div></li>').join("")
+    : '<li class="ch-empty">Nenhuma ação registrada ainda.</li>';
+  m.innerHTML = '<div class="modal-card ch-card">'
+    + '<button type="button" class="wn-close" id="chClose" aria-label="Fechar">✕</button>'
+    + '<div class="admin-head"><span>📜</span><h2>Histórico da conta conjunta</h2></div>'
+    + '<p class="cd-sub">Registro das ativações e desativações neste aparelho.</p>'
+    + '<ul class="ch-list">' + rows + '</ul></div>';
+  m.classList.remove("hidden");
+  m.querySelector("#chClose").onclick = () => m.classList.add("hidden");
+}
 
 /* ---------- Recorte CIRCULAR da foto: arrasta pra posicionar + zoom; exporta 320×320 ---------- */
 let _crop = { img: null, S: 0, base: 1, z: 1, tx: 0, ty: 0, dispW: 0, dispH: 0 };
@@ -3597,6 +3672,18 @@ function removerPin() {
   toast("PIN removido"); renderNotifBtn();
 }
 const TEST_CODE = "8040";   // código do modo teste (privado — sem dica na tela)
+// Mantém o quadro de código SEMPRE centralizado na área visível: quando o teclado abre,
+// a área visível encolhe (visualViewport) e o quadro recentra; ao fechar, volta ao meio.
+function lockCenter() {
+  const ls = document.getElementById("lockScreen"); if (!ls || ls.classList.contains("hidden")) return;
+  const vv = window.visualViewport;
+  if (vv) { ls.style.top = vv.offsetTop + "px"; ls.style.height = vv.height + "px"; ls.style.bottom = "auto"; }
+  else { ls.style.top = ""; ls.style.height = ""; ls.style.bottom = ""; }
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", lockCenter);
+  window.visualViewport.addEventListener("scroll", lockCenter);
+}
 function showLock(env) {
   const ls = $("#lockScreen"); ls.classList.remove("hidden");
   document.body.classList.add("lock-on");                       // esconde tabbar/+ atrás do lock (sem faixa no rodapé)
@@ -3604,6 +3691,7 @@ function showLock(env) {
   const ttl = $("#lockTitle"); if (ttl) ttl.textContent = "Digite seu código";
   const hint = $("#lockHint"); if (hint) hint.textContent = "";   // sem aviso revelando o código
   pin.value = ""; msg.textContent = ""; setTimeout(() => pin.focus(), 100);
+  lockCenter();   // centraliza o quadro na área visível (acima do teclado) e recentra ao fechar
   let busy = false, done = false, lastTried = "", autoT = null;
   // attempt: testa o código. showErr=true (botão/Enter) mostra "incorreto"; auto (digitando) é silencioso.
   const attempt = async (showErr) => {
@@ -4127,6 +4215,7 @@ function applyConfigLink() {
         localStorage.setItem(SYNC_CFG_KEY, JSON.stringify({ url: cfg.u, token: cfg.t }));
         window.__syncFromLink = true;
         window.__joinChannel = true;   // abriu link de convite → entra na conta compartilhada (adota a do par)
+        try { const pp = getPerfil(); pp.tipo = "conjunta"; setPerfil(pp); logCouple("Entrou na conta conjunta (abriu o link do par)"); } catch (e) {}
       }
     }
   } catch (e) {}
