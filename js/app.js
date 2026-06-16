@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.56";
+const APP_VERSION = "3.13.57";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.57",
+    bullets: [
+      "Gráfico Receitas × Despesas: as barras agora ficam centradas bem embaixo do mês (Receita atrás, Despesa na frente)",
+      "Primeira vez no celular: um guia rápido ensina a colocar o app na tela de início — passo a passo do seu navegador (Safari, Chrome no iPhone ou Chrome no Android)",
+      "Quando o app atualiza, aparece um popup contando o que melhorou (é este aqui 😄)",
+    ],
+  },
   {
     version: "3.13.56",
     bullets: [
@@ -1155,7 +1163,7 @@ const ValueLabels = {
     // 1) coleta candidatos (valor de cada barra/ponto), com fonte que cabe na barra
     const cand = [];
     chart.data.datasets.forEach((ds, di) => {
-      if (ds._sim || ds._trend) return;                      // não rotula linha do simulador nem a de tendência
+      if (ds._sim || ds._trend || ds._noLabel) return;       // não rotula: simulador, tendência, nem a barra de fundo (Receitas)
       const meta = chart.getDatasetMeta(di);
       if (!meta || meta.hidden) return;
       (meta.data || []).forEach((el, i) => {
@@ -2570,10 +2578,13 @@ function renderCharts() {
   const base = curYear() * 12;                       // gráficos do ANO selecionado (12 meses)
   const labelsH = Array.from({ length: 12 }, (_, i) => MESES_CURTO[i]);
   const bc = $("#barChart");
+  // grouped:false → as duas barras ficam CENTRADAS no mesmo mês (perpendicular ao rótulo), não lado a lado.
+  // Receitas larga e translúcida atrás; Despesas estreita e sólida na frente. Só a Despesa leva rótulo (evita
+  // dois números na mesma vertical). Tooltip mostra os dois valores.
   if (bc) charts.bar = new Chart(bc, { type: "bar",
     data: { labels: labelsH, datasets: [
-      { label: "Receitas", data: labelsH.map((_, i) => receitaMes(base + i)), backgroundColor: "#1db954", borderRadius: 4 },
-      { label: "Despesas", data: labelsH.map((_, i) => despesaMes(base + i)), backgroundColor: "#e5484d", borderRadius: 4 }] },
+      { label: "Receitas", data: labelsH.map((_, i) => receitaMes(base + i)), backgroundColor: "rgba(29,185,84,.28)", borderColor: "#1db954", borderWidth: 1.5, borderRadius: 4, grouped: false, barPercentage: 0.92, categoryPercentage: 0.66, order: 2, _noLabel: true },
+      { label: "Despesas", data: labelsH.map((_, i) => despesaMes(base + i)), backgroundColor: "#e5484d", borderRadius: 4, grouped: false, barPercentage: 0.5, categoryPercentage: 0.66, order: 1 }] },
     options: chartOpts(true) });
   const lc = $("#lineChart");
   if (lc) {
@@ -4493,7 +4504,121 @@ const VAPID_PUBLIC = "BC1EnbsN2qolEkoNvMqsAuqjqrPUfNlslzCnoRIOgWvCthh0ytYXzbUrP9
 let PUSH_API = "https://financas-push.kaickjhon.workers.dev"; // Worker de push (Cloudflare) — avisa com app fechado
 function urlB64ToU8(b64) { const pad = "=".repeat((4 - b64.length % 4) % 4); const s = (b64 + pad).replace(/-/g, "+").replace(/_/g, "/"); const raw = atob(s); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); }
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isAndroid = () => /android/i.test(navigator.userAgent || "");
 const isStandalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+// navegador do celular (pra dar o passo a passo certo de "adicionar à tela de início")
+function mobileBrowser() {
+  const ua = navigator.userAgent || "";
+  if (/CriOS/i.test(ua)) return "chrome-ios";          // Chrome no iPhone/iPad
+  if (/FxiOS/i.test(ua)) return "firefox-ios";
+  if (isIOS()) return "safari-ios";                    // Safari (ou WebView) no iOS
+  if (isAndroid()) return "chrome-android";            // Android: tratamos como Chrome
+  return "other";
+}
+
+/* ===== Guia "Adicionar à tela de início" — passo a passo pelo NAVEGADOR do celular =====
+   Aparece 1x (quando o app vem do zero), só fora do app instalado e só no celular. Dois botões
+   (iOS / Android); no iOS os passos mudam conforme o navegador (Safari × Chrome). */
+const INSTALL_SEEN_KEY = "financas2026.installGuideSeen";
+let deferredInstall = null;                              // Android Chrome: evento beforeinstallprompt
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e; });
+function installGuideApplicable() {
+  if (isStandalone()) return false;                                          // já instalado
+  if (localStorage.getItem(INSTALL_SEEN_KEY) === "1") return false;          // já mostrou uma vez
+  if (window.__demo || document.body.classList.contains("test-mode")) return false;
+  return isIOS() || isAndroid();                                             // só no celular
+}
+const INSTALL_STEPS = {
+  "safari-ios": { ico: "🧭", nome: "Safari (iPhone)", passos: [
+    "Toque no botão <b>Compartilhar</b> — o quadradinho com a setinha pra cima, na barra de baixo.",
+    "Role e toque em <b>“Adicionar à Tela de Início”</b> ➕.",
+    "Toque em <b>“Adicionar”</b>, no canto de cima.",
+  ] },
+  "chrome-ios": { ico: "🌐", nome: "Chrome (iPhone)", passos: [
+    "Toque no botão <b>Compartilhar</b> — o quadradinho com a setinha pra cima, no canto de cima.",
+    "Toque em <b>“Adicionar à Tela de Início”</b> ➕.",
+    "Toque em <b>“Adicionar”</b> pra confirmar.",
+  ] },
+  "chrome-android": { ico: "🤖", nome: "Chrome (Android)", passos: [
+    "Toque no menu <b>⋮</b> (três pontinhos), no canto de cima à direita.",
+    "Toque em <b>“Adicionar à tela inicial”</b> (ou <b>“Instalar app”</b>).",
+    "Confirme em <b>“Adicionar”</b> / <b>“Instalar”</b>.",
+  ] },
+};
+function installStepsHTML(key) {
+  const s = INSTALL_STEPS[key] || INSTALL_STEPS["safari-ios"];
+  const passos = s.passos.map((p, i) => `<li><span class="ig-num">${i + 1}</span><span>${p}</span></li>`).join("");
+  return `<div class="ig-browser">${s.ico} Pelo <b>${esc(s.nome)}</b></div><ol class="ig-steps">${passos}</ol>`;
+}
+function openInstallGuide() {
+  let m = document.getElementById("installModal");
+  if (!m) {
+    m = document.createElement("div"); m.id = "installModal"; m.className = "modal center hidden";
+    m.innerHTML = `<div class="modal-card ig-card">
+      <button type="button" class="wn-close" id="igClose" aria-label="Fechar">✕</button>
+      <div class="ig-head"><div class="ig-emoji">🐧</div><h2>Deixe o MorbiusFin na tela de início</h2>
+        <p class="hint" style="margin:2px 0 0">Assim ele abre como um app de verdade, em tela cheia e offline.</p></div>
+      <div class="ig-tabs" role="tablist">
+        <button type="button" class="ig-tab" data-os="ios">🍏 iPhone</button>
+        <button type="button" class="ig-tab" data-os="android">🤖 Android</button>
+      </div>
+      <div id="igBody" class="ig-body"></div>
+      <div class="modal-actions"><button type="button" class="btn primary" id="igDone">Entendi 👍</button></div>
+    </div>`;
+    document.body.appendChild(m);
+    m.querySelector("#igClose").onclick = closeInstallGuide;
+    m.querySelector("#igDone").onclick = closeInstallGuide;
+    m.addEventListener("click", e => { if (e.target === m) closeInstallGuide(); });
+    m.querySelectorAll(".ig-tab").forEach(b => b.onclick = () => renderInstallGuide(b.dataset.os));
+  }
+  const br = mobileBrowser();
+  const os = (br === "chrome-android") ? "android" : "ios";   // pré-seleciona pelo aparelho detectado
+  renderInstallGuide(os);
+  showModal("#installModal");
+}
+function renderInstallGuide(os) {
+  const m = document.getElementById("installModal"); if (!m) return;
+  m.querySelectorAll(".ig-tab").forEach(b => b.classList.toggle("active", b.dataset.os === os));
+  const br = mobileBrowser();
+  // iOS: passo a passo conforme o navegador real (Safari × Chrome); Android: Chrome.
+  let key;
+  if (os === "android") key = "chrome-android";
+  else key = (br === "chrome-ios") ? "chrome-ios" : "safari-ios";
+  const body = m.querySelector("#igBody");
+  const note = (os === "ios" && br === "firefox-ios")
+    ? `<p class="ig-note">No Firefox o atalho é limitado — pra melhor resultado, abra este link no <b>Safari</b>.</p>` : "";
+  // Android com Chrome e prompt nativo disponível → botão de instalar de 1 toque
+  const nativeBtn = (os === "android" && deferredInstall)
+    ? `<button type="button" class="btn primary ig-native" id="igNative">⚡ Instalar agora</button>` : "";
+  body.innerHTML = installStepsHTML(key) + note + nativeBtn;
+  const nb = body.querySelector("#igNative");
+  if (nb) nb.onclick = async () => {
+    try { deferredInstall.prompt(); const r = await deferredInstall.userChoice; deferredInstall = null; if (r && r.outcome === "accepted") closeInstallGuide(); } catch (e) {}
+  };
+}
+function closeInstallGuide() {
+  const m = document.getElementById("installModal"); if (m) m.classList.add("hidden");
+  try { localStorage.setItem(INSTALL_SEEN_KEY, "1"); } catch (e) {}   // 1x só
+}
+
+/* Sequência de abertura (uma vez por abertura): atualizou? → novidades. 1ª vez no celular? → guia
+   de instalar. Senão → saudação do dia. Decide pela versão guardada vs a que está rodando. */
+const SEEN_VER_KEY = "financas2026.lastSeenVer";
+function runOpenSequence() {
+  let seenVer = null; try { seenVer = localStorage.getItem(SEEN_VER_KEY); } catch (e) {}
+  const updated = !!seenVer && seenVer !== APP_VERSION;
+  try { localStorage.setItem(SEEN_VER_KEY, APP_VERSION); } catch (e) {}
+  const liveProfile = !window.__demo && !document.body.classList.contains("test-mode");
+  // 1) acabou de atualizar → popup das melhorias (prioridade nesta abertura)
+  if (updated && liveProfile) { setTimeout(() => openWhatsNew(true), 380); return; }
+  // 2) fluxo de seed (dados de exemplo) — pode abrir o onboarding próprio
+  maybeStartOnboarding();
+  const onbOpen = !!document.querySelector("#onboarding:not(.hidden)");
+  // 3) primeira vez, no celular, fora do app instalado → guia de "adicionar à tela de início"
+  if (!onbOpen && installGuideApplicable()) { setTimeout(openInstallGuide, 420); return; }
+  // 4) saudação do dia
+  scheduleGreeting();
+}
 async function ativarPush() {
   // iPhone: notificação/push exigem o app instalado na tela de início (regra da Apple)
   if (isIOS() && !isStandalone()) {
@@ -4610,16 +4735,24 @@ function showUpdateBanner(ver) {          // "tem atualização" → ✨ no cabe
   const mi = $("#miUpdate"); if (mi) mi.classList.remove("hidden");            // opção no menu (some quando não há update)
   const sub = $("#miUpdateSub"); if (sub) sub.textContent = updateVer ? ("toque para instalar a v" + updateVer) : "nova versão disponível";
 }
-// abre o modal central de novidades com o changelog
-function openWhatsNew() {
+// abre o modal central de novidades com o changelog.
+// justUpdated===true → o app ACABOU de atualizar: mostra as melhorias e o botão só fecha ("Boa! 🎉").
+// caso contrário → há atualização disponível: o botão aplica a atualização ("Aceitar e atualizar").
+function openWhatsNew(justUpdated) {
   const m = $("#whatsNewModal"); if (!m) return;
   // Mostra SÓ as melhorias da versão ATUAL (a mais recente), não o histórico inteiro.
   const atual = (CHANGELOG || [])[0] || { version: APP_VERSION, bullets: [] };
   const ver = $("#wnVersion"); if (ver) ver.textContent = "v" + esc(atual.version);
+  const title = $("#wnTitle"); if (title) title.textContent = justUpdated === true ? "Atualizado! O que melhorou" : "Novidades";
   const body = $("#wnBody");
   if (body) body.innerHTML = '<div class="wn-entry"><ul>'
     + (atual.bullets || []).map(function (b) { return '<li>' + esc(b) + '</li>'; }).join("")
     + '</ul></div>';
+  const a = $("#wnAccept");
+  if (a) {
+    if (justUpdated === true) { a.textContent = "Boa! 🎉"; a.onclick = () => closeWhatsNew(); }
+    else { a.textContent = "Aceitar e atualizar"; a.onclick = () => applyUpdate(a); }
+  }
   m.classList.remove("hidden");
 }
 function closeWhatsNew() { const m = $("#whatsNewModal"); if (m) m.classList.add("hidden"); }
@@ -6113,8 +6246,7 @@ function finishOpening() {
   try { document.querySelectorAll(".spotlight").forEach(s => s.remove()); _spot = null; } catch (e) {}
   tabbarEntrance();
   viewToggleEntrance();   // o seletor do topo (Resumo·Gráficos·Insights·Metas) entra junto, mesmo efeito
-  maybeStartOnboarding();
-  scheduleGreeting();     // saudação (bom dia/tarde/noite) → ao fechar, dispara a conta a vencer 3s depois
+  runOpenSequence();      // atualizou → novidades · 1ª vez no celular → guia de instalar · senão → saudação
 }
 /* Entrada da tab bar ao abrir: a pílula SOBE de baixo com fade, os ícones surgem em sequência, e
    por fim a lâmina de vidro verde DESLIZA da direita pra esquerda até a aba ativa. Toca 1x. */
