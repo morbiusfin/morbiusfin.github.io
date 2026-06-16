@@ -245,14 +245,10 @@
         <input id="setGreet" type="checkbox" class="switch" />
         <span class="switch-track" aria-hidden="true"></span>
       </label>
-      <div class="settings-buttons">
-        <button class="btn ghost" id="btnExport">⬇️ Exportar backup (.json)</button>
-        <button class="btn ghost" id="btnImport">⬆️ Importar backup</button>
-        <input type="file" id="importFile" accept="application/json" hidden />
-        <button class="btn danger" id="btnReset">♻️ Restaurar dados de exemplo</button>
-      </div>
+      <!-- backup/import/sincronização, tema, PIN ficam no MENU. Aqui só fica o input escondido (usado pelo menu Backup). -->
+      <input type="file" id="importFile" accept="application/json" hidden />
       <div id="notifWrap" style="margin:12px 0"></div>
-      <p class="hint">Seus dados ficam salvos neste aparelho. Faça backup de vez em quando.</p>
+      <p class="hint">Backup, sincronização, tema e PIN estão no menu ☰. Seus dados ficam salvos neste aparelho.</p>
       <div class="modal-actions">
         <button type="button" class="btn primary" id="btnCloseSettings">Fechar</button>
       </div>

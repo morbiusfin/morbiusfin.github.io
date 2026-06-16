@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.58";
+const APP_VERSION = "3.13.59";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.59",
+    bullets: [
+      "Configurações enxuta: tiramos o que já estava no menu (backup, importar, restaurar exemplo, tema, PIN, sincronização e push). Ficou só saldo inicial, saudação e notificações",
+    ],
+  },
   {
     version: "3.13.58",
     bullets: [
@@ -4258,10 +4264,10 @@ function openSettings() {
 { const bs = $("#btnSettings"); if (bs) bs.onclick = openSettings; }   // botão saiu do header; fica no menu
 $("#btnCloseSettings").onclick = () => { DATA.saldoInicial = moneyVal($("#saldoInicial")); persist(); $("#settingsModal").classList.add("hidden"); };
 $("#settingsModal").onclick = (e) => { if (e.target.id === "settingsModal") $("#settingsModal").classList.add("hidden"); };
-$("#btnExport").onclick = () => { const b = new Blob([JSON.stringify(DATA, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `financas-${DATA.year}-backup.json`; a.click(); toast("Backup exportado"); };
-$("#btnImport").onclick = () => $("#importFile").click();
-$("#importFile").onchange = (e) => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { DATA = migrate(JSON.parse(r.result)); persist(); toast("Backup importado"); $("#settingsModal").classList.add("hidden"); } catch { toast("Arquivo inválido"); } }; r.readAsText(f); };
-$("#btnReset").onclick = () => modalConfirm("Apagar tudo e voltar aos dados de exemplo?", () => { DATA = resetData(); persist(); toast("Restaurado"); $("#settingsModal").classList.add("hidden"); }, "Apagar tudo");
+// Exportar/Importar agora vivem no menu (Backup e sincronização). O input #importFile (escondido) é
+// usado pelo modal de backup; o export é esta função, chamada pelo mesmo modal.
+function exportBackup() { const b = new Blob([JSON.stringify(DATA, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `financas-${DATA.year}-backup.json`; a.click(); toast("Backup exportado"); }
+{ const ip = $("#importFile"); if (ip) ip.onchange = (e) => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { DATA = migrate(JSON.parse(r.result)); persist(); toast("Backup importado"); const bm = $("#backupModal"); if (bm) bm.classList.add("hidden"); } catch { toast("Arquivo inválido"); } }; r.readAsText(f); }; }
 
 /* ---------- Menu lateral (☰) — hub de opções ---------- */
 function openMenu() {
@@ -4302,7 +4308,7 @@ function backupModalEl() {
     m.querySelector("#bkCancel").onclick = close;
     m.querySelector("#bkSync").onclick = () => { close(); markExplored("sync"); if (syncCfg()) pullSync(true, null, true); else configurarSync(); };
     m.querySelector("#bkImport").onclick = () => { close(); $("#importFile").click(); };
-    m.querySelector("#bkExport").onclick = () => { close(); $("#btnExport").click(); };
+    m.querySelector("#bkExport").onclick = () => { close(); exportBackup(); };
   }
   return m;
 }
@@ -4672,34 +4678,15 @@ async function ativarPush() {
   render();
 }
 
+// Em Configurações ficou SÓ a notificação. Tema, PIN e sincronização vivem no menu ☰.
 function renderNotifBtn() {
   const wrap = $("#notifWrap"); if (!wrap) return;
   const perm = ("Notification" in window) ? Notification.permission : "unsupported";
-  const pushOn = !!localStorage.getItem("financas2026.pushsub");
-  wrap.innerHTML =
-    `<button class="btn ghost" id="btnTheme">🌗 Tema: ${themeLabel()}</button>`
-    + `<hr style="border:0;border-top:1px solid var(--line);margin:14px 0">`
-    + (perm === "granted"
-      ? `<div class="hint">🔔 Notificações do sistema ativadas.</div><button class="btn ghost" id="btnTest">📲 Enviar notificação de teste</button>`
-      : `<button class="btn primary" id="btnNotif">🔔 Ativar notificações</button><p class="hint" style="margin-top:6px">O <b>aviso dentro do app</b> (ao abrir) já funciona sem instalar. A notificação do <b>sistema</b> funciona no PC/Android; no iPhone, só com o app na tela de início.</p>`)
-    + `<button class="btn ghost" id="btnPush" style="margin-top:10px">📡 ${pushOn ? "Push ativo — reativar" : "Ativar push no celular (app fechado)"}</button>`
-    + `<hr style="border:0;border-top:1px solid var(--line);margin:14px 0">`
-    + (window.CRYPTO_KEY
-        ? `<button class="btn ghost" id="btnPin">🔓 Remover PIN</button><p class="hint" style="margin-top:6px">🔒 Protegido: seus dados estão criptografados neste aparelho.</p>`
-        : `<button class="btn primary" id="btnPin">🔒 Proteger o app com PIN</button><p class="hint" style="margin-top:6px">Exige um PIN pra abrir e criptografa seus valores no aparelho.</p>`)
-    + `<hr style="border:0;border-top:1px solid var(--line);margin:14px 0">`
-    + (syncCfg()
-        ? `<button class="btn primary" id="btnSync">🔄 Baixar da web agora</button><button class="btn ghost" id="btnSyncCfg" style="margin-top:8px">⚙️ Reconfigurar sincronização</button>${syncStatusHTML()}`
-        : `<button class="btn primary" id="btnSyncCfg">🔄 Ativar sincronização (celular ↔ web)</button><p class="hint" style="margin-top:6px">⚠️ Sincronização <b>desligada neste aparelho</b> — por isso ele não mostra o que está na web. Toque para ativar.</p>`)
-    + `<p class="hint" style="margin-top:8px">Push exige abrir pelo app instalado na tela de início. Versão: <b>v${APP_VERSION}</b></p>`;
+  wrap.innerHTML = (perm === "granted"
+    ? `<div class="hint">🔔 Notificações do sistema ativadas.</div><button class="btn ghost" id="btnTest">📲 Enviar notificação de teste</button>`
+    : `<button class="btn primary" id="btnNotif">🔔 Ativar notificações</button><p class="hint" style="margin-top:6px">O <b>aviso dentro do app</b> (ao abrir) já funciona sem instalar. A notificação do <b>sistema</b> funciona no PC/Android; no iPhone, só com o app na tela de início.</p>`);
   const b = $("#btnNotif"); if (b) b.onclick = pedirNotificacao;
   const tb = $("#btnTest"); if (tb) tb.onclick = enviarTeste;
-  const pb = $("#btnPush"); if (pb) pb.onclick = ativarPush;
-  // usa o fluxo HTML (modal de 4 dígitos) — prompt()/confirm() nativos são bloqueados no PWA do iOS
-  const pin = $("#btnPin"); if (pin) pin.onclick = () => openAccessModal();
-  const sc = $("#btnSyncCfg"); if (sc) sc.onclick = configurarSync;
-  const sn = $("#btnSync"); if (sn) sn.onclick = () => pullSync(true, null, true);
-  const th = $("#btnTheme"); if (th) th.onclick = cycleTheme;
 }
 // Linha de diagnóstico da sincronização (mostra se está realmente puxando)
 function syncStatusHTML() {
