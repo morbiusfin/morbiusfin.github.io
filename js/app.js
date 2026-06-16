@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.32";
+const APP_VERSION = "3.13.33";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.33",
+    bullets: [
+      "Saudação de abertura: botão centralizado, com contador 3→2→1 ao lado da escrita (no 0 fecha sozinho subindo) e toque mais responsivo",
+      "Nova chave em Configurações: ligar/desligar a Saudação ao abrir o app",
+    ]
+  },
   {
     version: "3.13.32",
     bullets: [
@@ -1187,6 +1194,7 @@ function primeiroNome() {
   const n = (getPerfil().nome || "").trim();
   return n ? n.split(/\s+/)[0] : "";
 }
+let _greetT = null;
 function showGreeting() {
   const m = $("#greetModal"); if (!m) return;
   const p = greetPeriodo(new Date().getHours());
@@ -1194,12 +1202,26 @@ function showGreeting() {
   const pick = p.pool[Math.floor(Math.random() * p.pool.length)];
   const img = m.querySelector(".greet-emoji-img"); if (img) img.src = "emoji/" + pick + ".webp";
   $("#greetTitle").textContent = nome ? `${p.txt}, ${nome}` : `${p.txt}!`;
-  const btn = $("#greetBtn"); if (btn) { btn.textContent = p.txt; btn.onclick = closeGreeting; }
+  const btn = $("#greetBtn");
+  if (btn) {
+    btn.innerHTML = `<span class="greet-btn-txt">${esc(p.txt)}</span><span class="greet-count" aria-hidden="true">3</span>`;
+    btn.onclick = closeGreeting;                                  // toque fecha na hora (mesmo antes do 0)
+  }
   try { lockScroll(); } catch (e) {}
   m.classList.remove("hidden", "greet-out"); m.classList.add("center");
+  // contador 3 → 2 → 1 → no 0 fecha sozinho com o efeito (sobe e encolhe)
+  clearInterval(_greetT);
+  const cnt = btn ? btn.querySelector(".greet-count") : null;
+  let s = 3;
+  _greetT = setInterval(() => {
+    s--;
+    if (s <= 0) { clearInterval(_greetT); _greetT = null; closeGreeting(); return; }
+    if (cnt) { cnt.textContent = s; cnt.classList.remove("tick"); void cnt.offsetWidth; cnt.classList.add("tick"); }
+  }, 1000);
 }
 function closeGreeting() {
   const m = $("#greetModal"); if (!m || m.classList.contains("greet-out")) return;
+  clearInterval(_greetT); _greetT = null;
   m.classList.add("greet-out");                                   // a caixa sobe do meio e encolhe
   setTimeout(() => {
     m.classList.add("hidden"); m.classList.remove("greet-out", "center");
@@ -1207,11 +1229,14 @@ function closeGreeting() {
     setTimeout(firePendingBill, 3000);                            // contas a vencer: 3s após a saudação sair 100%
   }, 620);                                                        // = duração do greetUp
 }
+const GREET_OFF_KEY = "financas2026.greetOff";
+function greetEnabled() { return localStorage.getItem(GREET_OFF_KEY) !== "1"; }   // padrão: ligada
 // chamada ao terminar a abertura (sem senha = finishOpening; com senha = fim da cortina playUnlock)
 function scheduleGreeting() {
   if (window.__greeted) return; window.__greeted = true;
   const onb = document.getElementById("onboarding");
-  if (window.__pairing || (onb && !onb.classList.contains("hidden"))) {   // onboarding/pareamento manda → sem saudação
+  // saudação desligada nas Configurações, ou onboarding/pareamento mandando → pula a saudação
+  if (!greetEnabled() || window.__pairing || (onb && !onb.classList.contains("hidden"))) {
     setTimeout(firePendingBill, 5000);
     return;
   }
@@ -3713,7 +3738,12 @@ document.addEventListener("keydown", (e) => {
 });
 $("#btnCancel").onclick = closeModal;
 $("#modal").onclick = (e) => { if (e.target.id === "modal") closeModal(); };
-function openSettings() { $("#saldoInicial").value = DATA.saldoInicial || 0; renderNotifBtn(); showModal("#settingsModal"); }
+function openSettings() {
+  $("#saldoInicial").value = DATA.saldoInicial || 0;
+  const sg = $("#setGreet");
+  if (sg) { sg.checked = greetEnabled(); sg.onchange = () => { localStorage.setItem(GREET_OFF_KEY, sg.checked ? "0" : "1"); toast(sg.checked ? "Saudação ligada 👋" : "Saudação desligada"); }; }
+  renderNotifBtn(); showModal("#settingsModal");
+}
 { const bs = $("#btnSettings"); if (bs) bs.onclick = openSettings; }   // botão saiu do header; fica no menu
 $("#btnCloseSettings").onclick = () => { DATA.saldoInicial = moneyVal($("#saldoInicial")); persist(); $("#settingsModal").classList.add("hidden"); };
 $("#settingsModal").onclick = (e) => { if (e.target.id === "settingsModal") $("#settingsModal").classList.add("hidden"); };
@@ -4597,6 +4627,8 @@ const FAQ = [
     d: "No menu ☰ → <b>Conta e acesso</b>. Você pode proteger o app com um <b>PIN de 4 dígitos</b> (com a animação do cadeado ao abrir). Se não criar senha, o app abre direto. Tem também o modo teste com dados fictícios, que nunca toca nos seus dados reais." },
   { t: "🌗 Tema", go: "tema", btn: "Abrir Aparência",
     d: "No menu ☰ → <b>Tema</b>: alterne entre <b>Claro</b>, <b>Escuro</b> e <b>Automático</b> (segue o sistema). A troca é suave, sem piscar a tela." },
+  { t: "👋 Saudação ao abrir", go: "config", btn: "Abrir Configurações",
+    d: "Ao abrir o app aparece uma <b>saudação</b> (Bom dia/Boa tarde/Boa noite conforme a hora) com o seu nome e um emoji animado. O botão tem um <b>contador (3 → 1)</b> e some sozinho no zero — ou toque pra fechar na hora. Pra <b>ligar/desligar</b>: menu ☰ → <b>Configurações</b> → chave <b>Saudação ao abrir o app</b>." },
 ];
 let _faqReturnT = null, _faqReturnIdx = 0;
 function faqGo(action) {
@@ -4642,6 +4674,7 @@ function faqGo(action) {
       case "backup":     openMenu(); setTimeout(() => focarEl("#miImport"), 380); break;
       case "acesso":     openAccessModal(); break;
       case "tema":       openThemeModal(); break;
+      case "config":     openSettings(); setTimeout(() => focarEl("#setGreet", 2600), 140); break;
     }
   }, 60);
 }
