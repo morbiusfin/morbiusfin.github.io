@@ -1175,11 +1175,20 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
 .field input, .field select { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 13px; font-size: 16px;
   background: var(--card-2); color: var(--ink); font-family: var(--font); transition: border-color .2s ease, box-shadow .2s ease; }
 .field input:focus, .field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--ring); }
-/* input[type=date] no iOS: o valor vinha CENTRALIZADO e fora da caixa → mesma altura dos campos
-   de texto e valor alinhado à esquerda, igual ao "Descrição"/"Valor" logo acima. */
-.field input[type="date"] { line-height: 1.3; min-height: 48px; text-align: left; }
+/* input[type=date] no iOS: o controle nativo impõe altura/centralização próprias e o valor
+   saía CENTRALIZADO e fora da caixa. -webkit-appearance:none remove o estilo nativo → vira uma
+   caixa idêntica à de texto (mesma altura do "Valor da compra"). O toque ainda abre o calendário. */
+.field input[type="date"] {
+  -webkit-appearance: none; appearance: none;
+  text-align: left; line-height: normal;
+  /* o controle de data reserva ~2px a mais de conteúdo que um input de texto → fixa a MESMA
+     altura de caixa do "Valor da compra" (border-box: 22px conteúdo + 26 padding + 2 borda). */
+  box-sizing: border-box; height: 50px; min-height: 50px;
+}
 .field input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
-.field input[type="date"]::-webkit-datetime-edit { padding: 0; text-align: left; }
+.field input[type="date"]::-webkit-datetime-edit { padding: 0; text-align: left; line-height: normal; }
+.field input[type="date"]::-webkit-inner-spin-button { display: none; }
+.field input[type="date"]::-webkit-calendar-picker-indicator { margin: 0; padding: 0; width: 18px; height: 18px; }
 .field-row { display: flex; gap: 10px; }
 .field-row .field { flex: 1; }
 .modal-actions { display: flex; gap: 10px; margin-top: 10px; }
