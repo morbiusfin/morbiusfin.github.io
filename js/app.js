@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.38";
+const APP_VERSION = "3.13.39";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.39",
+    bullets: [
+      "Com a saudação desligada, o título do topo fica fixo no nome da página (não re-digita à toa)",
+      "Botões de mês maiores e mais fáceis de tocar",
+      "Tela de Metas vazia agora tem um alvo 🎯 animado",
+    ]
+  },
   {
     version: "3.13.38",
     bullets: [
@@ -1313,6 +1321,9 @@ function applyScreenTitle() {
 function scheduleTitleTick() { clearTimeout(_twTimer); _twTimer = setTimeout(titleTick, 2600); }   // segura ~2,6s e troca
 function titleTick() {
   if (document.visibilityState !== "visible" || document.querySelector(".modal:not(.hidden)")) { scheduleTitleTick(); return; }
+  // saudação desligada → não há alternância real (titleParts dá sempre o nome da página).
+  // Fica estático no nome da página e mantém o timer agendado (retoma se religar).
+  if (!greetEnabled()) { if (_titleShowGreet) { _titleShowGreet = false; applyScreenTitle(); } else scheduleTitleTick(); return; }
   _titleShowGreet = !_titleShowGreet;
   if (_titleShowGreet) _titleEmoji = "";                          // novo emoji a cada saudação
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1914,7 +1925,7 @@ function openMetasModal() {
 function renderMetasList() {
   const wrap = document.getElementById("metasList"); if (!wrap) return;
   const obs = objetivos();
-  if (!obs.length) { wrap.innerHTML = '<p class="hint" style="text-align:left;margin:0 0 6px">Nenhuma meta ainda. Crie a primeira aí embaixo 👇</p>'; return; }
+  if (!obs.length) { wrap.innerHTML = '<div class="empty empty-rich">' + animEmoji("alvo", "🎯", "empty-emoji") + '<div class="empty-txt">Nenhuma meta ainda.<br><span>Crie a primeira aí embaixo 👇</span></div></div>'; return; }
   wrap.innerHTML = obs.map(o => {
     const alvo = Number(o.alvo) || 0, guard = Math.max(0, Number(o.guardado) || 0);
     const pct = alvo > 0 ? Math.max(0, Math.min(100, Math.round(guard / alvo * 100))) : 0;

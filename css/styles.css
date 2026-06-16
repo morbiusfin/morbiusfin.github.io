@@ -634,7 +634,7 @@ body.test-mode .test-badge button:active { transform: scale(.96); }
 .month-bar::-webkit-scrollbar { display: none; }
 .month-chip {
   flex: 0 0 auto; background: rgba(255,255,255,.12); color: rgba(255,255,255,.92); border: 1px solid rgba(255,255,255,.08);
-  padding: 7px 15px; border-radius: 20px; font-size: 14px; font-weight: 700; letter-spacing: .2px; scroll-snap-align: center;
+  padding: 11px 15px; border-radius: 20px; font-size: 14px; font-weight: 700; letter-spacing: .2px; scroll-snap-align: center; touch-action: manipulation;
   transition: transform .18s cubic-bezier(.2,.8,.2,1), background .25s ease, color .25s ease, box-shadow .25s ease;
 }
 .month-chip:active { transform: scale(.9); }
