@@ -959,19 +959,7 @@ body.lock-on .tabbar, body.lock-on #fab { visibility: hidden; }
 .sel-cancel { background: var(--card-2); border: 1px solid var(--line); color: var(--ink); font-weight: 800;
   font-size: 12.5px; padding: 7px 13px; border-radius: 10px; cursor: pointer; font-family: var(--font); }
 .sel-cancel:active { transform: scale(.96); }
-/* barra flutuante de apagar (sobe de baixo, acima da tabbar) */
-.bulk-bar { position: fixed; left: 12px; right: 12px; bottom: calc(86px + var(--safe-bottom)); z-index: 70;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px;
-  box-shadow: 0 14px 40px rgba(0,0,0,.4); transform: translateY(140%); opacity: 0;
-  transition: transform .32s cubic-bezier(.2,.9,.2,1.1), opacity .25s ease; }
-.bulk-bar.show { transform: translateY(0); opacity: 1; }
-.bulk-bar.hidden { display: none; }
-.bulk-bar .bb-count { font-weight: 800; font-size: 14px; color: var(--ink); }
-.bulk-bar .bb-del { background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; border: 0; font-weight: 800;
-  font-size: 14px; padding: 11px 20px; border-radius: 12px; cursor: pointer; font-family: var(--font);
-  box-shadow: 0 6px 18px rgba(220,38,38,.4); }
-.bulk-bar .bb-del:active { transform: scale(.96); }
+/* (a barra flutuante de apagar foi removida — cobria os últimos itens. Agora o FAB vira 🗑️.) */
 /* modal de escopo (este mês / em diante / escolher) */
 .bulk-card { text-align: center; }
 .bulk-card .bm-opts { display: flex; flex-direction: column; gap: 10px; }
@@ -1020,11 +1008,19 @@ body.lock-on .tabbar, body.lock-on #fab { visibility: hidden; }
 
 /* ===== FAB ===== */
 .fab { position: fixed; right: 18px; bottom: calc(108px + var(--safe-bottom)); width: 58px; height: 58px;
+  display: grid; place-items: center;
   border-radius: 50%; border: 0; background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: #fff; font-size: 30px; line-height: 1;
-  box-shadow: 0 10px 24px rgba(21,194,102,.5); z-index: 40; transition: transform .14s ease, box-shadow .2s ease; }
+  box-shadow: 0 10px 24px rgba(21,194,102,.5); z-index: 40; transition: transform .14s ease, box-shadow .2s ease, background .22s ease; }
 .fab:hover { box-shadow: 0 12px 30px rgba(21,194,102,.6); }
 .fab:active { transform: scale(.9); }
 .fab.hidden { display: none; }
+/* Seleção: o + vira lixeira vermelha NO MESMO LUGAR. Ao apagar/cancelar volta a ser +. */
+.fab.trash { background: linear-gradient(135deg, #ff6259, #e5403a); box-shadow: 0 12px 30px rgba(229,64,58,.55); font-size: 26px;
+  animation: fabTrashPop .3s cubic-bezier(.34,1.5,.5,1); }
+.fab.trash:hover { box-shadow: 0 14px 34px rgba(229,64,58,.62); }
+.fab.trash-off { filter: grayscale(.35) brightness(.82); opacity: .65; pointer-events: none; box-shadow: 0 8px 18px rgba(229,64,58,.3); }
+@keyframes fabTrashPop { 0% { transform: scale(.55) rotate(-14deg); } 60% { transform: scale(1.14) rotate(5deg); } 100% { transform: scale(1) rotate(0); } }
+@media (prefers-reduced-motion: reduce) { .fab.trash { animation: none; } }
 
 /* ===== Balão PIX / Débito (escolha de método no Dia a Dia) ===== */
 .method-pop { position: fixed; right: 18px; bottom: calc(158px + var(--safe-bottom)); z-index: 60; width: 234px;

@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.52";
+const APP_VERSION = "3.13.53";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.53",
+    bullets: [
+      "Apagar itens: acabou a barra que cobria os últimos lançamentos. Ao segurar pra selecionar, o + vira uma 🗑️ vermelha no mesmo lugar; apagou ou cancelou, o + volta",
+    ],
+  },
   {
     version: "3.13.52",
     bullets: [
@@ -1504,7 +1510,8 @@ function render() {
     cartao: "Cartões", diaria: "Débitos do dia a dia"
   })[curTab];
   applyScreenTitle();
-  $("#fab").classList.toggle("hidden", curTab === "resumo" || selMode);   // sem + durante a seleção
+  $("#fab").classList.toggle("hidden", curTab === "resumo");   // some só no Resumo
+  updateFab();                                                 // na seleção, o + vira 🗑️ vermelha (mesmo lugar)
   const view = $("#view");
   view.classList.toggle("no-anim", noAnim);
   // preserva a posição do scroll ao reconstruir a lista (senão entrar em seleção por toque-longo
@@ -3120,29 +3127,22 @@ function bindSelBar(view) {
   const sh = $("#selHow", view); if (sh) sh.onchange = () => { applySelectHow(sh.value); suppressNextAnim = true; render(); };
 }
 
-/* barra flutuante de apagar (sobe quando há seleção) */
-function bulkBarEl() {
-  let b = document.getElementById("bulkBar");
-  if (!b) {
-    b = document.createElement("div");
-    b.id = "bulkBar"; b.className = "bulk-bar hidden";
-    b.innerHTML = `<span class="bb-count"></span><button class="bb-del" id="bbDel">🗑️ Apagar</button>`;
-    document.body.appendChild(b);
-    b.querySelector("#bbDel").onclick = openBulkDelete;
-  }
-  return b;
-}
-function updateBulkBar() {
-  const b = bulkBarEl(), show = selMode && selected.size > 0;
-  if (show) {
-    b.querySelector(".bb-count").textContent = `${selected.size} selecionado(s)`;
-    b.classList.remove("hidden");
-    requestAnimationFrame(() => b.classList.add("show"));
+/* Apagar em massa: NÃO há mais barra flutuante (ela cobria os últimos itens). A contagem fica na
+   sel-bar no topo da lista; a ação de apagar fica no FAB, que vira 🗑️ vermelha durante a seleção. */
+function updateFab() {
+  const fab = $("#fab"); if (!fab) return;
+  if (selMode) {
+    fab.classList.add("trash");
+    fab.classList.toggle("trash-off", selected.size === 0);   // nada marcado → apagar inativo
+    fab.setAttribute("aria-label", `Apagar ${selected.size} selecionado(s)`);
+    if (fab.textContent !== "🗑️") fab.textContent = "🗑️";
   } else {
-    b.classList.remove("show");
-    setTimeout(() => { if (!(selMode && selected.size > 0)) b.classList.add("hidden"); }, 280);
+    fab.classList.remove("trash", "trash-off");
+    fab.setAttribute("aria-label", "Adicionar");
+    if (fab.textContent !== "+") fab.textContent = "+";
   }
 }
+function updateBulkBar() { updateFab(); }   // toggleSel chama isto ao marcar/desmarcar → atualiza o estado do 🗑️
 
 /* modal de escopo: este mês / deste mês em diante / escolher meses */
 function bulkModalEl() {
@@ -3961,7 +3961,10 @@ let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.
 $$(".tab").forEach(t => t.onclick = () => commitTab(t));
 bindGlassDrag($(".tabbar"), ".tab", commitTab, "tab");
 window.addEventListener("resize", () => { syncTabGlass(false); });
-$("#fab").onclick = () => curTab === "diaria" ? openDiariaChooser() : curTab === "cartao" ? openCartaoChooser() : openEntryModal(curTab, null);
+$("#fab").onclick = () => {
+  if (selMode) { if (selected.size) openBulkDelete(); return; }   // 🗑️ → apaga selecionados (modal de escopo)
+  return curTab === "diaria" ? openDiariaChooser() : curTab === "cartao" ? openCartaoChooser() : openEntryModal(curTab, null);
+};
 $("#btnUndo").onclick = undo;
 { const br = $("#btnRefresh"); if (br) br.onclick = syncNow; }
 { const rd = $("#btnRedo"); if (rd) rd.onclick = redo; }
