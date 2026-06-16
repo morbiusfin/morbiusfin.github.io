@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.36";
+const APP_VERSION = "3.13.37";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.37",
+    bullets: [
+      "Metas: o emoji agora combina de verdade com o texto — dicionário grande em português (celular, casa, casamento, viagem, carro, moto, bike, pets, bebê, academia, games, câmera e muito mais)",
+      "Corrigido: \"Celular\" virava 🏠 (a palavra tinha \"lar\" dentro). Agora cada meta pega o emoji mais próximo do contexto e, sem combinação, usa um alvo 🎯 neutro",
+    ]
+  },
   {
     version: "3.13.36",
     bullets: [
@@ -1798,19 +1805,58 @@ function openThemeModal() {
 
 /* ===================== 🎯 Metas (objetivos) — viagem, casa, carro… com emoji animado ===================== */
 // emoji do objetivo a partir do nome digitado (anima ao vivo). Usa o WebP animado quando há; senão o emoji.
+// Escolhe o emoji animado MAIS PRÓXIMO do contexto do texto da meta (pt-BR).
+// Dicionário grande com sinônimos; \b nas palavras curtas pra não cair em armadilha
+// (ex.: "celuLAR" não pode virar casa por causa de "lar"). Padrão neutro = 🎯 alvo.
 function metaEmojiFor(nome) {
   const s = (nome || "").toLowerCase();
   const map = [
-    [/viag|viaj|f[ée]rias|passag|trip|m[ií]lhas/, "aviao", "✈️"],
-    [/casa|ap[êe]\b|apart|im[óo]vel|reforma|lar\b|mudan/, "casa", "🏠"],
-    [/carro|moto\b|ve[íi]culo|autom|pneu/, "carro", "🚗"],
-    [/presente|anivers|natal|gift|surpresa/, "presente", "🎁"],
-    [/faculd|curso|formatur|estud|escola|p[óo]s|mba|intercamb/, "formatura", "🎓"],
-    [/casam|anel|noiv|alian/, "anel", "💍"],
-    [/note|computad|\bpc\b|celular|eletr|tech|tel[ée]fone|gadget/, "notebook", "💻"],
+    // viagem / lazer
+    [/\b(viag|viaj|f[ée]rias|passag|trip|m[ií]lhas|mochil|turismo|excurs|rolê|role\b|disney|europa)/, "aviao", "✈️"],
+    [/\b(cruzeiro|veleiro|barco|lancha|iate|navio|vela\b)/, "veleiro", "⛵"],
+    [/\b(praia|litoral|\bmar\b|ilha|caribe|maldivas|resort)/, "veleiro", "⛵"],
+    // casamento / joias (ANTES de casa: "casamento" contém "casa")
+    [/\b(casam|noiv|alian[çc]a|bodas|lua de mel)/, "anel", "💍"],
+    [/\b(anel|joia|j[óo]ia|ouro|brilhante|colar\b|brinco)/, "diamante", "💎"],
+    // moradia
+    [/\b(casa|ap[êe]\b|apart|im[óo]vel|reforma|terreno|\blar\b|mudan[çc]a|aluguel|s[íi]tio|ch[áa]cara|fazenda|m[óo]veis|decora)/, "casa", "🏠"],
+    // veículos
+    [/\bmoto(ca|cicleta)?\b/, "moto", "🏍️"],
+    [/\b(bike|bicicleta|ciclismo|speed\b|caloi)/, "bicicleta", "🚲"],
+    [/\b(carro|autom|ve[íi]culo|pneu|carr[ãa]o|0km|zero km|honda|toyota|fiat|jeep)/, "carro", "🚗"],
+    // estudos
+    [/\b(faculd|curso|formatur|gradua|estud|escola|p[óo]s\b|mba|intercamb|concurso|vestibular|enem|mestrado|doutorado|idioma|ingl[êe]s|espanhol)/, "formatura", "🎓"],
+    [/\b(livro|leitura|biblioteca|kindle)/, "livros", "📚"],
+    // eletrônicos
+    [/\b(celular|smartphone|iphone|android|note(book)?|laptop|computad|\bpc\b|eletr[ôo]nic|tablet|ipad|tech|gadget|tel[ée]fone|fone\b|monitor)/, "notebook", "💻"],
+    [/\b(tv|televis[ãa]o|home theater|smart ?tv|projetor)/, "tv", "📺"],
+    [/\b(c[âa]mera|c[âa]mara|fotografi|\bfoto\b|drone|gopro|filmadora|lente)/, "camera", "📷"],
+    [/\b(game|videogame|video ?game|console|playstation|\bps5\b|\bps4\b|\bxbox\b|nintendo|switch\b|\bjogo)/, "games", "🎮"],
+    [/\b(guitarra|viol[ãa]o|instrumento|m[úu]sica|teclado musical|baixo musical|piano|ukulele)/, "guitarra", "🎸"],
+    // moda
+    [/\b(t[êe]nis|sapato|cal[çc]ado|roupa|vestido|moda|sneaker|bota\b|jaqueta)/, "tenis", "👟"],
+    // comida
+    [/\b(comida|restaurante|jantar|lanche|gastronomia|churrasc|pizza|hamburg|cafe\b|caf[ée])/, "comida", "🍔"],
+    // pets
+    [/\b(cachorr|c[ãa]o\b|\bdog\b|\bpet\b|filhote)/, "cachorro", "🐶"],
+    [/\bgat[oa]s?\b/, "gato", "🐱"],
+    [/\b(passarinho|p[áa]ssaro|\bave\b|periquito|calopsita)/, "passaro", "🐦"],
+    // família
+    [/\b(beb[êe]|filho|filha|gravidez|gr[áa]vida|maternidade|enxoval|mamadeira|fralda)/, "mamadeira", "🍼"],
+    // saúde
+    [/\b(sa[úu]de|academia|\bgym\b|treino|muscula|dieta|emagrec|fitness|crossfit|dent[íi]sta|cirurg)/, "musculo", "💪"],
+    // negócio / sonhos
+    [/\b(empresa|neg[óo]cio|startup|empreend|\bloja\b|fran(quia|chise))/, "foguete", "🚀"],
+    [/\b(festa|comemora|evento|debutante|15 anos|anivers)/, "festa", "🎉"],
+    [/\b(amor|namoro|relacionamento|cora[çc][ãa]o|presente.*amor)/, "coracao", "❤️"],
+    [/\b(rel[óo]gio|smartwatch|apple ?watch|despertador)/, "despertador", "⏰"],
+    // dinheiro
+    [/\b(reserva|emerg[êe]ncia|poupan[çc]a|guardar|economi|grana|dinheiro|invest|aposentadoria|fundo|prev|cofre)/, "dinheiroalado", "💸"],
+    [/\b(pr[êe]mio|conquista|trof[ée]u|campe[ãa]o|objetivo)/, "trofeu", "🏆"],
+    [/\b(sonho|estrela|desejo|futuro)/, "estrela", "⭐"],
   ];
   for (let i = 0; i < map.length; i++) if (map[i][0].test(s)) return { e: map[i][1], emoji: map[i][2] };
-  return { e: "dinheiroalado", emoji: "💸" };   // padrão: "guardar dinheiro"
+  return { e: "alvo", emoji: "🎯" };   // padrão neutro: meta/objetivo
 }
 function objetivos() { return (DATA.objetivos = DATA.objetivos || []); }
 let _metaEdit = null;   // id em edição (ou null = novo)

@@ -1,5 +1,5 @@
 /* Service Worker — network-first (sempre busca a versão nova; cache só offline) */
-const CACHE = "financas-v184";
+const CACHE = "financas-v185";
 const ASSETS = [
   "./", "./index.html",
   "./css/styles.css",
@@ -27,7 +27,11 @@ const ASSETS = [
   "./emoji/aceno.webp", "./emoji/grafico.webp", "./emoji/mais.webp", "./emoji/coracao.webp", "./emoji/interrogacao.webp",
   // saudação de abertura (bom dia/tarde/noite) — clima/dia/noite (estrela, brilho já no cache)
   "./emoji/nascersol.webp", "./emoji/solnuvem.webp", "./emoji/solrosto.webp", "./emoji/porsol.webp",
-  "./emoji/luacheia.webp", "./emoji/luarosto.webp", "./emoji/luanova.webp", "./emoji/vialactea.webp", "./emoji/estrelabrilho.webp"
+  "./emoji/luacheia.webp", "./emoji/luarosto.webp", "./emoji/luanova.webp", "./emoji/vialactea.webp", "./emoji/estrelabrilho.webp",
+  // metas (objetivos) — emoji por contexto do texto (gato já no cache; aviao/casa/carro/etc também)
+  "./emoji/moto.webp", "./emoji/bicicleta.webp", "./emoji/veleiro.webp", "./emoji/livros.webp", "./emoji/tenis.webp",
+  "./emoji/comida.webp", "./emoji/tv.webp", "./emoji/camera.webp", "./emoji/guitarra.webp", "./emoji/games.webp",
+  "./emoji/cachorro.webp", "./emoji/passaro.webp", "./emoji/mamadeira.webp", "./emoji/despertador.webp"
 ];
 
 self.addEventListener("install", (e) => {
