@@ -1,11 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.42";
+const APP_VERSION = "3.13.43";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.43",
+    bullets: [
+      "Tela de entrada/código: acabou a faixa branca que piscava embaixo (no iPhone)",
+      "Editar perfil: o botão ✕ fica fixo no topo da janela ao rolar, com o título sempre visível",
+      "Avatar/foto com emoji animado centralizado num círculo perfeito (perfil e tela de entrada)",
+      "Botões da confirmação de \"Sair do app\" com respiro nas laterais (não grudam mais na borda)",
+    ]
+  },
   {
     version: "3.13.42",
     bullets: [

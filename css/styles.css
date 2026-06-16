@@ -103,8 +103,10 @@ html { background: var(--card); min-height: 100%; overscroll-behavior-y: none; t
 html:has(body.splash-on) { background: #05110c; }
 /* na tela de CÓDIGO o fundo é o MESMO verde da entrada → ao abrir o teclado, atrás dele aparece
    só o verde (nunca o app). Esconde também o conteúdo do app pra não vazar no vão do teclado (iOS). */
-html:has(body.lock-on) { background: linear-gradient(160deg, #0b3d2e 0%, #12734d 100%); }
-body.lock-on { background: linear-gradient(160deg, #0b3d2e 0%, #12734d 100%); }
+/* COR sólida ANTES do gradiente: a área de overscroll/safe-area do iOS pinta a background-COLOR
+   (o gradiente é imagem) — sem a cor sólida, sobra a faixa BRANCA embaixo. */
+html:has(body.lock-on) { background: #0b3d2e linear-gradient(160deg, #0b3d2e 0%, #12734d 100%); }
+body.lock-on { background: #0b3d2e linear-gradient(160deg, #0b3d2e 0%, #12734d 100%); }
 /* Com QUALQUER pop-up aberto (scroll travado ou comemoração): a tela inteira — inclusive a faixa do
    home indicator — fica ESCURA, igual ao escurecido do backdrop. Some a faixa branca/clara embaixo,
    independente do tema. (regra via :has + reforço por JS em lockScroll, p/ Safari sem :has) */
@@ -221,7 +223,10 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
 /* não ultrapassa a linha do menu de meses (topo) — cabe na tela e o ✕ fica sempre visível */
 .prof-card { max-width: 360px; max-height: 92dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scrollbar-width: none; }
 .prof-card::-webkit-scrollbar { display: none; }
-.prof-card .wn-close { position: sticky; top: 0; float: right; margin: -6px -4px 0 0; z-index: 3; }   /* ✕ acompanha a rolagem interna */
+/* ✕ FIXO no topo do modal (não some ao rolar). float+sticky quebra no iOS → bloco right-align + sticky.
+   O título vira um cabeçalho sólido sticky: o conteúdo rola limpo POR BAIXO (sem aparecer atrás do ✕). */
+.prof-card .wn-close { position: sticky; top: 13px; z-index: 5; display: block; width: 36px; height: 36px; margin: 0 0 -36px auto; }
+.prof-card > h2 { position: sticky; top: 0; z-index: 4; background: var(--card); margin: -22px -18px 12px; padding: 20px 44px 10px; }
 .prof-photo-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 8px 0 18px; }
 .prof-photo { position: relative; width: 108px; height: 108px; border: 0; padding: 0; cursor: pointer; background: none;
   overflow: visible; transition: transform .14s ease; }   /* overflow visível → a câmera NÃO é cortada */
@@ -585,7 +590,7 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 .logout-fx .lf-avatar { width: 134px; height: 134px; border-radius: 50%; overflow: hidden;
   box-shadow: 0 0 0 4px rgba(255,255,255,.14), 0 18px 54px rgba(0,0,0,.5);
   transform: scale(.55); opacity: 0; animation: lfPop 1s cubic-bezier(.2,.8,.2,1) .3s forwards; }
-.logout-fx .lf-avatar .animal-anim, .logout-fx .lf-avatar .animal-svg, .logout-fx .lf-avatar img { width: 100%; height: 100%; display: block; }
+.logout-fx .lf-avatar .animal-anim, .logout-fx .lf-avatar .animal-svg { width: 100%; height: 100%; display: block; }
 @keyframes lfPop { 0% { transform: scale(.55); opacity: 0; } 45% { transform: scale(1.07); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 
 /* ===== Tela de entrada (landing após sair) ===== */
@@ -594,9 +599,10 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
   opacity: 0; transition: opacity .45s ease; }
 .welcome-screen.show { opacity: 1; }
 .wel-inner { width: 100%; max-width: 340px; text-align: center; display: flex; flex-direction: column; align-items: center; }
-.wel-avatar { width: 122px; height: 122px; border-radius: 50%; overflow: hidden; margin-bottom: 16px;
+.wel-avatar { width: 124px; height: 124px; aspect-ratio: 1; border-radius: 50%; overflow: hidden; margin-bottom: 16px; flex: 0 0 auto;
+  background-size: cover; background-position: center;   /* foto importada */
   box-shadow: 0 0 0 4px rgba(33,194,102,.30), 0 14px 40px rgba(0,0,0,.4); }
-.wel-avatar .animal-anim, .wel-avatar .animal-svg, .wel-avatar img { width: 100%; height: 100%; display: block; background-size: cover; background-position: center; }
+.wel-avatar .animal-anim, .wel-avatar .animal-svg { width: 100%; height: 100%; display: block; }   /* o emoji fica 84% centrado (padrão .animal-anim) */
 .wel-name { font-size: 22px; font-weight: 800; letter-spacing: -.4px; color: var(--ink); }
 .wel-sub { font-size: 13px; color: var(--muted); margin: 2px 0 24px; }
 .wel-enter { width: 100%; padding: 15px; border-radius: 16px; font-weight: 800; font-size: 16px; box-shadow: 0 14px 30px rgba(11,61,46,.4); }
@@ -1781,6 +1787,10 @@ body.splash-on .tabbar, body.splash-on #fab { visibility: hidden; }
   animation: simSpin 5s linear infinite; opacity: .85;
 }
 .greet-card > * { position: relative; z-index: 1; }
+/* confirmação (ex.: Sair do app) usa greet-card: os botões NÃO devem grudar na borda
+   (o greet-card não tem rodapé sticky) → margem normal, com respiro lateral do card. */
+.greet-card > .modal-actions { position: static; margin: 16px 0 0; padding: 0; gap: 12px; }
+.greet-card > .modal-actions .btn { border-radius: 14px; padding: 14px 12px; }
 .greet-emoji { display: block; }
 .greet-emoji .emoji-anim { width: 76px; height: 76px; display: block; margin: 2px auto 4px; filter: drop-shadow(0 8px 12px rgba(0,0,0,.32)); }
 #greetTitle { text-align: center; margin: 6px 0 4px; font-size: 24px; font-weight: 800; letter-spacing: -.4px; }
