@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.60";
+const APP_VERSION = "3.13.61";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.61",
+    bullets: [
+      "Seção do cartão repaginada: filtro com “Todos os cartões” + seus cartões (saiu o confuso “Sem cartão”), select com a cara do app, cores na paleta (azul) e mais respiro nos textos e caixas",
+    ],
+  },
   {
     version: "3.13.60",
     bullets: [
@@ -3008,13 +3014,14 @@ function drillSaldo(i) {
    Seção própria nos Gráficos: filtro por cartão, gráfico mensal (só cartão), lista
    consolidada das compras (maior→menor) e, ao tocar numa compra, a linha do tempo das
    PARCELAS + uma leitura inteligente (quantas faltam, quanto falta, quando termina). */
-const GC_PURPLE = "#a855f7";
-// nome de exibição do cartão de uma compra (vazio → "Sem cartão")
-function cardOfLine(l) { return (l && l.cartao && l.cartao.trim()) ? l.cartao.trim() : "Sem cartão"; }
-// nomes de cartão presentes nas compras (para o filtro)
+const GC_ACCENT = "#2f7ff0";   // azul da paleta (var --blue) — destaca a seção de cartão sem fugir do tema
+// nome de exibição do cartão de uma compra (vazio → "" = sem cartão, só conta em "Todos")
+function cardOfLine(l) { return (l && l.cartao && l.cartao.trim()) ? l.cartao.trim() : ""; }
+// cartões REAIS pro filtro: os cadastrados (DATA.cartoes) + os nomes usados nas compras. Sem "Sem cartão".
 function cardNames() {
   const set = new Set();
-  (DATA.cartao || []).forEach(l => { if ((l.vals || []).some(v => Number(v) > 0)) set.add(cardOfLine(l)); });
+  (DATA.cartoes || []).forEach(c => { const n = c && c.nome && String(c.nome).trim(); if (n) set.add(n); });
+  (DATA.cartao || []).forEach(l => { const n = cardOfLine(l); if (n && (l.vals || []).some(v => Number(v) > 0)) set.add(n); });
   return Array.from(set);
 }
 function cardMatch(l, filt) { return filt === "__all" || cardOfLine(l) === filt; }
@@ -3087,7 +3094,7 @@ function makeCardChart() {
   const data = serieCartao(gCardFilt);
   charts.gCard = new Chart(cv, {
     type: "bar",
-    data: { labels, datasets: [{ label: "cartão", data, backgroundColor: barColors(GC_PURPLE, 12), borderRadius: 5 }] },
+    data: { labels, datasets: [{ label: "cartão", data, backgroundColor: barColors(GC_ACCENT, 12), borderRadius: 5 }] },
     options: {
       responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18, bottom: 4 } },
       onClick: (e, els) => { if (els && els.length) { gSelMonth = els[0].index; makeCardChart(); } },
@@ -3106,7 +3113,7 @@ function makeCardDrillChart(cv, l) {
     if (st === "pago") return "#15c266";                 // paga (verde)
     if (m === now) return "#f5a623";                     // vence este mês (âmbar)
     if (m < now) return "#e5484d";                       // venceu e não marcou paga (vermelho)
-    return GC_PURPLE;                                    // futura (roxo)
+    return GC_ACCENT;                                    // futura (azul)
   });
   const unit = info.isRec ? "Mês" : "Parcela";
   charts.gCard = new Chart(cv, {
@@ -3137,7 +3144,7 @@ function cardListHTML(items, selId) {
     <div class="det-row gc-row${it.id === selId ? " sel" : ""}" data-cid="${esc(it.id)}" style="animation-delay:${(Math.min(i, TOP) * 0.05).toFixed(2)}s">
       <span class="det-rank${i < 3 ? " top" + (i + 1) : ""}">${i < 3 ? medal[i] : i + 1}</span>
       <div class="det-main"><div class="det-name">${esc(it.desc || "—")}${it.nec ? ` <span class="det-nec">✓</span>` : ""}</div>
-        <div class="det-bar"><div class="det-fill" style="width:${Math.round(it.val / max * 100)}%;background:${GC_PURPLE}"></div></div></div>
+        <div class="det-bar"><div class="det-fill" style="width:${Math.round(it.val / max * 100)}%;background:${GC_ACCENT}"></div></div></div>
       <div class="det-val">${brl(it.val)}<span class="det-cat">${esc(it.cat)}</span></div>
       <span class="gc-go" aria-hidden="true">${it.id === selId ? "▾" : "›"}</span>
     </div>`).join("");

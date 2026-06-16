@@ -1982,20 +1982,29 @@ body.splash-on .tabbar, body.splash-on #fab { visibility: hidden; }
 .g-empty { text-align: center; color: var(--muted); padding: 18px; font-size: 13px; }
 
 /* 💳 seção de cartão de crédito nos Gráficos */
-.gc-filter { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; }
-.gc-filter label { font-size: 12px; color: var(--muted); font-weight: 700; flex: 0 0 auto; }
-.gc-filter .sel { flex: 1; min-width: 0; }
-.gc-intel { margin: 12px 0 4px; }
+.gc-filter { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 16px; padding: 0 16px; }
+.gc-filter label { font-size: 12px; color: var(--muted); font-weight: 800; letter-spacing: .2px; }
+/* select TEMATIZADO (sem o nativo branco do iOS): caixa escura, seta própria, com folga interna */
+.gc-filter .sel {
+  width: 100%; box-sizing: border-box; -webkit-appearance: none; appearance: none;
+  background: var(--card-2); color: var(--ink); border: 1px solid var(--line); border-radius: 13px;
+  padding: 13px 40px 13px 14px; font-size: 15px; font-weight: 700; font-family: var(--font); cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b9a92' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat; background-position: right 14px center;
+  transition: border-color .2s ease, box-shadow .2s ease; }
+.gc-filter .sel:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 4px rgba(47,127,240,.22); }
+.gc-intel { margin: 14px 0 6px; padding: 0 16px; }
 .gc-intel:empty { display: none; }
-.det-row.gc-row { position: relative; cursor: pointer; padding-right: 22px; border-radius: 12px; transition: background .18s ease, transform .1s ease, box-shadow .18s ease; }
+.gc-intel-card { padding: 16px; }
+.det-row.gc-row { position: relative; cursor: pointer; padding: 10px 24px 10px 6px; border-radius: 12px; transition: background .18s ease, transform .1s ease, box-shadow .18s ease; }
 .det-row.gc-row:active { transform: scale(.99); }
-.det-row.gc-row.sel { background: rgba(168,85,247,.14); box-shadow: inset 0 0 0 1px rgba(168,85,247,.42); border-bottom-color: transparent; }
-.gc-go { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 17px; font-weight: 800; line-height: 1; transition: color .18s ease; }
-.det-row.gc-row.sel .gc-go { color: #a855f7; }
-.gc-intel-card .ins-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.det-row.gc-row.sel { background: rgba(47,127,240,.14); box-shadow: inset 0 0 0 1px rgba(47,127,240,.42); border-bottom-color: transparent; }
+.gc-go { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 17px; font-weight: 800; line-height: 1; transition: color .18s ease; }
+.det-row.gc-row.sel .gc-go { color: var(--blue); }
+.gc-intel-card .ins-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .gc-intel-card .ins-title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gc-back { flex: 0 0 auto; background: rgba(255,255,255,.1); border: 0; color: var(--ink); font-family: var(--font); font-weight: 700; font-size: 12px; padding: 6px 11px; border-radius: 10px; cursor: pointer; transition: transform .1s ease, background .18s ease; }
-.gc-back:hover { background: rgba(255,255,255,.16); }
+.gc-back { flex: 0 0 auto; background: var(--card); border: 1px solid var(--line); color: var(--ink); font-family: var(--font); font-weight: 700; font-size: 12px; padding: 7px 12px; border-radius: 10px; cursor: pointer; transition: transform .1s ease, background .18s ease; }
+.gc-back:hover { border-color: var(--blue); }
 .gc-back:active { transform: scale(.95); }
-.gc-prog-row { display: flex; align-items: center; gap: 9px; font-size: 11.5px; color: var(--muted); font-weight: 700; margin: 2px 0 6px; }
+.gc-prog-row { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--muted); font-weight: 700; margin: 4px 0 10px; }
 .gc-prog-row .gc-prog { flex: 1; height: 8px; margin-top: 0; }
