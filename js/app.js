@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.31";
+const APP_VERSION = "3.13.32";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.32",
+    bullets: [
+      "Corrigido o app \"piscando\" sozinho: a sincronização da conta conjunta re-renderizava a tela a cada 7s porque as Metas não entravam no merge — agora entram, e a tela só atualiza quando algo muda de verdade",
+      "Metas (objetivos) agora sincronizam entre os aparelhos do casal (antes podiam sumir/voltar no sync)",
+    ]
+  },
   {
     version: "3.13.31",
     bullets: [
@@ -1781,7 +1788,7 @@ function renderMetaForm() {
   const nIn = $("#metaNome", wrap), prev = $("#metaPrev", wrap);
   if (nIn) nIn.oninput = () => { const s = metaEmojiFor(nIn.value); prev.innerHTML = animEmoji(s.e, s.emoji, "meta-emoji"); };   // emoji se mexe ao digitar
   const sv = $("#metaSave", wrap); if (sv) sv.onclick = saveMeta;
-  const dl = $("#metaDel", wrap); if (dl) dl.onclick = () => modalConfirm("Excluir esta meta?", () => { DATA.objetivos = objetivos().filter(o => o.id !== _metaEdit); _metaEdit = null; persist(); renderMetasList(); renderMetaForm(); }, "Excluir");
+  const dl = $("#metaDel", wrap); if (dl) dl.onclick = () => modalConfirm("Excluir esta meta?", () => { tombstone(_metaEdit); DATA.objetivos = objetivos().filter(o => o.id !== _metaEdit); _metaEdit = null; persist(); renderMetasList(); renderMetaForm(); }, "Excluir");
 }
 function saveMeta() {
   const nome = ($("#metaNome").value || "").trim();
@@ -1791,9 +1798,9 @@ function saveMeta() {
   const sug = metaEmojiFor(nome);
   if (_metaEdit) {
     const o = objetivos().find(x => x.id === _metaEdit);
-    if (o) { o.nome = nome; o.alvo = alvo; o.guardado = guard; o.e = sug.e; o.emoji = sug.emoji; }
+    if (o) { o.nome = nome; o.alvo = alvo; o.guardado = guard; o.e = sug.e; o.emoji = sug.emoji; o.m = nowMs(); }
   } else {
-    objetivos().push({ id: uid(), nome: nome, alvo: alvo, guardado: guard, e: sug.e, emoji: sug.emoji });
+    objetivos().push({ id: uid(), nome: nome, alvo: alvo, guardado: guard, e: sug.e, emoji: sug.emoji, m: nowMs() });
   }
   _metaEdit = null; persist(); renderMetasList(); renderMetaForm();
   toast("Meta salva ✓");
@@ -4982,7 +4989,7 @@ function configurarSync() {
    merge = união por id (vence o m maior); tombstone mais novo que o item o remove de vez.
    Tudo determinístico (listas ordenadas por id, tomb com chaves ordenadas) → os 2 celulares
    convergem pro MESMO estado e param de empurrar (sem ping-pong). */
-const SYNC_LISTS = ["receitas", "fixas", "cartao", "diaria"];
+const SYNC_LISTS = ["receitas", "fixas", "cartao", "diaria", "objetivos"];
 const nowMs = () => Date.now();
 function tombstone(ids) {
   if (!DATA._tomb) DATA._tomb = {};
