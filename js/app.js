@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.53";
+const APP_VERSION = "3.13.54";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.54",
+    bullets: [
+      "Novo nos Gráficos: 💳 Gastos no cartão — filtre o cartão, veja o gasto mês a mês e a lista das compras da maior pra menor",
+      "Toque numa compra e o gráfico vira a linha do tempo das parcelas (pagas em verde, futuras em roxo), com uma leitura dizendo quantas faltam, quanto falta e em que mês termina",
+    ],
+  },
   {
     version: "3.13.53",
     bullets: [
@@ -1050,6 +1057,8 @@ let annual = false;
 let curTab = "resumo";
 let resumoView = "resumo";   // "resumo" | "graficos" | "insights" (toggle no topo do Resumo)
 let gSelMonth = 0;           // mês (0-11) selecionado nos gráficos interativos
+let gCardFilt = "__all";     // filtro do gráfico de cartão: "__all" ou o nome do cartão
+let gCardSel = null;         // id da compra de cartão aberta no drill (parcelas) ou null
 let charts = {};
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -2806,6 +2815,7 @@ function renderGraficos(host) {
       <div class="g-detail" id="detDesp"></div>
       <div class="g-insights" id="insDesp"></div>
     </div>
+    ${cardSectionHTML()}
     <div class="section-card g-card fade-in">
       <h3>📈 Receitas por mês — ${ano}</h3>
       <p class="hint" style="text-align:left;margin:-2px 0 8px">Toque numa barra pra ver as receitas daquele mês.</p>
@@ -2820,12 +2830,13 @@ function renderGraficos(host) {
   const id2 = $("#insDesp"); if (id2) id2.innerHTML = insightsDespesas();
   const ir = $("#insRec"); if (ir) ir.innerHTML = insightsReceitas();
   drillSaldo(gSelMonth); drillDesp(gSelMonth); drillRec(gSelMonth);
+  setupCardSection();
 }
 
 function renderGCharts() {
   if (typeof Chart === "undefined") return;
   applyChartTheme();
-  ["gSaldo", "gDesp", "gRec", "dough", "bar", "line", "sim", "sobra", "orc"].forEach(k => { if (charts[k]) { try { charts[k].destroy(); } catch (e) {} charts[k] = null; } });
+  ["gSaldo", "gDesp", "gRec", "gCard", "dough", "bar", "line", "sim", "sobra", "orc"].forEach(k => { if (charts[k]) { try { charts[k].destroy(); } catch (e) {} charts[k] = null; } });
   const labels = Array.from({ length: 12 }, (_, i) => MESES_CURTO[i]);
   charts.gDesp = makeBarTrend("gDesp", labels, serieDesp(), "#e5484d", drillDesp);
   charts.gRec = makeBarTrend("gRec", labels, serieRec(), "#1db954", drillRec);
@@ -2946,6 +2957,203 @@ function drillSaldo(i) {
     <p class="det-flux hint">${fluxoNota}</p>`;
   if (charts.gSaldo) { try { charts.gSaldo.data.datasets[0].pointRadius = serieSaldo().map((_, k) => k === i ? 6 : 3); charts.gSaldo.update("none"); } catch (e) {} }
   animDetail("#detSaldo");
+}
+
+/* ====================== 💳 Gráfico de cartão de crédito ======================
+   Seção própria nos Gráficos: filtro por cartão, gráfico mensal (só cartão), lista
+   consolidada das compras (maior→menor) e, ao tocar numa compra, a linha do tempo das
+   PARCELAS + uma leitura inteligente (quantas faltam, quanto falta, quando termina). */
+const GC_PURPLE = "#a855f7";
+// nome de exibição do cartão de uma compra (vazio → "Sem cartão")
+function cardOfLine(l) { return (l && l.cartao && l.cartao.trim()) ? l.cartao.trim() : "Sem cartão"; }
+// nomes de cartão presentes nas compras (para o filtro)
+function cardNames() {
+  const set = new Set();
+  (DATA.cartao || []).forEach(l => { if ((l.vals || []).some(v => Number(v) > 0)) set.add(cardOfLine(l)); });
+  return Array.from(set);
+}
+function cardMatch(l, filt) { return filt === "__all" || cardOfLine(l) === filt; }
+// meses (índices absolutos) em que a compra tem parcela (vals>0), em ordem
+function purchaseMonths(l) {
+  const out = [], len = Math.max((l.vals || []).length, (l.sts || []).length);
+  for (let m = 0; m < len; m++) if ((Number(l.vals[m]) || 0) > 0) out.push(m);
+  return out;
+}
+// série de 12 meses (ano atual): total gasto no cartão (filtrado)
+function serieCartao(filt) {
+  const b = curYear() * 12;
+  return Array.from({ length: 12 }, (_, i) => {
+    let s = 0; (DATA.cartao || []).forEach(l => { if (cardMatch(l, filt)) s += Number(l.vals[b + i]) || 0; }); return s;
+  });
+}
+function cardFiltOptions() {
+  let html = `<option value="__all">Todos os cartões</option>`;
+  cardNames().forEach(n => { html += `<option value="${esc(n)}">${esc(n)}</option>`; });
+  return html;
+}
+function cardSectionHTML() {
+  const has = (DATA.cartao || []).some(l => (l.vals || []).some(v => Number(v) > 0));
+  if (!has) return "";
+  const ano = DATA.year + curYear();
+  return `<div class="section-card g-card fade-in" id="cardCard">
+    <h3>💳 Gastos no cartão — ${ano}</h3>
+    <p class="hint" style="text-align:left;margin:-2px 0 8px">Filtre o cartão e toque numa compra pra ver as parcelas e quando ela acaba.</p>
+    <div class="gc-filter"><label for="gCardFilt">Cartão</label><select id="gCardFilt" class="sel">${cardFiltOptions()}</select></div>
+    <div class="chart-wrap"><canvas id="gCard" height="210"></canvas></div>
+    <div class="gc-intel" id="gCardIntel"></div>
+    <div class="g-detail" id="gCardList"></div>
+  </div>`;
+}
+function setupCardSection() {
+  if (!$("#gCard")) return;                                  // seção não renderizada (sem compras)
+  const names = cardNames();
+  if (gCardFilt !== "__all" && !names.includes(gCardFilt)) gCardFilt = "__all";
+  if (gCardSel && !(DATA.cartao || []).some(l => l.id === gCardSel && cardMatch(l, gCardFilt))) gCardSel = null;
+  const sel = $("#gCardFilt");
+  if (sel) { sel.value = gCardFilt; sel.onchange = () => { gCardFilt = sel.value; gCardSel = null; makeCardChart(); renderCardIntel(); renderCardList(); }; }
+  makeCardChart(); renderCardIntel(); renderCardList();
+}
+function makeCardChart() {
+  if (typeof Chart === "undefined") return;
+  if (charts.gCard) { try { charts.gCard.destroy(); } catch (e) {} charts.gCard = null; }
+  const cv = $("#gCard"); if (!cv) return;
+  applyChartTheme();
+  if (gCardSel) {
+    const l = (DATA.cartao || []).find(x => x.id === gCardSel);
+    if (l) return makeCardDrillChart(cv, l);
+    gCardSel = null;
+  }
+  // OVERVIEW: 12 meses do ano, total no cartão filtrado (barras roxas, destaca o mês atual)
+  const labels = Array.from({ length: 12 }, (_, i) => MESES_CURTO[i]);
+  const data = serieCartao(gCardFilt);
+  charts.gCard = new Chart(cv, {
+    type: "bar",
+    data: { labels, datasets: [{ label: "cartão", data, backgroundColor: barColors(GC_PURPLE, 12), borderRadius: 5 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18, bottom: 4 } },
+      onClick: (e, els) => { if (els && els.length) { gSelMonth = els[0].index; makeCardChart(); } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => brl(c.raw) } }, valueLabels: { on: true } },
+      scales: { y: { display: false, grace: "18%" }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
+    }
+  });
+}
+function makeCardDrillChart(cv, l) {
+  const months = purchaseMonths(l), n = months.length, now = realMesAbs();
+  const labels = months.map(m => mLabel(m));
+  const data = months.map(m => Number(l.vals[m]) || 0);
+  const colors = months.map(m => {
+    const st = l.sts[m] || "vazio";
+    if (st === "pago") return "#15c266";                 // paga (verde)
+    if (m === now) return "#f5a623";                     // vence este mês (âmbar)
+    if (m < now) return "#e5484d";                       // venceu e não marcou paga (vermelho)
+    return GC_PURPLE;                                    // futura (roxo)
+  });
+  charts.gCard = new Chart(cv, {
+    type: "bar",
+    data: { labels, datasets: [{ label: "parcela", data, backgroundColor: colors, borderRadius: 5 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18, bottom: 4 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { title: items => labels[items[0].dataIndex], label: c => `Parcela ${c.dataIndex + 1}/${n}: ${brl(c.raw)}` } },
+        valueLabels: { on: n <= 14 }                     // muitas parcelas → só tooltip (não polui)
+      },
+      scales: { y: { display: false, grace: "18%" }, x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true } } }
+    }
+  });
+}
+function selectCardPurchase(id) {
+  gCardSel = (gCardSel === id) ? null : id;                 // toca de novo → volta pra visão geral
+  makeCardChart(); renderCardIntel(); renderCardList();
+  const card = $("#cardCard"); if (card && gCardSel) { try { card.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {} }
+}
+function cardListHTML(items, selId) {
+  if (!items.length) return `<div class="det-head">Compras no cartão</div><div class="g-empty">Nenhuma compra neste cartão.</div>`;
+  const max = Math.max.apply(null, items.map(i => i.val).concat([1]));
+  const TOP = 5, medal = ["🥇", "🥈", "🥉"];
+  const tot = items.reduce((s, x) => s + x.val, 0);
+  const rows = items.map((it, i) => `
+    <div class="det-row gc-row${it.id === selId ? " sel" : ""}" data-cid="${esc(it.id)}" style="animation-delay:${(Math.min(i, TOP) * 0.05).toFixed(2)}s">
+      <span class="det-rank${i < 3 ? " top" + (i + 1) : ""}">${i < 3 ? medal[i] : i + 1}</span>
+      <div class="det-main"><div class="det-name">${esc(it.desc || "—")}${it.nec ? ` <span class="det-nec">✓</span>` : ""}</div>
+        <div class="det-bar"><div class="det-fill" style="width:${Math.round(it.val / max * 100)}%;background:${GC_PURPLE}"></div></div></div>
+      <div class="det-val">${brl(it.val)}<span class="det-cat">${esc(it.cat)}</span></div>
+      <span class="gc-go" aria-hidden="true">${it.id === selId ? "▾" : "›"}</span>
+    </div>`).join("");
+  const more = items.length - TOP;
+  const head = `<div class="det-head">Compras no cartão <b>${brl(tot)}</b></div>`;
+  const hint = `<div class="det-more-hint"><span>🏆 Maiores compras</span><em>${more > 0 ? `role para ver +${more} · ` : ""}toque pra ver as parcelas</em></div>`;
+  const scrollable = items.length > TOP ? " scrollable" : "";
+  return head + hint + `<div class="det-scroll-wrap${scrollable}"><div class="det-scroll">${rows}</div></div>`;
+}
+function renderCardList() {
+  const el = $("#gCardList"); if (!el) return;
+  const items = (DATA.cartao || []).filter(l => cardMatch(l, gCardFilt)).map(l => {
+    const months = purchaseMonths(l), n = months.length;
+    const parcela = n ? (Number(l.vals[months[0]]) || 0) : 0;
+    const total = months.reduce((s, m) => s + (Number(l.vals[m]) || 0), 0);
+    return { id: l.id, desc: l.desc, val: total, n, parcela, nec: l.nec, cat: n > 1 ? `${n}× de ${brl(parcela)}` : "à vista" };
+  }).filter(x => x.val > 0).sort((a, b) => b.val - a.val);
+  el.innerHTML = cardListHTML(items, gCardSel);
+  el.querySelectorAll(".det-row[data-cid]").forEach(r => r.onclick = () => selectCardPurchase(r.dataset.cid));
+  animDetail("#gCardList");
+}
+function renderCardIntel() {
+  const el = $("#gCardIntel"); if (!el) return;
+  if (gCardSel) {
+    const l = (DATA.cartao || []).find(x => x.id === gCardSel);
+    if (!l) { gCardSel = null; el.innerHTML = cardOverviewIntel(); return; }
+    el.innerHTML = cardDrillIntel(l);
+    const back = el.querySelector("#gcBack"); if (back) back.onclick = () => { gCardSel = null; makeCardChart(); renderCardIntel(); renderCardList(); };
+  } else {
+    el.innerHTML = cardOverviewIntel();
+  }
+  animDetail("#gCardIntel");
+}
+// leitura inteligente de UMA compra: quantas parcelas faltam, quanto falta, quando termina
+function cardDrillIntel(l) {
+  const months = purchaseMonths(l), n = months.length;
+  if (!n) return "";
+  const parcela = Number(l.vals[months[0]]) || 0;
+  const total = months.reduce((s, m) => s + (Number(l.vals[m]) || 0), 0);
+  const pagas = months.filter(m => (l.sts[m] || "") === "pago").length;
+  const faltam = n - pagas, restante = total - parcela * pagas;
+  const fim = months[n - 1], ini = months[0], pct = Math.round(pagas / n * 100);
+  const prox = months.find(m => (l.sts[m] || "") !== "pago");
+  let body;
+  if (n <= 1) {
+    body = pagas >= 1
+      ? `Compra à vista de <b>${brl(total)}</b> — já está paga. ✅`
+      : `Compra à vista de <b>${brl(total)}</b>, na fatura de <b>${mLabel(ini)}</b> — ainda a pagar.`;
+  } else if (faltam === 0) {
+    body = `🎉 <b>Quitada!</b> As <b>${n}</b> parcelas de ${brl(parcela)} já foram pagas. A última caiu em <b>${mLabel(fim)}</b>.`;
+  } else {
+    const proxTxt = prox != null ? ` A próxima cai em <b>${mLabel(prox)}</b>.` : "";
+    body = `Faltam <b>${faltam}</b> de <b>${n}</b> parcelas — mais <b>${brl(restante)}</b> (${faltam}× de ${brl(parcela)}).${proxTxt} Termina em <b>${mLabel(fim)}</b>.`;
+  }
+  const progRow = n > 1
+    ? `<div class="gc-prog-row"><span>${pagas}/${n} pagas</span><div class="det-bar gc-prog"><div class="det-fill" style="width:${pct}%;background:#15c266"></div></div><span>${pct}%</span></div>`
+    : "";
+  return `<div class="ins-card gc-intel-card">
+    <div class="ins-title"><span>💳 ${esc(l.desc || "Compra")}</span><button type="button" id="gcBack" class="gc-back">← ver todos</button></div>
+    ${progRow}
+    <div class="ins-narr">${body}</div>
+  </div>`;
+}
+// leitura geral do cartão filtrado (sem nenhuma compra aberta)
+function cardOverviewIntel() {
+  const lines = (DATA.cartao || []).filter(l => cardMatch(l, gCardFilt));
+  if (!lines.length) return "";
+  const serie = serieCartao(gCardFilt), anoTot = serie.reduce((a, x) => a + x, 0), media = anoTot / 12;
+  const maxI = serie.indexOf(Math.max.apply(null, serie)), now = realMesAbs();
+  if (anoTot <= 0) return `<div class="ins-card"><div class="ins-title">🤖 Resumo do cartão</div><div class="ins-narr">Sem lançamentos deste cartão em ${DATA.year + curYear()}. Toque numa compra abaixo pra ver as parcelas.</div></div>`;
+  const abertos = lines.filter(l => purchaseMonths(l).some(m => m >= now && (l.sts[m] || "") !== "pago"));
+  const compromisso = abertos.reduce((s, l) => s + purchaseMonths(l).filter(m => m >= now && (l.sts[m] || "") !== "pago").reduce((a, m) => a + (Number(l.vals[m]) || 0), 0), 0);
+  const narr = `No cartão você tem <b>${brl(anoTot)}</b> no ano (~${brl(media)}/mês), com pico em <b>${MESES_CURTO[maxI]}</b>. ` +
+    (abertos.length
+      ? `Há <b>${abertos.length}</b> parcelamento(s) em aberto somando <b>${brl(compromisso)}</b> ainda a pagar. Toque numa compra pra ver as parcelas. 👇`
+      : `Nenhum parcelamento em aberto daqui pra frente. 👏`);
+  return `<div class="ins-card"><div class="ins-title">🤖 Resumo do cartão</div><div class="ins-narr">${narr}</div></div>`;
 }
 
 // insights automáticos (estatística) — "tipo IA"
@@ -5089,6 +5297,7 @@ const MANUAL = [
   ["💪 Saúde financeira", "Uma notinha de 0 a 100. Quanto mais você guarda do que ganha, mais ela sobe. Vai de Crítica a Ótima, passando por Atenção e Boa. Embaixo aparece quanto você guardou no mês (ou o quanto ficou no vermelho)."],
   ["📊 Gráficos", "Em <b>Gráficos</b> dá pra ver o <b>Orçamento × Realizado</b> por categoria (verde quer dizer dentro do combinado, vermelho quer dizer que estourou), o <b>saldo acumulado</b> ao longo do ano e as <b>despesas e receitas mês a mês</b>. Toque numa barra pra abrir os lançamentos daquele mês."],
   ["🧪 Simulador de gastos", "Ainda em Gráficos: digite um valor e o número de parcelas, e ele desenha uma linha tracejada mostrando como ficaria seu saldo <b>se</b> você fizesse essa compra. No fim, um aviso te diz se cabe ou em que mês vai apertar. O ↺ limpa tudo."],
+  ["💳 Gastos no cartão", "Mais pra baixo nos Gráficos tem uma parte só do cartão. Escolha o cartão no filtro de cima e veja, mês a mês, quanto foi de cartão no ano. Embaixo aparece a lista das suas compras, da maior pra menor. Toque numa compra que o gráfico vira a linha do tempo das parcelas — as pagas ficam verdes, as que ainda vêm ficam roxas — e do lado uma leitura te diz quantas parcelas faltam, quanto ainda falta pagar e em que mês ela termina. É ótimo pra saber quando o cartão vai aliviar."],
   ["💡 Insights", "É a leitura do seu mês. Ele aponta o que foi bem e o que saiu do controle, dá umas dicas (quanto você poupou, qual gasto vale a pena revisar, como ficou comparado ao mês passado) e ainda arrisca como o mês deve fechar."],
   ["🏅 Medalhas", "No Insights tem um quadro de conquistas. As coloridas você já desbloqueou, as cinzas ainda estão fechadas. Elas vêm do seu saldo, do número de lançamentos, dos meses em que você economizou, das metas que criou e por aí vai. Uma barrinha mostra quanto você já juntou."],
   ["🎯 Metas", "Crie seus objetivos: uma viagem, a casa, o carro. Coloque o nome, quanto custa e quanto já guardou. A barra mostra o progresso e o emoji se ajusta sozinho ao nome que você escolheu. Quando chega nos 100%, vem o confete. Pra mexer é no ✎, e dá pra excluir lá dentro da edição."],

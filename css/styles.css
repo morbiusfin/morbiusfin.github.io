@@ -1953,3 +1953,22 @@ body.splash-on .tabbar, body.splash-on #fab { visibility: hidden; }
 .ins-narr { margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--line); font-size: 12.5px; line-height: 1.6; color: var(--ink); }
 .ins-narr b { font-weight: 800; }
 .g-empty { text-align: center; color: var(--muted); padding: 18px; font-size: 13px; }
+
+/* 💳 seção de cartão de crédito nos Gráficos */
+.gc-filter { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; }
+.gc-filter label { font-size: 12px; color: var(--muted); font-weight: 700; flex: 0 0 auto; }
+.gc-filter .sel { flex: 1; min-width: 0; }
+.gc-intel { margin: 12px 0 4px; }
+.gc-intel:empty { display: none; }
+.det-row.gc-row { position: relative; cursor: pointer; padding-right: 22px; border-radius: 12px; transition: background .18s ease, transform .1s ease, box-shadow .18s ease; }
+.det-row.gc-row:active { transform: scale(.99); }
+.det-row.gc-row.sel { background: rgba(168,85,247,.14); box-shadow: inset 0 0 0 1px rgba(168,85,247,.42); border-bottom-color: transparent; }
+.gc-go { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 17px; font-weight: 800; line-height: 1; transition: color .18s ease; }
+.det-row.gc-row.sel .gc-go { color: #a855f7; }
+.gc-intel-card .ins-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gc-intel-card .ins-title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gc-back { flex: 0 0 auto; background: rgba(255,255,255,.1); border: 0; color: var(--ink); font-family: var(--font); font-weight: 700; font-size: 12px; padding: 6px 11px; border-radius: 10px; cursor: pointer; transition: transform .1s ease, background .18s ease; }
+.gc-back:hover { background: rgba(255,255,255,.16); }
+.gc-back:active { transform: scale(.95); }
+.gc-prog-row { display: flex; align-items: center; gap: 9px; font-size: 11.5px; color: var(--muted); font-weight: 700; margin: 2px 0 6px; }
+.gc-prog-row .gc-prog { flex: 1; height: 8px; margin-top: 0; }
