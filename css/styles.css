@@ -576,6 +576,34 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 .app-header h1.typing .tw-text::after { content: "|"; margin-left: 1px; font-weight: 400; opacity: .9; animation: twCaret .6s steps(1) infinite; }
 @keyframes twCaret { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .app-header h1.typing .tw-text::after { animation: none; } }
+
+/* ===== Sair do app: cortina verde fechando + bichinho (gif 1x) ===== */
+.logout-fx { position: fixed; inset: 0; z-index: 1600; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(72% 58% at 50% 42%, #0e4a36 0%, #08231a 56%, #05110c 100%);
+  opacity: 0; transition: opacity .45s ease; }
+.logout-fx.go { opacity: 1; }
+.logout-fx .lf-avatar { width: 134px; height: 134px; border-radius: 50%; overflow: hidden;
+  box-shadow: 0 0 0 4px rgba(255,255,255,.14), 0 18px 54px rgba(0,0,0,.5);
+  transform: scale(.55); opacity: 0; animation: lfPop 1s cubic-bezier(.2,.8,.2,1) .3s forwards; }
+.logout-fx .lf-avatar .animal-anim, .logout-fx .lf-avatar .animal-svg, .logout-fx .lf-avatar img { width: 100%; height: 100%; display: block; }
+@keyframes lfPop { 0% { transform: scale(.55); opacity: 0; } 45% { transform: scale(1.07); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+
+/* ===== Tela de entrada (landing após sair) ===== */
+.welcome-screen { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;
+  background: var(--bg); padding: calc(24px + var(--safe-top)) 26px calc(24px + var(--safe-bottom));
+  opacity: 0; transition: opacity .45s ease; }
+.welcome-screen.show { opacity: 1; }
+.wel-inner { width: 100%; max-width: 340px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.wel-avatar { width: 122px; height: 122px; border-radius: 50%; overflow: hidden; margin-bottom: 16px;
+  box-shadow: 0 0 0 4px rgba(33,194,102,.30), 0 14px 40px rgba(0,0,0,.4); }
+.wel-avatar .animal-anim, .wel-avatar .animal-svg, .wel-avatar img { width: 100%; height: 100%; display: block; background-size: cover; background-position: center; }
+.wel-name { font-size: 22px; font-weight: 800; letter-spacing: -.4px; color: var(--ink); }
+.wel-sub { font-size: 13px; color: var(--muted); margin: 2px 0 24px; }
+.wel-enter { width: 100%; padding: 15px; border-radius: 16px; font-weight: 800; font-size: 16px; box-shadow: 0 14px 30px rgba(11,61,46,.4); }
+.wel-sep { display: flex; align-items: center; gap: 10px; width: 100%; color: var(--muted); font-size: 12px; margin: 18px 0; }
+.wel-sep::before, .wel-sep::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.wel-new { width: 100%; }
+.wel-newhint { font-size: 11.5px; color: var(--muted); margin: 8px 0 0; line-height: 1.45; }
 .app-header .header-actions { gap: 5px; }
 .menu-btn { font-size: 18px; flex: 0 0 auto; }
 .menu-drawer { position: fixed; inset: 0; z-index: 115; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); display: flex; }
@@ -1111,7 +1139,7 @@ body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: 
   background: linear-gradient(to top, var(--card) 0, var(--card) 55%, transparent 100%); pointer-events: none; }
 /* tampa SÓLIDA abaixo do rodapé: cobre os ~22px de padding do card onde o conteúdo vazava ABAIXO do botão
    (sticky bottom:0 + margin-bottom negativa deixam essa faixa sem fundo). */
-.modal-card:not(.alert-card):not(.greet-card) > .modal-actions::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 26px;
+.modal-card:not(.alert-card):not(.greet-card) > .modal-actions::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 30px;
   background: var(--card); pointer-events: none; }
 
 /* Modais altos (Categorias, Emoji): cabeçalho FIXO (título + ✕ sempre visíveis) e só o corpo rola */

@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.41";
+const APP_VERSION = "3.13.42";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.42",
+    bullets: [
+      "Menu mais enxuto: Sincronização, Importar e Exportar viraram um item só — \"Backup e sincronização\" — que abre um seletor pra escolher o que fazer",
+      "Novo \"Sair do app\": pede confirmação (com emoji), fecha com uma cortina e um bichinho, e reabre numa tela de entrada com sua conta — toque em Entrar (pede o PIN, se tiver) ou crie uma conta nova",
+      "Janelas com rolagem: conteúdo não vaza mais acima nem abaixo dos botões fixos",
+    ]
+  },
   {
     version: "3.13.41",
     bullets: [
@@ -3939,9 +3947,97 @@ $("#menuDrawer").onclick = (e) => { if (e.target.id === "menuDrawer") closeMenu(
 { const mu = $("#miUpdate"); if (mu) mu.onclick = updateNow; }
 { const ma = $("#miAdmin"); if (ma) ma.onclick = () => { closeMenu(); openAdminPanel(); }; }
 { const mp = $("#miPerfil"); if (mp) mp.onclick = () => { closeMenu(); openProfile(); }; }
-$("#miImport").onclick = () => { closeMenu(); $("#importFile").click(); };
-$("#miExport").onclick = () => { closeMenu(); $("#btnExport").click(); };
-$("#miSync").onclick = () => { closeMenu(); markExplored("sync"); if (syncCfg()) pullSync(true, null, true); else configurarSync(); };
+{ const mb = $("#miBackup"); if (mb) mb.onclick = () => { closeMenu(); openBackupModal(); }; }
+// Seletor único: Sincronizar / Importar / Exportar (consolida os 3 itens antigos do menu)
+function backupModalEl() {
+  let m = document.getElementById("backupModal");
+  if (!m) {
+    m = document.createElement("div");
+    m.id = "backupModal"; m.className = "modal center hidden";
+    m.innerHTML = '<div class="modal-card"><button type="button" id="bkClose" class="sheet-x" aria-label="Fechar">✕</button>'
+      + '<h2 style="text-align:center">Backup e sincronização</h2>'
+      + '<p class="hint" style="text-align:center;margin:-6px 0 14px">Escolha o que fazer com seus dados.</p>'
+      + '<div class="settings-buttons">'
+      + '<button class="btn ghost" id="bkSync">🔄 <b>Sincronizar</b> (subir / baixar da nuvem)</button>'
+      + '<button class="btn ghost" id="bkImport">⬆️ <b>Importar</b> dados de um backup .json</button>'
+      + '<button class="btn ghost" id="bkExport">⬇️ <b>Exportar</b> backup (salva tudo num arquivo)</button>'
+      + '</div>'
+      + '<div class="modal-actions"><button type="button" id="bkCancel" class="btn primary">Fechar</button></div></div>';
+    document.body.appendChild(m);
+    const close = () => m.classList.add("hidden");
+    m.addEventListener("click", e => { if (e.target === m) close(); });
+    m.querySelector("#bkClose").onclick = close;
+    m.querySelector("#bkCancel").onclick = close;
+    m.querySelector("#bkSync").onclick = () => { close(); markExplored("sync"); if (syncCfg()) pullSync(true, null, true); else configurarSync(); };
+    m.querySelector("#bkImport").onclick = () => { close(); $("#importFile").click(); };
+    m.querySelector("#bkExport").onclick = () => { close(); $("#btnExport").click(); };
+  }
+  return m;
+}
+function openBackupModal() { backupModalEl(); showModal("#backupModal"); }
+
+/* ---------- Sair do app (logout) + tela de entrada (landing) ---------- */
+const LOGGED_OUT_KEY = "financas2026.loggedOut";
+{ const ml = $("#miLogout"); if (ml) ml.onclick = () => { closeMenu(); logoutConfirm(); }; }
+function logoutConfirm() {
+  let m = document.getElementById("logoutModal");
+  if (!m) {
+    m = document.createElement("div"); m.id = "logoutModal"; m.className = "modal center hidden";
+    m.innerHTML = '<div class="modal-card greet-card" style="text-align:center">'
+      + '<div class="greet-emoji">' + animEmoji("aceno", "👋", "greet-emoji-img") + '</div>'
+      + '<h2 style="text-align:center;margin:6px 0 4px">Sair do app?</h2>'
+      + '<p class="hint" style="text-align:center;margin:0 0 4px">Você volta pra tela de entrada. Seus dados continuam salvos neste aparelho.</p>'
+      + '<div class="modal-actions" style="margin-top:14px"><button type="button" class="btn ghost" id="logoutNo">Não</button><button type="button" class="btn primary" id="logoutYes">Sim, sair</button></div>'
+      + '</div>';
+    document.body.appendChild(m);
+    m.addEventListener("click", e => { if (e.target === m) { m.classList.add("hidden"); } });
+    m.querySelector("#logoutNo").onclick = () => { m.classList.add("hidden"); openMenu(); };   // Não → volta pro menu
+    m.querySelector("#logoutYes").onclick = () => { m.classList.add("hidden"); logoutSequence(); };
+  }
+  showModal("#logoutModal");
+}
+// Cortina fecha + bichinho aleatório (gif 1x) no centro → reinicia o app
+function logoutSequence() {
+  localStorage.setItem(LOGGED_OUT_KEY, "1");
+  try { document.querySelectorAll(".modal").forEach(x => x.classList.add("hidden")); } catch (e) {}
+  const ov = document.createElement("div"); ov.id = "logoutFx"; ov.className = "logout-fx";
+  const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)].id;
+  ov.innerHTML = '<div class="lf-avatar">' + animalSVG(animal) + '</div>';
+  document.body.appendChild(ov);
+  requestAnimationFrame(() => ov.classList.add("go"));
+  setTimeout(() => { try { location.reload(); } catch (e) { location.href = location.pathname; } }, 1700);
+}
+// Tela de entrada (após sair): foto/bichinho da conta + ENTRAR (pede PIN se houver) + criar nova conta
+function showWelcome() {
+  const sp = document.getElementById("splash"); if (sp) { try { sp.remove(); } catch (e) {} }
+  document.body.classList.remove("splash-on");
+  const p = getPerfil();
+  let w = document.getElementById("welcomeScreen");
+  if (!w) { w = document.createElement("div"); w.id = "welcomeScreen"; w.className = "welcome-screen"; document.body.appendChild(w); }
+  w.innerHTML = '<div class="wel-inner">'
+    + '<div class="wel-avatar" id="welAvatar" aria-hidden="true"></div>'
+    + '<div class="wel-name">' + (p.nome ? esc(p.nome) : "Bem-vindo de volta") + '</div>'
+    + '<div class="wel-sub">Sua conta neste aparelho</div>'
+    + '<button type="button" class="btn primary wel-enter" id="welEnter">Entrar</button>'
+    + '<div class="wel-sep"><span>ou</span></div>'
+    + '<button type="button" class="btn ghost wel-new" id="welNew">Criar uma nova conta</button>'
+    + '<p class="wel-newhint">Começa do zero. Seus dados atuais só são apagados se você confirmar.</p>'
+    + '</div>';
+  setAvatarInto(w.querySelector("#welAvatar"), p.foto, p.nome);
+  w.classList.remove("hidden"); requestAnimationFrame(() => w.classList.add("show"));
+  const leave = (after) => { w.classList.remove("show"); setTimeout(() => { try { w.remove(); } catch (e) {} after(); }, 300); };
+  w.querySelector("#welEnter").onclick = () => { localStorage.removeItem(LOGGED_OUT_KEY); leave(resumeBoot); };
+  w.querySelector("#welNew").onclick = () => {
+    modalConfirm("Criar uma conta nova? Isso apaga os lançamentos atuais deste aparelho. Exporte um backup antes, se quiser guardar.", () => {
+      window.CRYPTO_KEY = null;
+      DATA = (typeof emptyData === "function") ? emptyData() : buildSeed();
+      localStorage.removeItem("financas2026.isSeed"); localStorage.removeItem(LOGGED_OUT_KEY);
+      try { saveData(DATA); } catch (e) {}
+      lastSnap = JSON.stringify(DATA);
+      leave(() => { window.__eraSeedNovo = true; startApp(); });   // conta nova → entra e oferece onboarding
+    }, "Apagar e começar");
+  };
+}
 $("#miSim").onclick = () => {
   closeMenu(); markExplored("simulador");
   curTab = "resumo"; resumoView = "graficos";
@@ -4842,7 +4938,7 @@ function faqGo(action) {
       case "categorias": openCategoriasModal(); setTimeout(() => focarEl("#catModal .modal-card", 2600), 140); break;
       case "sim":        { const h = $("#miSim"); if (h && h.onclick) h.onclick(); break; }
       case "sync":       if (syncCfg()) pullSync(true, null, true); else configurarSync(); break;
-      case "backup":     openMenu(); setTimeout(() => focarEl("#miImport"), 380); break;
+      case "backup":     openMenu(); setTimeout(() => focarEl("#miBackup"), 380); break;
       case "acesso":     openAccessModal(); break;
       case "tema":       openThemeModal(); break;
       case "config":     openSettings(); setTimeout(() => focarEl("#setGreet", 2600), 140); break;
@@ -5690,6 +5786,11 @@ async function boot() {
   applyConfigLink();
   if (/[?&]demo=1\b/.test(location.search)) { enterDemo(); return; }   // veio de iphone.html com "dados fictícios"
   if (localStorage.getItem("financas2026.profile") === "test") { loadTestProfile(); return; }  // estava em teste
+  if (localStorage.getItem(LOGGED_OUT_KEY) === "1") { showWelcome(); return; }   // saiu do app → tela de entrada
+  resumeBoot();
+}
+// Entrada real no app (sem demo/teste/landing): decide PIN vs abrir direto. Reutilizado pelo "Entrar" da landing.
+function resumeBoot() {
   document.body.classList.remove("test-mode");
   let raw = localStorage.getItem(STORE_KEY) || localStorage.getItem("financas2026.v1");
   let parsed = null; try { parsed = raw ? JSON.parse(raw) : null; } catch (e) {}
