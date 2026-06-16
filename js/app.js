@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.48";
+const APP_VERSION = "3.13.49";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.49",
+    bullets: [
+      "Tela de código com botão \"← Voltar ao login\" pra voltar à tela de entrada",
+      "Saída do app: bichinho-gif fica certinho no centro do círculo; ele roda ~3s e só no fim o fundo sai dando lugar à tela de entrada",
+    ]
+  },
   {
     version: "3.13.48",
     bullets: [
@@ -4050,17 +4057,16 @@ function logoutSequence() {
   ov.innerHTML = '<div class="lf-avatar">' + animalSVG(animal) + '</div>';
   document.body.appendChild(ov);
   document.body.classList.remove("scroll-locked"); document.body.style.top = "";
-  requestAnimationFrame(() => ov.classList.add("go"));            // 1) fade-in verde + bichinho (pop)
-  // 2) SAÍDA: bichinho some + verde escurece p/ o fundo — TERMINA antes da entrada (sem encavalar)
-  setTimeout(() => ov.classList.add("dark"), 1350);
-  // 3) ENTRADA: só depois da saída concluída, o welcome aparece esmaecendo (overlay some por cima dele)
+  requestAnimationFrame(() => ov.classList.add("go"));            // 1) cortina verde + bichinho (pop), roda o gif
+  setTimeout(() => ov.classList.add("anim-out"), 3000);           // 2) ~3s depois: círculo+emoji esmaece e encolhe (fundo verde fica)
+  // 3) no fim do esmaecer do círculo, o FUNDO sai e a ENTRADA aparece esmaecendo (leve sobreposição)
   setTimeout(() => {
     window.CRYPTO_KEY = null;                                     // logout de verdade (some a chave da memória)
     window.__greeted = false;
     showWelcome();
     ov.classList.add("fade-out");
-    setTimeout(() => { try { ov.remove(); } catch (e) {} }, 560);
-  }, 2050);
+    setTimeout(() => { try { ov.remove(); } catch (e) {} }, 640);
+  }, 3420);
 }
 // Tela de entrada (após sair): foto/bichinho da conta + ENTRAR (pede PIN se houver) + criar nova conta
 function showWelcome() {
@@ -5400,6 +5406,16 @@ function showLock(env) {
   fg.textContent = "Esqueci meu código";
   fg.style.display = hasRec() ? "" : "none";
   fg.onclick = () => openRecovery(env);
+  // "← Voltar ao login" → volta pra tela de entrada (welcome)
+  let bk = document.getElementById("lockBack");
+  if (!bk) { bk = document.createElement("button"); bk.id = "lockBack"; bk.type = "button"; bk.className = "lock-back"; fg.parentNode.insertBefore(bk, fg.nextSibling); }
+  bk.textContent = "← Voltar ao login";
+  bk.onclick = () => {
+    localStorage.setItem(LOGGED_OUT_KEY, "1");
+    document.body.classList.remove("lock-on");
+    const lsx = document.getElementById("lockScreen"); if (lsx) lsx.classList.add("hidden");
+    window.__greeted = false; showWelcome();
+  };
 }
 // Animação de desbloqueio: cadeado abre → a tela "abre no meio" (duas metades se separam) → cadeado esmaece pra direita.
 function playUnlock(after) {
