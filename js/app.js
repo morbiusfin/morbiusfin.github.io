@@ -1,11 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.30";
+const APP_VERSION = "3.13.31";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.31",
+    bullets: [
+      "Saudação ao abrir o app: caixinha no meio da tela com emoji-gif do período (bom dia/tarde/noite) + seu nome e um botão pra responder; ao tocar, ela sobe e some encolhendo",
+      "A caixa de \"conta mais perto de vencer\" agora aparece 3s depois da saudação sair — em qualquer tela em que você estiver",
+    ]
+  },
   {
     version: "3.13.30",
     bullets: [
@@ -1107,17 +1114,32 @@ function cacheNextBill(nome) {
   try { caches.open("fin-meta").then(c => c.put("/next-bill", new Response(JSON.stringify({ name: nome || "" })))); } catch (e) {}
 }
 function checkAndNotify() {
-  if (!isMesAtual()) return;
+  if (!isMesAtual()) { window.__pendingBill = null; return; }
   const conta = contaMaisUrgente();
-  if (!conta) { cacheNextBill(""); return; }
+  if (!conta) { cacheNextBill(""); window.__pendingBill = null; return; }
   cacheNextBill(conta.desc);                                     // p/ o push diário (app fechado)
-  // 1) AVISO DENTRO DO APP — pop-up no MEIO da tela, 5s DEPOIS do app abrir (deixa ver a tela primeiro;
-  //    não interrompe se você já estiver com algo aberto)
-  setTimeout(() => { if (!document.querySelector(".modal:not(.hidden)") && !document.getElementById("splash")) showBillAlert(conta); }, 5000);
+  // 1) AVISO DENTRO DO APP — guardado p/ aparecer 3s DEPOIS da saudação de abertura sair 100%
+  //    (disparado por closeGreeting; ou pelo fallback quando a saudação não é mostrada).
+  window.__pendingBill = conta;
   // 2) NOTIFICAÇÃO DO SISTEMA — título = nome do app, corpo = só o nome da conta
   if (("Notification" in window) && Notification.permission === "granted") {
     try { new Notification("MorbiusFin", { body: `${conta.desc} ${proxTxt(conta.daysLeft)}`, icon: "icons/icon-192.png", tag: "vencimentos" }); } catch (e) {}
   }
+}
+// mostra o pop-up da conta mais perto de vencer — em QUALQUER tela em que o usuário esteja.
+// Se ainda há splash/cortina ou outro modal aberto, espera e tenta de novo (não empilha).
+function firePendingBill(retry) {
+  retry = retry || 0;
+  const conta = window.__pendingBill;
+  if (!conta || !isMesAtual()) return;
+  if (document.getElementById("splash") || document.getElementById("unlockReveal")) {
+    if (retry < 10) setTimeout(() => firePendingBill(retry + 1), 700); return;
+  }
+  if (document.querySelector(".modal:not(.hidden)")) {           // tem algo aberto → espera fechar
+    if (retry < 12) setTimeout(() => firePendingBill(retry + 1), 1500); return;
+  }
+  window.__pendingBill = null;
+  showBillAlert(conta);
 }
 // Pop-up CENTRALIZADO — só a conta mais perto de vencer (nome + proximidade, sem valor)
 function showBillAlert(conta) {
@@ -1141,6 +1163,52 @@ function closeBillAlert() {
   const m = $("#alertModal"); if (!m) return;
   m.classList.add("closing");
   setTimeout(() => { m.classList.add("hidden"); m.classList.remove("closing"); }, 300);
+}
+/* ---------- Saudação de abertura (bom dia/tarde/noite + nome) ---------- */
+// pools de emoji animado (webp em /emoji) por período — sorteia 1 a cada abertura
+const GREET_EMOJI = {
+  manha: ["nascersol", "solnuvem", "solrosto"],
+  tarde: ["porsol", "solnuvem", "solrosto"],
+  noite: ["luacheia", "luarosto", "luanova", "vialactea", "estrelabrilho", "brilho", "estrela"]
+};
+function greetPeriodo(h) {
+  if (h >= 3 && h < 12) return { txt: "Bom dia", pool: GREET_EMOJI.manha };   // 03:00–11:59
+  if (h >= 12 && h < 18) return { txt: "Boa tarde", pool: GREET_EMOJI.tarde }; // 12:00–17:59
+  return { txt: "Boa noite", pool: GREET_EMOJI.noite };                        // 18:00–02:59
+}
+function primeiroNome() {
+  const n = (getPerfil().nome || "").trim();
+  return n ? n.split(/\s+/)[0] : "";
+}
+function showGreeting() {
+  const m = $("#greetModal"); if (!m) return;
+  const p = greetPeriodo(new Date().getHours());
+  const nome = primeiroNome();
+  const pick = p.pool[Math.floor(Math.random() * p.pool.length)];
+  const img = m.querySelector(".greet-emoji-img"); if (img) img.src = "emoji/" + pick + ".webp";
+  $("#greetTitle").textContent = nome ? `${p.txt}, ${nome}` : `${p.txt}!`;
+  const btn = $("#greetBtn"); if (btn) { btn.textContent = p.txt; btn.onclick = closeGreeting; }
+  try { lockScroll(); } catch (e) {}
+  m.classList.remove("hidden", "greet-out"); m.classList.add("center");
+}
+function closeGreeting() {
+  const m = $("#greetModal"); if (!m || m.classList.contains("greet-out")) return;
+  m.classList.add("greet-out");                                   // a caixa sobe do meio e encolhe
+  setTimeout(() => {
+    m.classList.add("hidden"); m.classList.remove("greet-out", "center");
+    try { unlockScroll(); } catch (e) {}
+    setTimeout(firePendingBill, 3000);                            // contas a vencer: 3s após a saudação sair 100%
+  }, 620);                                                        // = duração do greetUp
+}
+// chamada ao terminar a abertura (sem senha = finishOpening; com senha = fim da cortina playUnlock)
+function scheduleGreeting() {
+  if (window.__greeted) return; window.__greeted = true;
+  const onb = document.getElementById("onboarding");
+  if (window.__pairing || (onb && !onb.classList.contains("hidden"))) {   // onboarding/pareamento manda → sem saudação
+    setTimeout(firePendingBill, 5000);
+    return;
+  }
+  setTimeout(showGreeting, 380);                                  // deixa a revelação assentar
 }
 function pedirNotificacao() {
   if (!("Notification" in window)) {
@@ -4766,7 +4834,7 @@ function playUnlock(after) {
   if (ls) ls.classList.add("hidden");   // some o lock; a cortina (mesmo verde) cobre tudo
   after();                              // monta o app POR TRÁS da cortina (pré-carrega)
 
-  const finish = () => { try { ov.remove(); } catch (e) {} };
+  const finish = () => { try { ov.remove(); } catch (e) {} scheduleGreeting(); };
   if (reduce) {                         // movimento reduzido: pré-carga curta + sem efeitos
     setTimeout(() => { ov.classList.add("nofx", "go"); setTimeout(finish, 120); }, 350);
     return;
@@ -5157,6 +5225,7 @@ function finishOpening() {
   tabbarEntrance();
   viewToggleEntrance();   // o seletor do topo (Resumo·Gráficos·Insights·Metas) entra junto, mesmo efeito
   maybeStartOnboarding();
+  scheduleGreeting();     // saudação (bom dia/tarde/noite) → ao fechar, dispara a conta a vencer 3s depois
 }
 /* Entrada da tab bar ao abrir: a pílula SOBE de baixo com fade, os ícones surgem em sequência, e
    por fim a lâmina de vidro verde DESLIZA da direita pra esquerda até a aba ativa. Toca 1x. */
