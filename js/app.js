@@ -1,11 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.49";
+const APP_VERSION = "3.13.50";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.50",
+    bullets: [
+      "Novo ícone do app: pinguim 🐧 em alta qualidade (reinstale para atualizar na tela de início)",
+      "Abertura ao tocar no ícone: tela com o nome MorbiusFin e uma cortina que revela a tela de entrada",
+      "Menu mais limpo: \"Simular gastos\" saiu do menu (continua nos Gráficos, dentro do Resumo)",
+    ]
+  },
   {
     version: "3.13.49",
     bullets: [
@@ -4068,10 +4076,10 @@ function logoutSequence() {
     setTimeout(() => { try { ov.remove(); } catch (e) {} }, 640);
   }, 3420);
 }
-// Tela de entrada (após sair): foto/bichinho da conta + ENTRAR (pede PIN se houver) + criar nova conta
+// Tela de entrada: foto/bichinho da conta + ENTRAR (pede PIN se houver) + criar nova conta.
+// COLD OPEN (abrir o app pelo ícone): mostra a abertura com o nome ~1.4s e a cortina REVELA o login.
+// LOGOUT (já dentro do app): vem direto (a animação de saída já fez o crossfade).
 function showWelcome() {
-  const sp = document.getElementById("splash"); if (sp) { try { sp.remove(); } catch (e) {} }
-  document.body.classList.remove("splash-on");
   document.body.classList.add("welcome-on");   // faixa do rodapé/safe-area na MESMA cor do fundo (qualquer tema)
   const p = getPerfil();
   let w = document.getElementById("welcomeScreen");
@@ -4088,7 +4096,25 @@ function showWelcome() {
     + '</div>'
     + '<div class="wel-copy">© ' + new Date().getFullYear() + ' MorbiusFin · Todos os direitos reservados.<br>Feito com carinho para suas finanças.</div>';
   setAvatarInto(w.querySelector("#welAvatar"), p.foto, p.nome);
-  w.classList.remove("hidden"); requestAnimationFrame(() => w.classList.add("show"));
+  w.classList.remove("hidden");
+  const sp = document.getElementById("splash");
+  if (sp && !window.__splashDone) {
+    // ABERTURA: o splash com o nome aparece ~1,4s; depois o spinner sai e a CORTINA desce
+    // revelando a tela de login esmaecendo (transição criativa, sem flash).
+    window.__splashDone = true;
+    setTimeout(() => {
+      sp.classList.add("loading-out");
+      setTimeout(() => {
+        sp.classList.add("reveal");
+        requestAnimationFrame(() => w.classList.add("show"));
+        setTimeout(() => { try { sp.remove(); } catch (e) {} document.body.classList.remove("splash-on"); }, 1050);
+      }, 320);
+    }, 1400);
+  } else {
+    if (sp) { try { sp.remove(); } catch (e) {} }
+    document.body.classList.remove("splash-on");
+    requestAnimationFrame(() => w.classList.add("show"));
+  }
   const leave = (after) => { w.classList.remove("show"); document.body.classList.remove("welcome-on"); setTimeout(() => { try { w.remove(); } catch (e) {} after(); }, 300); };
   w.querySelector("#welEnter").onclick = () => { localStorage.removeItem(LOGGED_OUT_KEY); leave(resumeBoot); };
   w.querySelector("#welNew").onclick = () => {
@@ -4102,7 +4128,7 @@ function showWelcome() {
     }, "Apagar e começar");
   };
 }
-$("#miSim").onclick = () => {
+function goSimulador() {
   closeMenu(); markExplored("simulador");
   curTab = "resumo"; resumoView = "graficos";
   $$(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === "resumo"));
@@ -4110,7 +4136,7 @@ $("#miSim").onclick = () => {
   // rola até o simulador e destaca a borda. NÃO foca o campo via JS: foco programático no iOS deixa
   // o input "meio focado" sem teclado, e aí o 1º toque do usuário parecia não fazer nada (precisava 2).
   setTimeout(() => { focarEl("#simCard", 3200); }, 120);
-};
+}
 $("#miConfig").onclick = () => { closeMenu(); openSettings(); };
 { const ma = $("#miAviso"); if (ma) ma.onclick = () => { closeMenu(); openAvisoModal(); }; }
 { const mc = $("#miCategorias"); if (mc) mc.onclick = () => { closeMenu(); openCategoriasModal(); }; }
@@ -5000,7 +5026,7 @@ function faqGo(action) {
       case "perfil":     openProfile();         setTimeout(() => focarEl("#profileModal .modal-card", 2600), 140); break;
       case "conjunta":   openProfile();         setTimeout(() => focarEl("#profileModal .modal-card", 2600), 140); break;
       case "categorias": openCategoriasModal(); setTimeout(() => focarEl("#catModal .modal-card", 2600), 140); break;
-      case "sim":        { const h = $("#miSim"); if (h && h.onclick) h.onclick(); break; }
+      case "sim":        goSimulador(); break;
       case "sync":       if (syncCfg()) pullSync(true, null, true); else configurarSync(); break;
       case "backup":     openMenu(); setTimeout(() => focarEl("#miBackup"), 380); break;
       case "acesso":     openAccessModal(); break;
