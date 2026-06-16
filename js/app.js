@@ -1,11 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.34";
+const APP_VERSION = "3.13.35";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.35",
+    bullets: [
+      "Botões \"?\" de ajuda com área de toque maior (mais fáceis de acertar no celular)",
+      "Plural certinho: \"1 lançamento\", \"1 conta fixa\", \"1 compra no cartão\" (nas medalhas e no topo das listas)",
+      "Texto da sobra padronizado: \"guardou X% do que recebeu\"",
+      "Botões do topo (menu, sino, perfil) maiores e mais fáceis de tocar; zoom acidental bloqueado",
+    ]
+  },
   {
     version: "3.13.34",
     bullets: [
@@ -1500,17 +1509,17 @@ const MEDALS = (function buildMedals() {
   // 💰 Saldo guardado (pico no ano) — 24
   cat("peak", [[100,"Primeiro passo"],[250,"Juntando moedas"],[500,"Pegando o jeito"],[750,"Quase mil"],[1000,"Primeiro mil"],[1500,"Mil e meio"],[2000,"Dois mil"],[3000,"Engrenando"],[5000,"Cofrinho cheio"],[7500,"Crescendo"],[10000,"Dez mil!"],[15000,"Quinze mil"],[20000,"Vinte mil"],[25000,"Reserva forte"],[30000,"Blindado"],[40000,"Quarenta mil"],[50000,"Meio caminho"],[75000,"Setenta e cinco"],[100000,"Seis dígitos"],[150000,"Cento e cinquenta"],[200000,"Duzentos mil"],[250000,"Quarto de milhão"],[500000,"Meio milhão"],[1000000,"Milionário!"]], brl);
   // 📝 Lançamentos no total — 14
-  cat("totalLanc", [[1,"Começou!"],[5,"Esquentando"],[10,"Engrenando"],[25,"Constante"],[50,"No controle"],[75,"Aplicado"],[100,"Centena"],[150,"Caprichoso"],[200,"Duzentos lançamentos"],[300,"Trezentos"],[500,"Meio milhar"],[750,"Setecentos"],[1000,"Mestre do registro"],[1500,"Lenda do app"]], t => t + " lançamentos");
+  cat("totalLanc", [[1,"Começou!"],[5,"Esquentando"],[10,"Engrenando"],[25,"Constante"],[50,"No controle"],[75,"Aplicado"],[100,"Centena"],[150,"Caprichoso"],[200,"Duzentos lançamentos"],[300,"Trezentos"],[500,"Meio milhar"],[750,"Setecentos"],[1000,"Mestre do registro"],[1500,"Lenda do app"]], t => t + (t === 1 ? " lançamento" : " lançamentos"));
   // 💳 Compras no cartão — 10
-  cat("nCartao", [[1,"Primeira fatura"],[5,"Cartão ativo"],[10,"Cartão quente"],[20,"Comprador"],[30,"Trinta compras"],[50,"Faturão"],[75,"Setenta e cinco"],[100,"Cem no cartão"],[150,"Cartão pro"],[200,"Rei do cartão"]], t => t + " compras no cartão");
+  cat("nCartao", [[1,"Primeira fatura"],[5,"Cartão ativo"],[10,"Cartão quente"],[20,"Comprador"],[30,"Trinta compras"],[50,"Faturão"],[75,"Setenta e cinco"],[100,"Cem no cartão"],[150,"Cartão pro"],[200,"Rei do cartão"]], t => t + (t === 1 ? " compra no cartão" : " compras no cartão"));
   // 💳 Parcelamentos — 8
   cat("maxParc", [[3,"Parcelou 3×"],[6,"Parcelou 6×"],[10,"Parcelou 10×"],[12,"Um ano de parcelas"],[18,"Parcelou 18×"],[24,"Dois anos"],[36,"Três anos"],[60,"Parcela mestre"]], t => "Parcelou em " + t + "×");
   // 📌 Contas fixas — 10
-  cat("nFixas", [[1,"1ª conta fixa"],[2,"Duas fixas"],[3,"Três fixas"],[5,"Tudo mapeado"],[7,"Sete fixas"],[10,"Dez fixas"],[12,"Organizadíssimo"],[15,"Quinze fixas"],[20,"Vinte fixas"],[25,"Mestre das fixas"]], t => t + " contas fixas");
+  cat("nFixas", [[1,"1ª conta fixa"],[2,"Duas fixas"],[3,"Três fixas"],[5,"Tudo mapeado"],[7,"Sete fixas"],[10,"Dez fixas"],[12,"Organizadíssimo"],[15,"Quinze fixas"],[20,"Vinte fixas"],[25,"Mestre das fixas"]], t => t + (t === 1 ? " conta fixa" : " contas fixas"));
   // 🛒 Gastos do dia a dia — 12
-  cat("nDiaria", [[1,"1º gasto do dia"],[3,"Três gastos"],[5,"Cinco gastos"],[10,"Dez gastos"],[20,"Olho no centavo"],[30,"Trinta gastos"],[50,"Cinquenta"],[75,"Setenta e cinco"],[100,"Cem gastos"],[150,"Detalhista"],[200,"Duzentos"],[300,"Mestre do dia a dia"]], t => t + " gastos do dia");
+  cat("nDiaria", [[1,"1º gasto do dia"],[3,"Três gastos"],[5,"Cinco gastos"],[10,"Dez gastos"],[20,"Olho no centavo"],[30,"Trinta gastos"],[50,"Cinquenta"],[75,"Setenta e cinco"],[100,"Cem gastos"],[150,"Detalhista"],[200,"Duzentos"],[300,"Mestre do dia a dia"]], t => t + (t === 1 ? " gasto do dia" : " gastos do dia"));
   // 💰 Fontes de renda — 8
-  cat("nReceitas", [[1,"1ª receita"],[2,"Duas fontes"],[3,"Três fontes"],[5,"Diversificou"],[7,"Sete fontes"],[10,"Dez fontes"],[15,"Multi-renda"],[20,"Mestre das rendas"]], t => t + " fontes de renda");
+  cat("nReceitas", [[1,"1ª receita"],[2,"Duas fontes"],[3,"Três fontes"],[5,"Diversificou"],[7,"Sete fontes"],[10,"Dez fontes"],[15,"Multi-renda"],[20,"Mestre das rendas"]], t => t + (t === 1 ? " fonte de renda" : " fontes de renda"));
   // 📅 Meses ativos — 12
   cat("mesesAtivos", [[1,"Primeiro mês"],[2,"Dois meses"],[3,"Trimestre"],[4,"Quatro meses"],[5,"Cinco meses"],[6,"Meio ano"],[7,"Sete meses"],[8,"Oito meses"],[9,"Nove meses"],[10,"Dez meses"],[11,"Onze meses"],[12,"Ano completo"]], t => t + (t === 1 ? " mês ativo" : " meses ativos"));
   // 📈 Meses economizando — 9
@@ -1913,7 +1922,7 @@ function renderResumo(view) {
       <div class="flow-row eq"><span>= Disponível</span><b>${brl(disp)}</b></div>
       <div class="flow-row minus"><span>− Despesas ${disp > 0 ? `<i>(${Math.round(desp / disp * 100)}% do disponível)</i>` : ""}</span><b class="neg">${brl(desp)}</b></div>
       ${despBreakdownHTML(m, desp)}
-      <div class="flow-row total"><span>= Sobra do mês ${rec > 0 ? `<i>(guardou ${Math.round((rec - desp) / rec * 100)}% do que entrou no mês)</i>` : ""}</span><b id="sobraVal" class="countup ${sobra >= 0 ? "pos" : "neg"}" data-amt="${sobra}">${brl(sobra)}</b></div>
+      <div class="flow-row total"><span>= Sobra do mês ${rec > 0 ? `<i>(guardou ${Math.round((rec - desp) / rec * 100)}% do que recebeu)</i>` : ""}</span><b id="sobraVal" class="countup ${sobra >= 0 ? "pos" : "neg"}" data-amt="${sobra}">${brl(sobra)}</b></div>
     </div>
 
     <div class="section-card"><h3>Previsto × Realizado — ${mLong(m)} ${helpQ("prevreal")}</h3>
@@ -3019,7 +3028,7 @@ function renderLista(view) {
   rows = sortRows(rows, listSort[curTab], { val: x => x.l.vals[curMonth] || 0, dia: x => x.l.dia, desc: x => x.l.desc, nec: x => x.l.nec });
   view.innerHTML = `
     ${curTab === "cartao" ? renderCardsSection() : ""}
-    <div class="list-header"><span class="lbl">${rows.length} lançamento(s) em ${mLong(curMonth)}${receitaMes(curMonth) > 0 ? ` · ${Math.round(total / receitaMes(curMonth) * 100)}% da receita` : ""}</span><span class="total">${brl(total)}</span></div>
+    <div class="list-header"><span class="lbl">${rows.length} ${rows.length === 1 ? "lançamento" : "lançamentos"} em ${mLong(curMonth)}${receitaMes(curMonth) > 0 ? ` · ${Math.round(total / receitaMes(curMonth) * 100)}% da receita` : ""}</span><span class="total">${brl(total)}</span></div>
     ${rows.length ? (selMode ? selBarHTML(curTab) : sortBarHTML(curTab)) : ""}
     <div class="list">${rows.length ? rows.map(({ l, idx }, i) => lineRow(l, idx, i)).join("") : empty()}</div>`;
   bindRows(view);
@@ -5188,7 +5197,7 @@ async function syncNow() {
   try { res = await pullSync(false, null, true); } catch (e) { res = { ok: false, reason: "erro" }; }
   const a = countItems(DATA);
   if (!res || !res.ok) toast("⚠️ Não consegui atualizar — veja a internet");
-  else if (res.changed) { const d = a.total - before.total; toast(`✅ Atualizado${d !== 0 ? " · " + (d > 0 ? "+" : "") + d + " lançamento(s)" : ""}`); }
+  else if (res.changed) { const d = a.total - before.total; toast(`✅ Atualizado${d !== 0 ? " · " + (d > 0 ? "+" : "") + d + " " + (Math.abs(d) === 1 ? "lançamento" : "lançamentos") : ""}`); }
   else toast("✅ Tudo em dia");
   setTimeout(() => { if (btn) btn.classList.remove("spin"); syncing = false; }, 700);
 }

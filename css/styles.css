@@ -207,7 +207,7 @@ main > *:nth-child(7){animation-delay:.26s} main > *:nth-child(8){animation-dela
 .bell-btn.seen .bell-badge { animation: none; }
 
 /* 👤 avatar de perfil no canto do header */
-.avatar-btn { position: relative; width: 38px; height: 38px; flex: 0 0 auto; border: 0; padding: 0; cursor: pointer;
+.avatar-btn { position: relative; width: 44px; height: 44px; flex: 0 0 auto; border: 0; padding: 0; cursor: pointer;
   border-radius: 50%; overflow: hidden; background: rgba(255,255,255,.14);
   box-shadow: 0 0 0 2px rgba(255,255,255,.35), 0 2px 8px rgba(0,0,0,.25); transition: transform .12s ease; }
 .avatar-btn:active { transform: scale(.92); }
@@ -419,10 +419,12 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 .pair-ok-big { font-size: 46px; animation: bellPulse 1.4s ease-in-out infinite; border-radius: 50%; }
 
 /* ❓ "?" contextual */
-.help-q { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; margin-left: 6px;
+.help-q { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; margin-left: 6px;
   border-radius: 50%; border: 0; background: var(--card-2); color: var(--muted); font-family: var(--font); font-weight: 800;
   font-size: 12px; line-height: 1; cursor: pointer; vertical-align: middle; box-shadow: inset 0 0 0 1px var(--line);
   transition: transform .12s ease, color .2s ease, background .2s ease; }
+/* área de toque ampliada (~41px) sem mudar o visual do círculo — alvo confortável no iPhone */
+.help-q::after { content: ""; position: absolute; inset: -11px; border-radius: 50%; }
 .help-q:active { transform: scale(.82); }
 .help-q:hover { color: var(--accent); }
 .help-card { max-width: 320px; text-align: center; }
@@ -566,7 +568,7 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 /* ===== Menu lateral (☰) ===== */
 .header-left { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1 1 auto; }   /* título manda no espaço → menos "..." */
 /* botões do cabeçalho um pouco menores → sobra largura pro título (ex.: "Débitos do dia a dia") */
-.app-header .icon-btn { width: 40px; height: 40px; font-size: 16px; }
+.app-header .icon-btn { width: 44px; height: 44px; font-size: 16px; }
 .app-header .header-actions { gap: 5px; }
 .menu-btn { font-size: 18px; flex: 0 0 auto; }
 .menu-drawer { position: fixed; inset: 0; z-index: 115; background: rgba(0,0,0,.5); backdrop-filter: blur(2px); display: flex; }
