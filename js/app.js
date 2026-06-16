@@ -1,11 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.50";
+const APP_VERSION = "3.13.52";
 const VERSION_NOTES = "🔔 'Contas a vencer' agora respeita o 'avisar X dias antes' de cada conta (não aparece antes da hora) · 💸 quebra das despesas (Fixas/Cartão/Débitos com %) dentro do fluxo, escondendo as zeradas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.52",
+    bullets: [
+      "A barra de baixo NÃO sobe mais ao salvar/cancelar em Receitas, Fixas, Cartões e Débito (some atrás do teclado e só volta com a tela 100% assentada)",
+      "Botão da saudação do dia reenquadrado: centralizado, com folga das bordas e do fundo",
+      "Menu mais limpo: tiramos as descrições embaixo de cada item (tudo isso está no Tutorial detalhado)",
+      "Tutorial rápido e Tutorial detalhado reescritos num tom mais humano e conversado",
+    ],
+  },
   {
     version: "3.13.50",
     bullets: [
@@ -5068,37 +5077,37 @@ function openFaq(keepIdx) {
 
 /* Tutorial DETALHADO (manual completo) — accordion estilo FAQ, aberto pelo menu */
 const MANUAL = [
-  ["👋 Bem-vindo", "O MorbiusFin é o seu controle financeiro pessoal no celular, e funciona <b>sem internet</b>. Tudo fica salvo só no seu aparelho — os dados são seus."],
-  ["🚀 Abrindo o app", "Ao abrir aparece a saudação (<b>Bom dia/tarde/noite</b>) com seu nome e um emoji — toque no botão ou espere o contador zerar. Logo depois, se houver conta perto de vencer, o aviso aparece sozinho."],
-  ["🧭 Cabeçalho", "No topo: <b>☰</b> abre o menu; o <b>sino</b> pisca quando há conta a vencer (toque, veja e marque paga); o <b>✨</b> aparece quando há atualização; o <b>avatar</b> à direita abre seu perfil. O título alterna entre o nome da página e a saudação."],
-  ["📅 Mês e ano", "Logo abaixo do topo há o seletor de ano e os meses em botões deslizantes. Toque num mês para ver aquele período — tudo muda junto (resumo, listas, gráficos)."],
-  ["🔀 As 4 visões do Resumo", "No topo do Resumo há 4 botões: <b>Resumo</b> (visão geral), <b>Gráficos</b>, <b>Insights</b> (leitura e dicas) e <b>Metas</b>. Toque no <b>?</b> ao lado de cada título para uma explicação rápida."],
-  ["📋 Resumo do mês", "Mostra o caminho do dinheiro: saldo que sobrou + receitas = disponível; menos as despesas = sobra. Tem ainda <b>Previsto × Realizado</b> (quanto já foi pago/recebido) e a <b>composição das despesas</b> (Fixas/Cartão/Débito)."],
-  ["💪 Saúde financeira", "Um medidor de 0 a 100: quanto mais você guarda do que recebe, maior a nota. Faixas: Crítica, Atenção, Boa e Ótima. Abaixo mostra o quanto você guardou (ou o quanto ficou no vermelho)."],
-  ["📊 Gráficos", "Em <b>Gráficos</b> você vê: <b>Orçamento × Realizado</b> por categoria (verde = dentro, vermelho = estourou), o <b>saldo acumulado</b> no ano, e <b>despesas/receitas por mês</b>. Toque numa barra para ver os lançamentos daquele mês."],
-  ["🧪 Simulador de gastos", "Dentro de Gráficos: digite um valor e as parcelas e o app desenha uma linha tracejada mostrando como o saldo ficaria <b>se</b> você comprasse. Um veredito diz se cabe ou em qual mês aperta. O ↺ limpa."],
-  ["💡 Insights", "Uma leitura do mês feita pelo próprio app (sem internet): o que foi bem ou mal, dicas (taxa de poupança, maior gasto a revisar, comparação com o mês anterior) e uma projeção de como você fecha o mês."],
-  ["🏅 Medalhas", "No Insights há uma grade de conquistas: as coloridas você já ganhou, as cinzas estão travadas. Vêm de saldo, nº de lançamentos, meses economizando, metas criadas e mais. Uma barra mostra o total conquistado."],
-  ["🎯 Metas", "Crie objetivos (viagem, casa, carro…): nome, quanto custa e quanto já guardou. A barra mostra o progresso e o <b>emoji muda sozinho</b> conforme o nome. Ao atingir 100%, vira concluída com confete. Edite no ✎ e exclua dentro da edição."],
-  ["💰 Receitas", "Tudo que entra (salário, extras). Cada item tem valor, dia e situação (Recebido/Programado). Ao adicionar escolha <b>Ativa</b> (recorrente, ex.: salário) ou <b>Extra</b> (avulsa, ex.: freela)."],
-  ["📌 Fixas", "Contas que se repetem (aluguel, assinaturas). Pode definir dia de vencimento, aviso, meta de gasto e marcar <b>Necessário</b>. Marque <b>Repetir nos próximos meses</b> e o app preenche os meses sozinho."],
-  ["💳 Cartões", "Compras no cartão. No topo aparecem seus cartões (limite usado/disponível, fechamento, vencimento). No +, escolha <b>à vista</b> ou <b>parcelado até 60×</b> — o app distribui cada parcela no mês certo pelo fechamento."],
-  ["🛒 Débito (dia a dia)", "Gastos avulsos (mercado, farmácia, combustível) com categoria e método (PIX/Débito), agrupados por categoria. Diferente das Fixas, não repetem — cada gasto é lançado na hora."],
-  ["➕ Adicionar, editar, apagar", "O <b>+</b> verde abre o lançamento na aba atual. Toque num item para <b>editar</b>; <b>toque longo</b> para entrar na seleção e apagar vários. O <b>↩︎</b> no topo desfaz. Dica: <b>centavos automáticos</b> — digitar 1000 vira R$ 10,00."],
-  ["🟢 Badge de status", "Em Receitas, Fixas e Cartões, o badge ao lado do valor mostra <b>Pago/Recebido</b> (verde) ou <b>Programado</b> (âmbar). Toque direto no badge para alternar sem abrir a edição."],
-  ["☰ Menu", "Reúne tudo: Editar perfil, Tutorial, Manual, Conta e acesso (PIN), Backup e sincronização, Categorias, Metas, Simular, Configurações, Aviso de vencimento, Tema, Começar do zero e Sair do app. No topo, a barra de <b>Exploração do app</b> mostra quanto você já usou."],
-  ["👤 Perfil & conta conjunta", "Toque no avatar pra trocar foto/bichinho, nome e tipo de conta. Em <b>Conjunta</b>, gere um convite (link/QR) e compartilhe com seu par — os dois aparelhos ficam sincronizados, o que um lança aparece no outro."],
-  ["☁️ Backup e seus dados", "Seus dados ficam <b>só no seu celular</b>. Faça backup de vez em quando: menu → Backup e sincronização → Exportar (gera um .json). Ao trocar de celular, exporte no antigo e importe no novo. Sincronizar na nuvem é opcional."],
-  ["🔒 PIN, recuperação e segurança", "Em Conta e acesso você cria um <b>PIN de 4 dígitos</b> que criptografa os dados. Ao criar, dá pra cadastrar uma <b>pergunta de recuperação</b> (múltipla escolha). Esqueceu o código? Toque em \"Esqueci meu código\" e responda — errar demais bloqueia por tempo crescente."],
-  ["🌗 Tema & 🧪 Modo teste", "Em Tema, alterne entre Claro, Escuro e Automático (segue o celular). Em Conta e acesso há o <b>Modo teste</b>: dados fictícios pra explorar sem mexer nos reais (com selo laranja). Volte aos reais no mesmo lugar."],
-  ["🚪 Sair e voltar", "<b>Sair do app</b> fecha com uma animação e volta pra tela de entrada — seus dados ficam intactos (sair ≠ apagar). Na entrada, toque em <b>Entrar</b> (pede o PIN, se houver) ou em <b>Criar uma nova conta</b> pra começar do zero (só apaga após confirmar)."],
+  ["👋 Bem-vindo", "O MorbiusFin cuida das suas contas do mês direto no celular. Funciona offline e tudo fica guardado só no seu aparelho. Os dados são seus, ninguém mais vê."],
+  ["🚀 Abrindo o app", "Quando você abre, ele te recebe com um “Bom dia”, “Boa tarde” ou “Boa noite”, seu nome e um emoji. Toque no botão ou espere o contador zerar. Se tiver alguma conta perto de vencer, o aviso já aparece logo em seguida."],
+  ["🧭 Cabeçalho", "Lá em cima: o <b>☰</b> abre o menu, o <b>sino</b> pisca quando tem conta a vencer (toque pra ver e marcar como paga), o <b>✨</b> surge quando sai uma atualização e o <b>avatar</b> na direita leva pro seu perfil. O título fica revezando entre o nome da página e a saudação."],
+  ["📅 Mês e ano", "Logo abaixo do topo ficam o ano e os meses, naqueles botõezinhos que deslizam. Toque num mês pra ver aquele período. Tudo acompanha junto: resumo, listas e gráficos."],
+  ["🔀 As 4 visões do Resumo", "No topo do Resumo tem 4 botões: <b>Resumo</b>, <b>Gráficos</b>, <b>Insights</b> e <b>Metas</b>. Ficou em dúvida sobre alguma parte? Toque no <b>?</b> ao lado do título que ele explica ali mesmo."],
+  ["📋 Resumo do mês", "Mostra o caminho do seu dinheiro: o que sobrou somado às receitas dá o disponível, e tirando as despesas você vê o que ainda resta. Tem também o <b>Previsto × Realizado</b> (o que já entrou e saiu de verdade) e a divisão das despesas entre Fixas, Cartão e Débito."],
+  ["💪 Saúde financeira", "Uma notinha de 0 a 100. Quanto mais você guarda do que ganha, mais ela sobe. Vai de Crítica a Ótima, passando por Atenção e Boa. Embaixo aparece quanto você guardou no mês (ou o quanto ficou no vermelho)."],
+  ["📊 Gráficos", "Em <b>Gráficos</b> dá pra ver o <b>Orçamento × Realizado</b> por categoria (verde quer dizer dentro do combinado, vermelho quer dizer que estourou), o <b>saldo acumulado</b> ao longo do ano e as <b>despesas e receitas mês a mês</b>. Toque numa barra pra abrir os lançamentos daquele mês."],
+  ["🧪 Simulador de gastos", "Ainda em Gráficos: digite um valor e o número de parcelas, e ele desenha uma linha tracejada mostrando como ficaria seu saldo <b>se</b> você fizesse essa compra. No fim, um aviso te diz se cabe ou em que mês vai apertar. O ↺ limpa tudo."],
+  ["💡 Insights", "É a leitura do seu mês. Ele aponta o que foi bem e o que saiu do controle, dá umas dicas (quanto você poupou, qual gasto vale a pena revisar, como ficou comparado ao mês passado) e ainda arrisca como o mês deve fechar."],
+  ["🏅 Medalhas", "No Insights tem um quadro de conquistas. As coloridas você já desbloqueou, as cinzas ainda estão fechadas. Elas vêm do seu saldo, do número de lançamentos, dos meses em que você economizou, das metas que criou e por aí vai. Uma barrinha mostra quanto você já juntou."],
+  ["🎯 Metas", "Crie seus objetivos: uma viagem, a casa, o carro. Coloque o nome, quanto custa e quanto já guardou. A barra mostra o progresso e o emoji se ajusta sozinho ao nome que você escolheu. Quando chega nos 100%, vem o confete. Pra mexer é no ✎, e dá pra excluir lá dentro da edição."],
+  ["💰 Receitas", "Tudo que entra: salário, um extra aqui e ali. Cada item tem valor, dia e situação (Recebido ou Programado). Na hora de adicionar, escolha <b>Ativa</b> pra algo que se repete (tipo o salário) ou <b>Extra</b> pra um valor avulso (tipo um freela)."],
+  ["📌 Fixas", "As contas que voltam todo mês: aluguel, assinaturas e afins. Dá pra definir o dia do vencimento, o aviso, uma meta de gasto e marcar como <b>Necessário</b>. Marcou <b>Repetir nos próximos meses</b>? Ele já preenche os meses seguintes pra você."],
+  ["💳 Cartões", "As compras no cartão. No topo aparecem seus cartões com limite usado e disponível, fechamento e vencimento. No +, escolha <b>à vista</b> ou <b>parcelado em até 60×</b>, e ele coloca cada parcela no mês certo conforme a data de fechamento."],
+  ["🛒 Débito (dia a dia)", "Os gastos do dia a dia: mercado, farmácia, gasolina. Cada um com categoria e método (PIX ou Débito), tudo agrupado por categoria. Diferente das Fixas, eles não se repetem; cada gasto entra na hora que acontece."],
+  ["➕ Adicionar, editar, apagar", "O <b>+</b> verde abre um novo lançamento na aba em que você está. Toque num item pra <b>editar</b>, ou segure o dedo nele pra entrar no modo de seleção e apagar vários de uma vez. O <b>↩︎</b> lá em cima desfaz. Uma mão na roda: os <b>centavos são automáticos</b>, então digitar 1000 vira R$ 10,00."],
+  ["🟢 Badge de status", "Em Receitas, Fixas e Cartões, aquele selinho do lado do valor mostra se está <b>Pago/Recebido</b> (verde) ou <b>Programado</b> (âmbar). Toque direto nele pra alternar, sem precisar abrir a edição."],
+  ["☰ Menu", "Aqui mora tudo: editar perfil, os tutoriais, conta e acesso (o PIN), backup e sincronização, categorias, metas, configurações, aviso de vencimento, tema, começar do zero e sair do app. Lá em cima, a barra de <b>Exploração do app</b> mostra o quanto você já passeou por ele."],
+  ["👤 Perfil & conta conjunta", "Toque no avatar pra trocar a foto ou o bichinho, mudar o nome e o tipo de conta. Na opção <b>Conjunta</b>, você gera um convite (link ou QR) e manda pro seu par. Os dois celulares ficam sincronizados: o que um lança, aparece no do outro."],
+  ["☁️ Backup e seus dados", "Seus dados ficam <b>só no seu celular</b>, então vale exportar um backup de vez em quando: menu → Backup e sincronização → Exportar, que gera um arquivo .json. Trocou de celular? Exporta no antigo e importa no novo. Sincronizar pela nuvem é opcional, fica a seu critério."],
+  ["🔒 PIN, recuperação e segurança", "Em Conta e acesso você cria um <b>PIN de 4 dígitos</b> que embaralha (criptografa) seus dados. Na hora de criar, dá pra deixar uma <b>pergunta de recuperação</b> guardada. Esqueceu o código? Toque em “Esqueci meu código” e responda. Se errar muitas vezes, ele bloqueia por um tempo que vai aumentando a cada tentativa."],
+  ["🌗 Tema & 🧪 Modo teste", "Em Tema você escolhe Claro, Escuro ou Automático (que acompanha o celular). E em Conta e acesso tem o <b>Modo teste</b>: dados de mentirinha pra você explorar à vontade sem encostar nos reais (fica com um selo laranja avisando). Pra voltar aos seus dados, é no mesmo lugar."],
+  ["🚪 Sair e voltar", "<b>Sair do app</b> fecha com uma animação e te leva de volta pra tela de entrada. Seus dados continuam ali, intactos: sair não é apagar. Na tela de entrada, toque em <b>Entrar</b> (ele pede o PIN, se você tiver criado) ou em <b>Criar uma nova conta</b> pra recomeçar do zero, que só apaga depois que você confirmar."],
 ];
 function openManual() {
   let m = document.getElementById("manualModal");
   if (!m) {
     m = document.createElement("div"); m.id = "manualModal"; m.className = "modal center hidden";
     m.innerHTML = '<div class="modal-card sheet-tall"><div class="sheet-head"><h2>📖 Tutorial detalhado</h2><button type="button" class="sheet-x" id="manClose" aria-label="Fechar">✕</button></div>'
-      + '<p class="hint" style="text-align:left;margin:0 0 10px">Manual completo do app — toque em cada item pra abrir.</p>'
+      + '<p class="hint" style="text-align:left;margin:0 0 10px">Toque em cada parte pra abrir e ler com calma.</p>'
       + '<div class="modal-scroll faq-body" id="manBody"></div></div>';
     document.body.appendChild(m);
     m.querySelector("#manClose").onclick = () => m.classList.add("hidden");
@@ -5111,15 +5120,15 @@ function openManual() {
 }
 
 const TUTORIAL = [
-  ["👋", "Bem-vindo ao MorbiusFin", "Seu controle financeiro do mês, simples e no celular. Vou te mostrar o essencial em alguns passos — pode pular quando quiser.", "aceno"],
-  ["📋", "Resumo do mês", "Aqui você vê o caminho do seu dinheiro: o que entrou, o que saiu e o que sobra. No topo dá pra trocar para Gráficos e Insights.", "grafico"],
-  ["🔔", "Contas a vencer", "O sino no topo avisa quando há conta perto de vencer ou atrasada. Toque para ver e pagar — ele para de piscar depois.", "sino"],
-  ["➕", "Lançar gastos e ganhos", "Nas abas de baixo (Receitas, Fixas, Cartão, Débito), use o + para adicionar. No Cartão dá pra parcelar até 60×.", "mais"],
-  ["🏷️", "Categorias e metas", "No menu, crie categorias com emoji e defina metas de orçamento. Verde = dentro, vermelho = estourou.", "moeda"],
-  ["🎯", "Metas (objetivos)", "No topo do Resumo, toque em 🎯 Metas (ao lado de Insights). Crie objetivos como viagem, casa ou carro — diga quanto custa e quanto já guardou. A barrinha mostra o progresso e o emoji muda conforme o objetivo.", "alvo"],
-  ["🏅", "Medalhas de acúmulo", "Em Insights, você desbloqueia medalhas conforme o seu saldo guardado cresce — do Primeiro passo ao Lendário. É a forma divertida de ver sua reserva subir e se motivar a guardar mais.", "trofeu"],
-  ["💑", "Conta de casal", "No perfil, escolha Conjunta e pareie os 2 celulares por QR. O que um lança aparece no outro, sem nuvem.", "coracao"],
-  ["❓", "Ajuda sempre à mão", "Viu um “?” numa parte do app? Toque para saber o que ela faz. E este tutorial fica no menu quando quiser rever.", "interrogacao"],
+  ["👋", "Bem-vindo ao MorbiusFin", "É o seu controle de contas do mês, sem complicação e no bolso. Em poucos passos você pega o jeito. Pode pular quando quiser.", "aceno"],
+  ["📋", "Resumo do mês", "Aqui dá pra ver pra onde o seu dinheiro vai: o que entrou, o que saiu e o que sobra no fim. No topo você troca pra Gráficos e Insights quando quiser.", "grafico"],
+  ["🔔", "Contas a vencer", "O sino lá em cima avisa quando tem conta chegando perto do prazo ou já atrasada. Toque pra ver e pagar, e ele para de piscar.", "sino"],
+  ["➕", "Lançar gastos e ganhos", "Nas abas de baixo (Receitas, Fixas, Cartão e Débito), o + serve pra adicionar. No Cartão dá pra parcelar em até 60×.", "mais"],
+  ["🏷️", "Categorias e metas", "No menu você cria categorias com emoji e define quanto quer gastar em cada uma. Verde quer dizer que está dentro, vermelho quer dizer que passou.", "moeda"],
+  ["🎯", "Metas (objetivos)", "No topo do Resumo, toque em 🎯 Metas. Crie um objetivo como uma viagem, a casa ou o carro: diga quanto custa e quanto já guardou. A barrinha mostra o progresso e o emoji muda conforme o objetivo.", "alvo"],
+  ["🏅", "Medalhas de acúmulo", "No Insights, você vai desbloqueando medalhas conforme sua reserva cresce, do primeiro passo ao lendário. É um jeito divertido de ver o dinheiro guardado subir e se animar a guardar mais.", "trofeu"],
+  ["💑", "Conta de casal", "No perfil, escolha Conjunta e junte os dois celulares por QR. O que um de vocês lança aparece no outro na hora, sem precisar de nuvem.", "coracao"],
+  ["❓", "Ajuda sempre à mão", "Viu um “?” em algum canto do app? Toque que ele explica o que aquilo faz. E este tutorial fica guardado no menu, é só voltar quando precisar.", "interrogacao"],
 ];
 let _tutI = 0;
 function ensureTutModal() {
@@ -6190,45 +6199,43 @@ function refreshInPlace() {
     !/^(button|submit|checkbox|radio|range)$/i.test(el.type || "");
   const vv = window.visualViewport;
   const setKbd = (on) => document.body.classList.toggle("kbd-open", !!on);
-  const gap = () => vv ? (window.innerHeight - vv.height) : 0;   // altura aproximada do teclado
+  const gap = () => vv ? (window.innerHeight - vv.height) : 0;          // altura aprox. do teclado
+  const modalOpen = () => !!document.querySelector(".modal:not(.hidden)");
+  // "instável" = qualquer coisa que ainda faça a tabbar position:fixed driftar no iOS:
+  // teclado aberto OU campo focado OU modal aberto. Enquanto instável, a barra fica oculta.
+  const unstable = () => gap() > 120 || isField(document.activeElement) || modalOpen();
 
-  // Re-ancora elementos position:fixed depois que o teclado fecha. No iOS Safari a fixed
-  // pode ficar presa na viewport ENCOLHIDA (barra "levantada" com vão branco embaixo); um
-  // nudge de scroll de 1px força o Safari a recalcular contra a viewport já restaurada.
+  // Re-ancora as position:fixed depois do teclado fechar. No iOS a fixed pode ficar presa na
+  // viewport ENCOLHIDA (barra "levantada"); um nudge de scroll de 1px força recalcular contra
+  // a viewport já restaurada.
   function reanchor() {
     const y = window.scrollY || window.pageYOffset || 0;
     window.scrollTo(0, y + 1); window.scrollTo(0, y);
   }
 
-  // Só REVELA a tabbar quando a viewport ESTABILIZA (teclado 100% fechado). Durante a
-  // animação de fechar o iOS dispara vários 'resize' — reagir a um intermediário deixava
-  // a barra ancorada num ponto torto. Por isso debounce + reanchor ao assentar.
-  let settleT = null;
-  function settle() {
-    clearTimeout(settleT);
+  // Revela a tabbar SÓ quando NADA mais pode movê-la: teclado 100% fechado, nenhum campo focado
+  // e nenhum modal aberto — re-conferido em 2 frames seguidos. Se em qualquer checagem ainda
+  // estiver instável, mantém escondida (nunca revela "torta" e depois corrige = o "sobe").
+  let settleT = null, r1 = 0, r2 = 0;
+  function clearReveal() { clearTimeout(settleT); cancelAnimationFrame(r1); cancelAnimationFrame(r2); }
+  function tryReveal() {
+    clearReveal();
     settleT = setTimeout(() => {
-      if (gap() > 120) { setKbd(true); return; }            // ainda aberto → mantém escondida
-      // FECHANDO: reancora a viewport ENQUANTO a tabbar ainda está oculta (kbd-open), e só
-      // REVELA num frame seguinte → a pílula aparece já na posição certa (não "sobe" e corrige).
+      if (unstable()) { setKbd(true); return; }
       reanchor();
-      requestAnimationFrame(() => { reanchor(); requestAnimationFrame(() => setKbd(false)); });
-    }, 140);
+      r1 = requestAnimationFrame(() => {
+        if (unstable()) { setKbd(true); return; }
+        reanchor();
+        r2 = requestAnimationFrame(() => { setKbd(unstable() ? true : false); });
+      });
+    }, 230);                                  // > animação de fechar do teclado iOS (~250ms total c/ debounce)
   }
+  function hideNow() { clearReveal(); setKbd(true); }
 
-  if (vv) vv.addEventListener("resize", () => {
-    if (gap() > 120) { clearTimeout(settleT); setKbd(true); }   // abriu → esconde JÁ
-    else settle();                                              // fechando → espera assentar
-  });
-
-  // foco em campo de texto — esconde JÁ no foco (antes do teclado terminar de abrir)
-  let blurT = null;
-  document.addEventListener("focusin", (e) => { if (isField(e.target)) { clearTimeout(blurT); clearTimeout(settleT); setKbd(true); } });
-  document.addEventListener("focusout", (e) => {
-    if (isField(e.target)) {
-      clearTimeout(blurT);
-      blurT = setTimeout(() => { if (!isField(document.activeElement)) settle(); }, 180);
-    }
-  });
+  if (vv) vv.addEventListener("resize", () => { if (gap() > 120) hideNow(); else tryReveal(); });
+  // foco em campo → esconde JÁ (antes do teclado terminar de subir, sem janela pra driftar)
+  document.addEventListener("focusin", (e) => { if (isField(e.target)) hideNow(); });
+  document.addEventListener("focusout", (e) => { if (isField(e.target)) tryReveal(); });
 })();
 
 /* ⬆️ Botão "voltar ao topo": aparece ao descer (>320px), some perto do topo */
