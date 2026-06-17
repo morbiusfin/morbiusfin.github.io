@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.77";
-const VERSION_NOTES = "✨ fim do tremido: a barra de baixo volta suave ao fechar um lançamento (sem piscar) e continua firme no lugar, no Débito e em todas as abas";
+const APP_VERSION = "3.13.78";
+const VERSION_NOTES = "🛟 barra de baixo: corrigida a causa de raiz do 'subir' no Débito (tela de lista curta) — agora ela fica ancorada igual em todas as abas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.78",
+    bullets: [
+      "Resolvida de vez a causa da <b>barra de baixo</b> subir no <b>Débito</b>: em telas com poucos itens ela agora fica ancorada no lugar certo, igual nas outras abas — ao abrir e fechar um lançamento.",
+    ],
+  },
   {
     version: "3.13.77",
     bullets: [
@@ -6909,7 +6915,11 @@ function refreshInPlace() {
   function repinBars() {
     [document.querySelector(".tabbar"), document.getElementById("fab")].forEach(el => {
       if (!el || getComputedStyle(el).display === "none") return;   // escondida de propósito → não mexe
+      // num tick só (sem paint no meio): display none→reflow→volta E position fixed→absolute→volta.
+      // Os dois forçam o iOS a re-resolver o position:fixed do zero contra a viewport atual — o mais
+      // forte que dá sem reposicionar visível. Se ainda assim driftar, o diagnóstico #dbg me dá os números.
       const d = el.style.display; el.style.display = "none"; void el.offsetHeight; el.style.display = d;
+      const p = el.style.position; el.style.position = "absolute"; void el.offsetHeight; el.style.position = p;
     });
   }
   // Re-ancora as position:fixed depois do teclado/modal fechar. No iOS a fixed pode ficar presa na
@@ -7026,6 +7036,34 @@ function refreshInPlace() {
   window.addEventListener("resize", onScroll);
   btn.onclick = () => { try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); } };
   onScroll();
+})();
+
+/* 🔬 Diagnóstico da barra (TEMPORÁRIO) — ative abrindo o app com #dbg na URL
+   (ex.: morbiusfin.github.io/#dbg). Mostra no topo, ao vivo: gap da tabbar até o fundo da tela,
+   altura da tela, altura da visual viewport, scrollY, position/top do body e classes ativas.
+   Serve pra ler no iPhone o valor exato quando a barra "sobe" no Débito (não reproduz no PC). */
+(function barDebug() {
+  try {
+    if (!/(^|[#&])dbg\b/i.test(location.hash)) return;
+    const box = document.createElement("div");
+    box.id = "barDbg";
+    box.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:99999;background:rgba(0,0,0,.86);color:#0f0;font:11px/1.35 monospace;padding:6px 8px;white-space:pre-wrap;pointer-events:none;text-align:left";
+    document.body.appendChild(box);
+    const vv = window.visualViewport;
+    setInterval(() => {
+      const tb = document.querySelector(".tabbar"), fab = document.getElementById("fab");
+      const r = tb ? tb.getBoundingClientRect() : null;
+      const cs = tb ? getComputedStyle(tb) : null;
+      const gapBar = r ? Math.round(window.innerHeight - r.bottom) : "?";
+      const rest = cs ? Math.round(parseFloat(cs.bottom) || 0) : "?";
+      box.textContent =
+        "GAP barra→fundo: " + gapBar + "px  (descanso ~" + rest + ")\n" +
+        "innerH " + window.innerHeight + "  vvH " + (vv ? Math.round(vv.height) : "?") + "  vvTop " + (vv ? Math.round(vv.offsetTop) : "?") + "\n" +
+        "scrollY " + Math.round(window.scrollY) + "  bodyPos " + getComputedStyle(document.body).position + "  bodyTop " + (document.body.style.top || "0") + "\n" +
+        "tb.display " + (cs ? cs.display : "?") + "  tb.vis " + (cs ? cs.visibility : "?") + "\n" +
+        "classes: " + (document.body.className || "(nenhuma)") + (document.querySelector(".modal:not(.hidden)") ? "  +MODAL" : "");
+    }, 200);
+  } catch (e) {}
 })();
 
 boot();
