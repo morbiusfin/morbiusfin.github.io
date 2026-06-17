@@ -1,12 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.71";
-const VERSION_NOTES = "🛟 a barra de baixo nunca mais fica fora do lugar: se ela tentar subir, o app reencaixa sozinho na hora (mesmo no iPhone, no Débito)";
+const APP_VERSION = "3.13.72";
+const VERSION_NOTES = "🛒 lançar no Débito ficou igualzinho às outras abas: o + abre a tela na hora e você escolhe Débito ou PIX ali dentro — a barra de baixo não sai mais do lugar";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.72",
+    bullets: [
+      "Lançar um gasto no <b>Débito</b> ficou igual às outras abas: o <b>+</b> já abre a telinha na hora e você escolhe <b>Débito</b> ou <b>PIX</b> ali dentro, num toque.",
+      "Com isso, a <b>barra de baixo</b> fica firme no lugar ao lançar no Débito — sem subir nem sumir.",
+    ],
+  },
   {
     version: "3.13.71",
     bullets: [
@@ -4136,7 +4143,10 @@ function openDiariaModal(idx, method) {
   const mesSel = isNew ? curMonth : (d.mes != null ? d.mes : curMonth);
   $("#modalTitle").textContent = (isNew ? "Nova " : "Editar ") + "compra no débito";
   $("#entryForm").innerHTML = `
-    <div id="f_metTag" class="method-tag ${metodo}"><span class="mt-label">${metLabel(metodo)}</span><button type="button" id="f_metToggle" class="met-switch">trocar ⇄</button></div>
+    <div class="seg" id="f_seg" role="tablist">
+      <button type="button" class="seg-btn${metodo === "debito" ? " active" : ""}" data-met="debito">💳 Débito</button>
+      <button type="button" class="seg-btn${metodo === "pix" ? " active" : ""}" data-met="pix">⚡ PIX</button>
+    </div>
     <label class="field"><span>Descrição</span><input id="f_desc" type="text" value="${isNew ? "" : esc(d.desc)}" required placeholder="Ex.: Mercado" /></label>
     <label class="field"><span>Categoria</span><select id="f_catId" class="sel">${catSelectHTML(isNew ? null : entryCatId(d))}</select></label>
     <label class="field"><span>Valor (R$)</span><input id="f_val" class="money" value="${isNew ? "" : d.valor}" placeholder="0,00" required /></label>
@@ -4152,7 +4162,7 @@ function openDiariaModal(idx, method) {
   $("#entryForm").insertAdjacentHTML("beforeend", `<div id="f_impact" class="impact"></div>`);
   const fvd = $("#f_val"); if (fvd) fvd.oninput = () => updateImpact(true, oldValD);
   $("#f_mes").onchange = () => { fillDaySelect("f_dia", "f_mes"); updateImpact(true, oldValD); };
-  $("#f_metToggle").onclick = () => { metodo = metodo === "pix" ? "debito" : "pix"; const t = $("#f_metTag"); t.className = "method-tag " + metodo; t.querySelector(".mt-label").textContent = metLabel(metodo); };
+  $$("#f_seg .seg-btn").forEach(b => b.onclick = () => { $$("#f_seg .seg-btn").forEach(x => x.classList.toggle("active", x === b)); metodo = b.dataset.met; });
   updateImpact(true, oldValD);
   $("#btnDelete").classList.toggle("hidden", isNew);
   $("#btnDelete").onclick = () => modalConfirm("Excluir esta compra?", () => { tombstone(DATA.diaria[idx].id); DATA.diaria.splice(idx, 1); persist(); closeModal(); toast("Excluído"); }, "Excluir");
@@ -4409,7 +4419,10 @@ bindGlassDrag($(".tabbar"), ".tab", commitTab, "tab");
 window.addEventListener("resize", () => { syncTabGlass(false); });
 $("#fab").onclick = () => {
   if (selMode) { if (selected.size) openBulkDelete(); return; }   // 🗑️ → apaga selecionados (modal de escopo)
-  return curTab === "diaria" ? openDiariaChooser() : curTab === "cartao" ? openCartaoChooser() : openEntryModal(curTab, null);
+  // Débito abre o modal DIRETO (igual Receitas/Fixas) — a escolha PIX/Débito é um segmentado
+  // DENTRO do modal. Tira o balão chooser do caminho: era o único passo estrutural diferente
+  // das abas que funcionam (balão solto no body, sem scroll-lock) → causava a barra "subir" no iOS.
+  return curTab === "diaria" ? openDiariaModal(null) : curTab === "cartao" ? openCartaoChooser() : openEntryModal(curTab, null);
 };
 $("#btnUndo").onclick = undo;
 { const br = $("#btnRefresh"); if (br) br.onclick = syncNow; }
