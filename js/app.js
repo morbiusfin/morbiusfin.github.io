@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.67";
-const VERSION_NOTES = "🔥 Ritmo de gastos turbinado: um resumo do dia abaixo do gráfico que muda conforme você passa o dedo · 📲 o guia de instalar na tela de início aparece sozinho depois do “Começar do zero”";
+const APP_VERSION = "3.13.68";
+const VERSION_NOTES = "🛟 a barra de baixo e o botão + voltam sozinhos pro lugar certo em até meio segundo — fim definitivo do caso (Débito) em que sumiam ou voltavam tortos no iPhone";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.68",
+    bullets: [
+      "Barra de baixo + botão <b>+</b> (no Débito e em todas as abas): um “vigia” garante que voltam sozinhos pro lugar certo em até meio segundo — mesmo nos casos do iPhone em que ficavam escondidos ou desalinhados depois de lançar",
+    ],
+  },
   {
     version: "3.13.67",
     bullets: [
@@ -6853,6 +6859,28 @@ function refreshInPlace() {
   window.addEventListener("focus", () => window.__revealBars());
   document.addEventListener("visibilitychange", () => { if (!document.hidden) window.__revealBars(); });
   window.addEventListener("pageshow", () => window.__revealBars());
+})();
+
+/* 🛟 Watchdog à prova de falhas da barra de baixo + FAB: NÃO depende de evento nenhum do iOS.
+   A cada 600ms, se NÃO há modal aberto, NÃO há campo focado e o teclado está fechado (gap<120),
+   garante que a barra não ficou presa escondida (scroll-locked/kbd-open) nem "torta" (drift do
+   position:fixed no iOS). Resolve de vez o caso do Débito em que a barra sumia/voltava no lugar
+   errado e o heal por eventos não pegava. */
+(function barWatchdog() {
+  const vv = window.visualViewport;
+  const gap = () => vv ? (window.innerHeight - vv.height) : 0;
+  const isField = (el) => el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !/^(button|submit|checkbox|radio|range)$/i.test(el.type || "");
+  setInterval(() => {
+    if (document.hidden) return;
+    if (document.querySelector(".modal:not(.hidden)")) return;       // modal aberto → barra escondida de propósito
+    if (isField(document.activeElement)) return;                     // digitando num campo → idem
+    if (gap() > 120) return;                                         // teclado ainda aberto → idem
+    const b = document.body;
+    let healed = false;
+    if (b.classList.contains("scroll-locked")) { try { unlockScroll(); } catch (e) { b.classList.remove("scroll-locked"); b.style.top = ""; } healed = true; }
+    if (b.classList.contains("kbd-open")) { b.classList.remove("kbd-open"); healed = true; }
+    if (healed) { const y = window.scrollY || window.pageYOffset || 0; window.scrollTo(0, y + 1); window.scrollTo(0, y); }  // re-fixa as position:fixed (some o drift)
+  }, 600);
 })();
 
 /* ⬆️ Botão "voltar ao topo": aparece ao descer (>320px), some perto do topo */
