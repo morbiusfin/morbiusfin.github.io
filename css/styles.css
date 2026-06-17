@@ -587,12 +587,16 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 @media (prefers-reduced-motion: reduce) { .app-header h1.typing .tw-text::after { animation: none; } }
 
 /* ===== Sair do app: cortina verde fechando + bichinho (gif 1x) ===== */
-.logout-fx { position: fixed; inset: 0; z-index: 1600; display: flex; align-items: center; justify-content: center;
+.logout-fx { position: fixed; inset: 0; z-index: 1600; display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: radial-gradient(72% 58% at 50% 42%, #0e4a36 0%, #08231a 56%, #05110c 100%);
   opacity: 0; transition: opacity .55s ease; }
 .logout-fx.go { opacity: 1; }
-/* 1) bichinho roda ~3s. 2) ANIM-OUT: o círculo+emoji esmaece e encolhe (fundo verde fica) */
-.logout-fx.anim-out .lf-avatar { transform: scale(.72) !important; opacity: 0 !important; transition: transform .55s ease, opacity .5s ease; animation: none !important; }
+/* 1) bichinho roda ~3s. 2) ANIM-OUT: o círculo+emoji + nome esmaecem e encolhem juntos (fundo verde fica) */
+.logout-fx.anim-out .lf-avatar, .logout-fx.anim-out .lf-name { transform: scale(.72) !important; opacity: 0 !important; transition: transform .55s ease, opacity .5s ease; animation: none !important; }
+/* nome do app igual ao da tela de entrada, abaixo do círculo — entra/sai junto com o bichinho */
+.logout-fx .lf-name { margin-top: 20px; font-size: 27px; font-weight: 800; letter-spacing: -.4px; color: #eafff4;
+  text-align: center; opacity: 0; transform: translateY(10px) scale(.92); animation: lfNameIn .7s cubic-bezier(.2,.8,.2,1) .5s forwards; }
+@keyframes lfNameIn { 0% { opacity: 0; transform: translateY(10px) scale(.92); } 55% { opacity: 1; transform: translateY(0) scale(1.04); } 100% { opacity: 1; transform: none; } }
 /* 3) FADE-OUT: no fim, o fundo verde sai (revela a entrada esmaecendo) */
 .logout-fx.fade-out { opacity: 0; }
 .logout-fx .lf-avatar { width: 134px; height: 134px; aspect-ratio: 1; border-radius: 50%; overflow: hidden;
@@ -628,8 +632,9 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 /* ===== Recuperação por pergunta secreta ===== */
 .lock-forgot { display: block; width: 100%; margin: 12px auto 0; background: none; border: 0; color: rgba(255,255,255,.82); font: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; }
 .lock-forgot:active { opacity: .6; }
-.lock-back { display: block; width: 100%; margin: 8px auto 0; background: none; border: 0; color: rgba(255,255,255,.58); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
-.lock-back:active { opacity: .6; }
+.lock-back { display: block; width: max-content; max-width: 100%; margin: 16px auto 0; padding: 10px 20px; border-radius: 13px;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.28); color: #fff; font: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; transition: transform .12s ease, background .2s ease; }
+.lock-back:active { transform: scale(.96); background: rgba(255,255,255,.2); }
 .rec-opts { display: flex; flex-direction: column; gap: 9px; }
 .rec-opts .rec-opt { width: 100%; text-align: center; padding: 13px 12px; border-radius: 13px; font-weight: 700; }
 .rec-opts.shake { animation: recShake .4s ease; }

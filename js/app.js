@@ -1,11 +1,21 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.68";
-const VERSION_NOTES = "🛟 a barra de baixo e o botão + voltam sozinhos pro lugar certo em até meio segundo — fim definitivo do caso (Débito) em que sumiam ou voltavam tortos no iPhone";
+const APP_VERSION = "3.13.69";
+const VERSION_NOTES = "✨ no gráfico de gastos, arraste o dedo e veja o resumo de cada dia · a barra de baixo sempre no lugar · a saída do app ficou mais bonita";
 
-/* ===== Changelog — últimas versões (mais recente primeiro) ===== */
+/* ===== Changelog — últimas versões (mais recente primeiro) =====
+   IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.69",
+    bullets: [
+      "🔥 No gráfico de gastos, <b>arraste o dedo</b> e veja o resumo de cada dia: quanto você já gastou e como está em relação ao mês passado.",
+      "A barra de baixo e o botão <b>+</b> ficam sempre no lugar certo, em qualquer tela.",
+      "O botão <b>Voltar ao login</b> ficou mais fácil de encontrar.",
+      "Sair do app agora tem uma despedida bonita, com a sua carinha e o nome do app. 💚",
+    ],
+  },
   {
     version: "3.13.68",
     bullets: [
@@ -4516,7 +4526,7 @@ function logoutSequence() {
   try { document.querySelectorAll(".modal").forEach(x => x.classList.add("hidden")); } catch (e) {}
   const ov = document.createElement("div"); ov.id = "logoutFx"; ov.className = "logout-fx";
   const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)].id;
-  ov.innerHTML = '<div class="lf-avatar">' + animalSVG(animal) + '</div>';
+  ov.innerHTML = '<div class="lf-avatar">' + animalSVG(animal) + '</div><div class="lf-name">MorbiusFin</div>';
   document.body.appendChild(ov);
   document.body.classList.remove("scroll-locked"); document.body.style.top = "";
   requestAnimationFrame(() => ov.classList.add("go"));            // 1) cortina verde + bichinho (pop), roda o gif
@@ -4940,8 +4950,9 @@ function openWhatsNew(justUpdated) {
   const ver = $("#wnVersion"); if (ver) ver.textContent = "v" + esc(atual.version);
   const title = $("#wnTitle"); if (title) title.textContent = justUpdated === true ? "Atualizado! O que melhorou" : "Novidades";
   const body = $("#wnBody");
+  // bullets são textos NOSSOS (estáticos) → renderiza HTML (negrito etc.); nunca vem de input do usuário
   if (body) body.innerHTML = '<div class="wn-entry"><ul>'
-    + (atual.bullets || []).map(function (b) { return '<li>' + esc(b) + '</li>'; }).join("")
+    + (atual.bullets || []).map(function (b) { return '<li>' + b + '</li>'; }).join("")
     + '</ul></div>';
   const a = $("#wnAccept");
   if (a) {
