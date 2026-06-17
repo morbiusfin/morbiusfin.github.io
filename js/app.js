@@ -1,11 +1,17 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.63";
-const VERSION_NOTES = "🐛 a barra de baixo (e o +) sempre volta ao fechar um lançamento — em todas as abas, inclusive Débito · 💰 o valor da meta abre certinho ao editar (13.000 não vira mais 13)";
+const APP_VERSION = "3.13.64";
+const VERSION_NOTES = "🔒 ao tocar Entrar, a tela de senha aparece na hora — acabou aquele “flash” em que o app piscava por um instante antes de pedir a senha";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) ===== */
 const CHANGELOG = [
+  {
+    version: "3.13.64",
+    bullets: [
+      "Ao tocar Entrar, a tela de senha aparece na hora — sumiu o “flash” em que o app aparecia por um instante antes de pedir a senha",
+    ],
+  },
   {
     version: "3.13.63",
     bullets: [
@@ -4447,7 +4453,21 @@ function showWelcome() {
     requestAnimationFrame(() => w.classList.add("show"));
   }
   const leave = (after) => { w.classList.remove("show"); document.body.classList.remove("welcome-on"); setTimeout(() => { try { w.remove(); } catch (e) {} after(); }, 300); };
-  w.querySelector("#welEnter").onclick = () => { localStorage.removeItem(LOGGED_OUT_KEY); leave(resumeBoot); };
+  w.querySelector("#welEnter").onclick = () => {
+    localStorage.removeItem(LOGGED_OUT_KEY);
+    // Se há dados protegidos (PIN/senha), mostra o CADEADO já por cima (z-index 1000 > welcome 80):
+    // o app nunca aparece no meio. Sem isso, o fade de 300ms do welcome revelava o app antes da
+    // tela de senha = o "flash" entre Entrar e a senha. #bugfix
+    let parsed = null;
+    try { const raw = localStorage.getItem(STORE_KEY) || localStorage.getItem("financas2026.v1"); parsed = raw ? JSON.parse(raw) : null; } catch (e) {}
+    if (parsed && parsed.enc) {
+      showLock(parsed);
+      w.classList.remove("show"); document.body.classList.remove("welcome-on");
+      setTimeout(() => { try { w.remove(); } catch (e) {} }, 300);
+    } else {
+      leave(resumeBoot);   // sem proteção: revela o app (destino final, sem flash)
+    }
+  };
   w.querySelector("#welNew").onclick = () => {
     modalConfirm("Criar uma conta nova? Isso apaga os lançamentos atuais deste aparelho. Exporte um backup antes, se quiser guardar.", () => {
       window.CRYPTO_KEY = null;
