@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.82";
-const VERSION_NOTES = "🛟 barra de baixo: mudei como o app segura a tela ao abrir uma janela — ela para de subir no Débito (e em tudo) ao abrir, fechar, salvar ou cancelar";
+const APP_VERSION = "3.13.83";
+const VERSION_NOTES = "🛟 barra de baixo: reforço pro 1º lançamento do Débito — ela reencaixa sozinha (sem piscar) logo após salvar, mesmo na primeira vez que você abre a tela";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.83",
+    bullets: [
+      "Reforço na <b>barra de baixo</b>: no <b>primeiro lançamento</b> logo depois de abrir a tela do Débito, ela agora reencaixa sozinha no lugar certo após salvar — sem piscar e sem subir.",
+    ],
+  },
   {
     version: "3.13.82",
     bullets: [
@@ -6978,13 +6984,13 @@ function refreshInPlace() {
   function repinBars() {
     [document.querySelector(".tabbar"), document.getElementById("fab")].forEach(el => {
       if (!el || getComputedStyle(el).display === "none") return;   // escondida de propósito → não mexe
-      // num tick só (sem paint no meio): display none→reflow→volta E position fixed→absolute→volta.
-      // Os dois forçam o iOS a re-resolver o position:fixed do zero contra a viewport atual — o mais
-      // forte que dá sem reposicionar visível. Se ainda assim driftar, o diagnóstico #dbg me dá os números.
-      const d = el.style.display; el.style.display = "none"; void el.offsetHeight; el.style.display = d;
-      const p = el.style.position; el.style.position = "absolute"; void el.offsetHeight; el.style.position = p;
+      // re-ancora SEM PISCAR: a barra já tem transform:translateZ(0); alternar transform→none→volta é
+      // visualmente IDÊNTICO (não desloca nada), mas força o iOS a re-compor a camada fixed contra a
+      // viewport ATUAL. (display-toggle re-ancorava também, mas piscava — por isso saiu.) #fix-flicker
+      el.style.transform = "none"; void el.offsetHeight; el.style.transform = "";
     });
   }
+  window.__repinBars = repinBars;
   // Re-ancora as position:fixed depois do teclado/modal fechar. No iOS a fixed pode ficar presa na
   // viewport ENCOLHIDA (barra "levantada"); o nudge de scroll re-fixa em página LONGA e o repinBars
   // re-fixa em página CURTA (onde não há área pra rolar → o nudge não faz nada).
@@ -7012,10 +7018,13 @@ function refreshInPlace() {
     const finalize = () => {
       const unstable = hardUnstable() || gap() > 120;
       setKbd(unstable);
-      // revelou e SEM modal aberto → UMA re-fixada síncrona (display-toggle num tick → sem flash).
-      // Sem rajada de setTimeouts (era o que causava o "piscar"). barWatchdog (600ms) é a rede de
-      // segurança se sobrar algum drift. #fix-flicker
-      if (!unstable && !modalOpen()) repinBars();
+      // revelou e SEM modal aberto → re-fixa AGORA e mais 3x espaçadas. Como repinBars é flicker-free
+      // (transform-toggle), a rajada NÃO pisca, e ela cobre o assentamento LENTO do iOS no 1º teclado
+      // da página (caso em que a barra ainda subia). barWatchdog (600ms) é a rede final. #bugfix-debito-raia
+      if (!unstable && !modalOpen()) {
+        repinBars();
+        [200, 450, 800].forEach(ms => setTimeout(() => { if (!hardUnstable() && gap() <= 120 && !modalOpen()) repinBars(); }, ms));
+      }
     };
     settleT = setTimeout(() => {
       if (hardUnstable()) { setKbd(true); return; }       // modal/campo → fica escondido (correto)
@@ -7083,7 +7092,7 @@ function refreshInPlace() {
       const rest = parseFloat(getComputedStyle(tb).bottom) || 11;     // descanso = 11px + safe-bottom
       if (r.height && (window.innerHeight - r.bottom) > rest + 18) {
         const fab = document.querySelector("#fab");
-        [tb, fab].forEach(el => { if (el) { const d = el.style.display; el.style.display = "none"; void el.offsetHeight; el.style.display = d; } });
+        [tb, fab].forEach(el => { if (el) { el.style.transform = "none"; void el.offsetHeight; el.style.transform = ""; } });   // re-ancora sem piscar
         healed = true;
       }
     }
