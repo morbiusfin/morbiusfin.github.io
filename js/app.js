@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.81";
-const VERSION_NOTES = "🧱 lançar no Débito ficou igual às Contas fixas e mais simples: saiu a escolha Débito/PIX. A barra de baixo fica firme ao salvar e ao cancelar";
+const APP_VERSION = "3.13.82";
+const VERSION_NOTES = "🛟 barra de baixo: mudei como o app segura a tela ao abrir uma janela — ela para de subir no Débito (e em tudo) ao abrir, fechar, salvar ou cancelar";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.82",
+    bullets: [
+      "Corrigido de vez a <b>barra de baixo subir</b> no <b>Débito</b> (e nas outras telas): mudei a forma como o app segura a tela quando uma janela abre — agora a barra fica ancorada no lugar ao abrir, fechar, salvar ou cancelar um lançamento.",
+    ],
+  },
   {
     version: "3.13.81",
     bullets: [
@@ -4429,7 +4435,11 @@ function dimRootBg(on) { try { document.documentElement.style.backgroundColor = 
 function lockScroll() {
   if (document.body.classList.contains("scroll-locked")) return;
   _scrollLockY = window.scrollY || window.pageYOffset || 0;
-  document.body.style.top = `-${_scrollLockY}px`;
+  // NÃO usa mais position:fixed no body. Por quê: o overlay .modal já tem touch-action:none +
+  // overscroll-behavior:none (o fundo NÃO rola ao tocar) e o .modal-card rola por dentro
+  // (max-height:88dvh; overflow-y:auto) → o teclado rola o CARD, não o body. O position:fixed era
+  // redundante E disparava o recálculo de safe-area do iOS ao travar — que DESANCORAVA a tabbar
+  // (a barra "subia" e não voltava, principalmente no Débito). Sem ele, a tabbar nunca se move. #bugfix-debito-raia
   document.body.classList.add("scroll-locked");
   clearTimeout(_faqReturnT);             // abriu um pop-up → não deixa o FAQ voltar por cima depois
   dimRootBg(true);                       // faixa do home indicator escura (sem branco) atrás do pop-up
@@ -4438,8 +4448,9 @@ function unlockScroll() {
   if (!document.body.classList.contains("scroll-locked")) return;
   document.body.classList.remove("scroll-locked");
   document.body.style.top = "";
+  document.body.style.position = "";     // limpa qualquer position inline antigo
   dimRootBg(false);
-  window.scrollTo(0, _scrollLockY);
+  if ((window.scrollY || 0) !== _scrollLockY) window.scrollTo(0, _scrollLockY);
 }
 let _slRaf = 0, _slBusy = false, _modalWasOpen = false;
 function refreshScrollLock() {

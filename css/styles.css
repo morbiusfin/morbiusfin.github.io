@@ -1185,7 +1185,9 @@ body.kbd-open .tabbar { display: none !important; }
 body.kbd-open #fab { opacity: 0; pointer-events: none; transform: none; }
 
 /* fundo congelado enquanto um modal está aberto (não rola por trás do bottom-sheet) */
-body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; overscroll-behavior: none; }
+/* position:fixed é aplicado INLINE pelo lockScroll() só quando a página rola (vide #bugfix-debito-raia);
+   aqui ficam só os estilos que valem com ou sem o fixed. */
+body.scroll-locked { left: 0; right: 0; width: 100%; overflow: hidden; overscroll-behavior: none; }
 
 /* ===== FOLHA DO DÉBITO (isolada — NÃO usa a máquina de .modal/scroll-lock) =====
    Overlay quase opaco que cobre TUDO (inclusive a tabbar, z-index acima dela). Não trava o body,
