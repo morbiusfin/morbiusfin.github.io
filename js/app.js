@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.74";
-const VERSION_NOTES = "📐 card 'Ritmo de gastos' alinhadinho + 🔔 agora o app te avisa sozinho quando sai uma versão nova (até ao reabrir), pra você atualizar num toque";
+const APP_VERSION = "3.13.75";
+const VERSION_NOTES = "🛟 barra de baixo no Débito: ela não sobe mais ao abrir/fechar o lançamento, mesmo quando a lista do dia tem poucos itens";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.75",
+    bullets: [
+      "A <b>barra de baixo</b> agora fica firme no <b>Débito</b>: ao abrir ou fechar um lançamento (salvando ou cancelando), ela volta exatamente pro lugar — mesmo quando a lista do dia tem poucos itens.",
+    ],
+  },
   {
     version: "3.13.74",
     bullets: [
@@ -6884,9 +6890,19 @@ function refreshInPlace() {
   // teclado aberto OU campo focado OU modal aberto. Enquanto instável, a barra fica oculta.
   const unstable = () => gap() > 120 || isField(document.activeElement) || modalOpen();
 
-  // Re-ancora as position:fixed depois do teclado fechar. No iOS a fixed pode ficar presa na
-  // viewport ENCOLHIDA (barra "levantada"); um nudge de scroll de 1px força recalcular contra
-  // a viewport já restaurada.
+  // Re-fixa tabbar+FAB tirando-os do fluxo e devolvendo (display none→reflow→volta): força o iOS a
+  // recalcular o position:fixed contra a viewport ATUAL. CRÍTICO em página CURTA (ex.: Débito com 1
+  // item) onde o scroll-nudge NÃO tem efeito (sem área rolável) e a barra ficava "subida" depois de
+  // fechar o modal — bug que só aparecia no Débito por ser a aba com lista curta. #bugfix-debito-raia
+  function repinBars() {
+    [document.querySelector(".tabbar"), document.getElementById("fab")].forEach(el => {
+      if (!el || getComputedStyle(el).display === "none") return;   // escondida de propósito → não mexe
+      const d = el.style.display; el.style.display = "none"; void el.offsetHeight; el.style.display = d;
+    });
+  }
+  // Re-ancora as position:fixed depois do teclado/modal fechar. No iOS a fixed pode ficar presa na
+  // viewport ENCOLHIDA (barra "levantada"); o nudge de scroll re-fixa em página LONGA e o repinBars
+  // re-fixa em página CURTA (onde não há área pra rolar → o nudge não faz nada).
   function reanchor() {
     const y = window.scrollY || window.pageYOffset || 0;
     window.scrollTo(0, y + 1); window.scrollTo(0, y);
@@ -6905,7 +6921,11 @@ function refreshInPlace() {
   function tryReveal(retries) {
     clearReveal();
     retries = (retries == null) ? 8 : retries;
-    const finalize = () => setKbd((hardUnstable() || gap() > 120) ? true : false);
+    const finalize = () => {
+      const unstable = hardUnstable() || gap() > 120;
+      setKbd(unstable);
+      if (!unstable) { repinBars(); requestAnimationFrame(repinBars); }   // revelou → re-fixa (display-toggle) p/ não ficar "subida" em página curta
+    };
     settleT = setTimeout(() => {
       if (hardUnstable()) { setKbd(true); return; }       // modal/campo → fica escondido (correto)
       if (gap() > 120) {                                   // teclado ainda descendo → espera mais
@@ -6960,12 +6980,15 @@ function refreshInPlace() {
     if (b.classList.contains("scroll-locked")) { try { unlockScroll(); } catch (e) { b.classList.remove("scroll-locked"); b.style.top = ""; } healed = true; }
     if (b.classList.contains("kbd-open")) { b.classList.remove("kbd-open"); healed = true; }
     // detecção DIRETA do drift: a barra "subiu"? (no iOS o position:fixed desgruda do fundo e flutua).
-    // Mede onde ela está; se não está colada embaixo, re-fixa À FORÇA (tira do fluxo e devolve →
-    // o navegador recalcula a posição fixa contra a viewport atual). Resolve o "está subindo" do Débito.
+    // Limiar DINÂMICO: o lugar de descanso é o `bottom` do CSS (calc(11px + safe-area)). Se a barra
+    // está mais alta que isso + 18px de folga, é drift → re-fixa À FORÇA (display-toggle → recalcula
+    // a posição fixa contra a viewport atual). Limiar dinâmico pega o drift pequeno do Débito (~55px)
+    // que o antigo 80px fixo deixava passar, sem falso-positivo na safe-area do iPhone.
     const tb = document.querySelector(".tabbar");
     if (tb && getComputedStyle(tb).display !== "none") {
       const r = tb.getBoundingClientRect();
-      if (r.height && (window.innerHeight - r.bottom) > 80) {
+      const rest = parseFloat(getComputedStyle(tb).bottom) || 11;     // descanso = 11px + safe-bottom
+      if (r.height && (window.innerHeight - r.bottom) > rest + 18) {
         const fab = document.querySelector("#fab");
         [tb, fab].forEach(el => { if (el) { const d = el.style.display; el.style.display = "none"; void el.offsetHeight; el.style.display = d; } });
         healed = true;
