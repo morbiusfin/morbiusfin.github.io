@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.76";
-const VERSION_NOTES = "🛟 barra de baixo travada de vez: ao abrir/fechar qualquer lançamento (Débito incluso, salvando ou cancelando) ela volta exatamente pro lugar — nunca mais sobe";
+const APP_VERSION = "3.13.77";
+const VERSION_NOTES = "✨ fim do tremido: a barra de baixo volta suave ao fechar um lançamento (sem piscar) e continua firme no lugar, no Débito e em todas as abas";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.77",
+    bullets: [
+      "A <b>barra de baixo</b> volta de forma suave ao fechar um lançamento — sem aquele tremidinho — e continua firme no lugar, no <b>Débito</b> e em todas as abas.",
+    ],
+  },
   {
     version: "3.13.76",
     bullets: [
@@ -6933,10 +6939,10 @@ function refreshInPlace() {
     const finalize = () => {
       const unstable = hardUnstable() || gap() > 120;
       setKbd(unstable);
-      if (!unstable) {                              // revelou → re-fixa em RAJADA (display-toggle): cobre o
-        repinBars(); requestAnimationFrame(repinBars);   // assentamento do iOS após o teclado fechar (salvar)
-        [120, 320, 560].forEach(ms => setTimeout(() => { if (!hardUnstable() && gap() <= 120) repinBars(); }, ms));
-      }
+      // revelou e SEM modal aberto → UMA re-fixada síncrona (display-toggle num tick → sem flash).
+      // Sem rajada de setTimeouts (era o que causava o "piscar"). barWatchdog (600ms) é a rede de
+      // segurança se sobrar algum drift. #fix-flicker
+      if (!unstable && !modalOpen()) repinBars();
     };
     settleT = setTimeout(() => {
       if (hardUnstable()) { setKbd(true); return; }       // modal/campo → fica escondido (correto)
@@ -6957,7 +6963,9 @@ function refreshInPlace() {
   if (vv) vv.addEventListener("resize", () => { if (gap() > 120) hideNow(); else tryReveal(); });
   // foco em campo → esconde JÁ (antes do teclado terminar de subir, sem janela pra driftar)
   document.addEventListener("focusin", (e) => { if (isField(e.target)) hideNow(); });
-  document.addEventListener("focusout", (e) => { if (isField(e.target)) tryReveal(); });
+  // só re-avalia no focusout se NÃO há modal aberto: ao tocar Salvar/Cancelar o campo perde foco
+  // ainda com o modal aberto → deixar o closeModal disparar o reveal (via observer), sem corrida. #fix-flicker
+  document.addEventListener("focusout", (e) => { if (isField(e.target) && !modalOpen()) tryReveal(); });
   // Redes de segurança: fechar QUALQUER modal e voltar pro app re-avaliam a barra (não dependem
   // só do resize do iOS, que às vezes não vem). __revealBars é chamado pelo observer de scroll-lock.
   // heal completo: se NÃO há modal aberto mas sobrou scroll-locked (esconde tabbar+FAB) → destrava;
