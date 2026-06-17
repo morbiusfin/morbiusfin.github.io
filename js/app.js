@@ -1,12 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.73";
-const VERSION_NOTES = "🧹 telinha de Metas mais limpa e um aviso bem claro antes de recomeçar do zero, pra você não apagar nada sem querer";
+const APP_VERSION = "3.13.74";
+const VERSION_NOTES = "📐 card 'Ritmo de gastos' alinhadinho + 🔔 agora o app te avisa sozinho quando sai uma versão nova (até ao reabrir), pra você atualizar num toque";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.74",
+    bullets: [
+      "O card <b>Ritmo de gastos</b> ficou alinhadinho: o valor, o selo e os textos agora respeitam a margem do card.",
+      "Agora o app <b>te avisa sozinho</b> quando sai uma versão nova — aparece um aviso na tela (mesmo quando você reabre o app) pra você atualizar num toque e estar sempre na versão mais recente.",
+    ],
+  },
   {
     version: "3.13.73",
     bullets: [
@@ -4959,14 +4966,18 @@ function checkVersion() {
 }
 
 // ===== "Nova atualização disponível" — compara a versão no ar (version.json) com a rodando =====
-let updateShown = false;
+let updateShown = false, updatePrompted = false;
 async function checkForUpdate() {
-  if (updateShown) return;
+  // NÃO sai cedo mesmo já tendo mostrado: continua checando a cada foco/intervalo para FORÇAR o
+  // pop-up assim que der (ex.: voltou do segundo plano e antes havia um modal aberto atrapalhando).
   try {
     const r = await fetch("version.json?cb=" + Date.now(), { cache: "no-store" });
     if (!r.ok) return;
     const j = await r.json();
-    if (j && j.version && j.version !== APP_VERSION) showUpdateBanner(j.version);
+    if (j && j.version && j.version !== APP_VERSION) {
+      showUpdateBanner(j.version);     // ✨ no cabeçalho + opção no menu (idempotente)
+      forceUpdatePrompt(j.version);    // FORÇA o alerta central (1x por sessão, quando não atrapalhar)
+    }
   } catch (e) {}
 }
 let updateVer = "";
@@ -4975,6 +4986,27 @@ function showUpdateBanner(ver) {          // "tem atualização" → ✨ no cabe
   const icon = $("#btnWhatsNew"); if (icon) icon.classList.remove("hidden");   // CSS já faz o bob + .wn-dot pulsa
   const mi = $("#miUpdate"); if (mi) mi.classList.remove("hidden");            // opção no menu (some quando não há update)
   const sub = $("#miUpdateSub"); if (sub) sub.textContent = updateVer ? ("toque para instalar a v" + updateVer) : "nova versão disponível";
+}
+// FORÇA o pop-up central de atualização — inclusive ao voltar do segundo plano (onAppFocus chama
+// checkForUpdate). Abre só 1x por sessão e SÓ quando não atrapalha (sem outro modal/onboarding/lock/
+// menu aberto, sem teclado e sem campo em foco). Se está ocupado agora, NÃO marca como mostrado →
+// tenta de novo na próxima checagem/foco. Quem aceitar cai no applyUpdate (SW novo + limpa cache + reload).
+function forceUpdatePrompt(ver) {
+  if (updatePrompted || !window.__started) return;
+  if (document.querySelector(".modal:not(.hidden), #onboarding:not(.hidden), #lockScreen:not(.hidden), .menu-drawer:not(.hidden)")) return;
+  if (document.body.classList.contains("kbd-open")) return;
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  const m = $("#whatsNewModal"); if (!m) return;
+  updatePrompted = true;
+  const vEl = $("#wnVersion"); if (vEl) vEl.textContent = ver ? ("v" + esc(ver)) : "";
+  const title = $("#wnTitle"); if (title) title.textContent = "✨ Atualização disponível";
+  const body = $("#wnBody");
+  if (body) body.innerHTML = '<div class="wn-entry"><p style="margin:0;font-size:14px;line-height:1.55;color:var(--ink)">Saiu uma versão nova'
+    + (ver ? ' (<b>v' + esc(ver) + '</b>)' : '') + ' com melhorias. Toque em <b>Atualizar agora</b> pra pegar a mais recente — leva uns segundos.</p></div>';
+  const acc = $("#wnAccept");
+  if (acc) { acc.textContent = "Atualizar agora"; acc.onclick = () => applyUpdate(acc); }
+  m.classList.remove("hidden");
 }
 // abre o modal central de novidades com o changelog.
 // justUpdated===true → o app ACABOU de atualizar: mostra as melhorias e o botão só fecha ("Boa! 🎉").
@@ -6456,6 +6488,7 @@ function onAppFocus() {
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") onAppFocus(); });
 window.addEventListener("focus", onAppFocus);
 window.addEventListener("online", onAppFocus);
+window.addEventListener("pageshow", onAppFocus);   // iOS: app restaurado do segundo plano (bfcache) → re-checa versão
 // checa atualização ao abrir (após o splash) e a cada 5 min
 setTimeout(checkForUpdate, 6500);
 setInterval(checkForUpdate, 5 * 60 * 1000);
