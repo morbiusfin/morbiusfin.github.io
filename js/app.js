@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.70";
-const VERSION_NOTES = "✨ uns retoques de visual: o resumo do dia no gráfico de gastos ficou mais organizado e o nome na tela de entrada mais bonito";
+const APP_VERSION = "3.13.71";
+const VERSION_NOTES = "🛟 a barra de baixo nunca mais fica fora do lugar: se ela tentar subir, o app reencaixa sozinho na hora (mesmo no iPhone, no Débito)";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.71",
+    bullets: [
+      "A barra de baixo agora fica <b>sempre no lugar certo</b>: se em algum momento ela tentar subir (acontecia ao lançar no Débito no iPhone), o app <b>reencaixa ela sozinho</b> na hora.",
+    ],
+  },
   {
     version: "3.13.70",
     bullets: [
@@ -4374,7 +4380,11 @@ function persist() {
   history.push(lastSnap); if (history.length > HISTORY_MAX) history.shift();
   redoStack = []; // ação nova invalida o "refazer"
   lastSnap = JSON.stringify(DATA);
-  saveData(DATA); render(); pushSync(); cpSend();   // cpSend = manda a mudança pro parceiro (conta conjunta), ao vivo
+  render();
+  // gravar/sincronizar FORA do caminho síncrono do fechar-modal (no modo teste isso é leve/pulado;
+  // aqui garantimos o MESMO comportamento) e blindado por try — nada do salvar pode travar a barra
+  // de baixo ao fechar o modal no iPhone (o bug do Débito só no modo real). cpSend = parceiro ao vivo.
+  setTimeout(() => { try { saveData(DATA); } catch (e) {} try { pushSync(); } catch (e) {} try { cpSend(); } catch (e) {} }, 0);
 }
 function undo() {
   if (!history.length) { toast("Nada para desfazer"); return; }
@@ -6897,6 +6907,18 @@ function refreshInPlace() {
     let healed = false;
     if (b.classList.contains("scroll-locked")) { try { unlockScroll(); } catch (e) { b.classList.remove("scroll-locked"); b.style.top = ""; } healed = true; }
     if (b.classList.contains("kbd-open")) { b.classList.remove("kbd-open"); healed = true; }
+    // detecção DIRETA do drift: a barra "subiu"? (no iOS o position:fixed desgruda do fundo e flutua).
+    // Mede onde ela está; se não está colada embaixo, re-fixa À FORÇA (tira do fluxo e devolve →
+    // o navegador recalcula a posição fixa contra a viewport atual). Resolve o "está subindo" do Débito.
+    const tb = document.querySelector(".tabbar");
+    if (tb && getComputedStyle(tb).display !== "none") {
+      const r = tb.getBoundingClientRect();
+      if (r.height && (window.innerHeight - r.bottom) > 80) {
+        const fab = document.querySelector("#fab");
+        [tb, fab].forEach(el => { if (el) { const d = el.style.display; el.style.display = "none"; void el.offsetHeight; el.style.display = d; } });
+        healed = true;
+      }
+    }
     if (healed) { const y = window.scrollY || window.pageYOffset || 0; window.scrollTo(0, y + 1); window.scrollTo(0, y); }  // re-fixa as position:fixed (some o drift)
   }, 600);
 })();
