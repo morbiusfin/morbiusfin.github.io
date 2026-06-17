@@ -1,12 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.69";
-const VERSION_NOTES = "✨ no gráfico de gastos, arraste o dedo e veja o resumo de cada dia · a barra de baixo sempre no lugar · a saída do app ficou mais bonita";
+const APP_VERSION = "3.13.70";
+const VERSION_NOTES = "✨ uns retoques de visual: o resumo do dia no gráfico de gastos ficou mais organizado e o nome na tela de entrada mais bonito";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.70",
+    bullets: [
+      "O <b>resumo do dia</b> no gráfico de gastos ficou mais bonito e organizado, com os valores bem espaçados.",
+      "Na tela de entrada, o nome <b>MorbiusFin</b> ficou maior e mais bem posicionado.",
+    ],
+  },
   {
     version: "3.13.69",
     bullets: [
@@ -2963,10 +2970,10 @@ function fillRitmoScrub(idx) {
   el.innerHTML =
     `<div class="rs-day">📅 Dia ${idx + 1}${future ? " <i>(ainda não chegou)</i>" : ""}</div>`
     + `<div class="rs-grid">`
-    + `<div class="rs-cell"><span class="rs-dot" style="background:#e5484d"></span>acumulado<b>${future ? "—" : brl(curCum)}</b></div>`
-    + `<div class="rs-cell"><span class="rs-lab2">gasto no dia</span><b>${future ? "—" : brl(dayDelta)}</b></div>`
-    + `<div class="rs-cell"><span class="rs-dot" style="background:#8b9a92"></span>mês passado<b>${brl(prevCum)}</b></div>`
-    + `<div class="rs-cell"><span class="rs-dot" style="background:#2f7ff0"></span>média 3m<b>${brl(avgCum)}</b></div>`
+    + `<div class="rs-cell"><span class="rs-lab"><span class="rs-dot" style="background:#e5484d"></span>acumulado</span><b>${future ? "—" : brl(curCum)}</b></div>`
+    + `<div class="rs-cell"><span class="rs-lab">gasto no dia</span><b>${future ? "—" : brl(dayDelta)}</b></div>`
+    + `<div class="rs-cell"><span class="rs-lab"><span class="rs-dot" style="background:#8b9a92"></span>mês passado</span><b>${brl(prevCum)}</b></div>`
+    + `<div class="rs-cell"><span class="rs-lab"><span class="rs-dot" style="background:#2f7ff0"></span>média 3m</span><b>${brl(avgCum)}</b></div>`
     + `</div>`;
 }
 
