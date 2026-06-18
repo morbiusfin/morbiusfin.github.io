@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.85";
-const VERSION_NOTES = "🛟 barra de baixo: ao salvar com o teclado aberto, a janelinha agora espera ~1s (teclado descer + tela assentar) antes de fechar — a barra volta certinho pro lugar";
+const APP_VERSION = "3.13.86";
+const VERSION_NOTES = "🔐 ao abrir o app do zero (tirado do 2º plano), ele começa na tela de login → senha → app. Voltar do 2º plano não pede senha de novo";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.86",
+    bullets: [
+      "Mais segurança: quando você <b>abre o app do zero</b> (depois de fechá-lo de vez / tirar do segundo plano), ele começa pela <b>tela de login</b> e pede a <b>senha</b> antes de entrar. Se você só sai e volta (app ainda no segundo plano), ele continua de onde estava, sem pedir senha de novo.",
+    ],
+  },
   {
     version: "3.13.85",
     bullets: [
@@ -6933,8 +6939,12 @@ async function boot() {
   if (!isProd() && /[?&]demo=1\b/.test(location.search)) { enterDemo(); return; }   // demo só fora da produção
   if (!isProd() && localStorage.getItem("financas2026.profile") === "test") { loadTestProfile(); return; }  // teste só fora da produção
   if (isProd() && localStorage.getItem("financas2026.profile") === "test") { try { localStorage.setItem("financas2026.profile", "real"); } catch (e) {} document.body.classList.remove("test-mode"); }  // se sobrou perfil de teste (localStorage é compartilhado com o /financas), na produção volta pro real
-  if (localStorage.getItem(LOGGED_OUT_KEY) === "1") { showWelcome(); return; }   // saiu do app → tela de entrada
-  resumeBoot();
+  // COLD START (app aberto do zero / tirado do 2º plano): se já existe conta neste aparelho, SEMPRE
+  // começa pela tela de LOGIN → senha → app. boot() roda só no carregamento da página; voltar do 2º
+  // plano (sem o iOS matar o app) NÃO chama boot() → o app fica onde estava. É o que o Kaick pediu.
+  const hasAccount = !!(localStorage.getItem(STORE_KEY) || localStorage.getItem("financas2026.v1"));
+  if (hasAccount) { showWelcome(); return; }   // tem conta → login (Entrar → senha, se houver → app)
+  resumeBoot();                                // 1ª vez no aparelho (sem dados) → segue pro onboarding
 }
 // Entrada real no app (sem demo/teste/landing): decide PIN vs abrir direto. Reutilizado pelo "Entrar" da landing.
 function resumeBoot() {
