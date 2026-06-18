@@ -1286,6 +1286,12 @@ body.scroll-locked { left: 0; right: 0; width: 100%; overflow: hidden; overscrol
 .orc-pct.pos { color: #0f9a4c; } .orc-pct.neg { color: var(--red); }
 
 /* ===== Seletor de emoji (estilo WhatsApp) ===== */
+.emoji-search { flex: 0 0 auto; width: 100%; box-sizing: border-box; margin: 0 0 8px; padding: 11px 14px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card-2); color: var(--ink);
+  font-family: var(--font); font-size: 16px; }
+.emoji-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+.emoji-search::placeholder { color: var(--muted); }
+.emoji-empty { grid-column: 1 / -1; padding: 26px 14px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .emoji-tabs { display: flex; flex: 0 0 auto; flex-wrap: nowrap; gap: 5px; overflow-x: auto; padding: 2px 0 10px; margin-bottom: 4px;
   scrollbar-width: none; -webkit-overflow-scrolling: touch; touch-action: pan-x; overscroll-behavior-x: contain;
   border-bottom: 1px solid var(--line); }
