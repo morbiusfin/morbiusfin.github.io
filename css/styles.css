@@ -2047,6 +2047,8 @@ body.splash-on .tabbar, body.splash-on #fab { visibility: hidden; }
 .access-hint { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
 
 /* ===== Ritmo de gastos (1º gráfico) ===== */
+.ritmo-filter { padding: 0 16px; margin: 0 0 12px; }
+.ritmo-filter .sel { width: 100%; }
 .ritmo-head { text-align: left; margin: 2px 0 12px; padding: 0 16px; }
 .ritmo-big { font-size: 27px; font-weight: 800; letter-spacing: -.6px; line-height: 1.1; color: var(--ink); }
 .ritmo-big .ritmo-dir { font-size: 15px; font-weight: 700; color: var(--muted); letter-spacing: 0; }

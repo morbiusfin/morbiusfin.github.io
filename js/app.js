@@ -1,12 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.86";
-const VERSION_NOTES = "🔐 ao abrir o app do zero (tirado do 2º plano), ele começa na tela de login → senha → app. Voltar do 2º plano não pede senha de novo";
+const APP_VERSION = "3.13.87";
+const VERSION_NOTES = "📊 Ritmo de gastos agora tem filtro (Tudo / Fixas / Cartões / Débito) + 💳 limite do cartão conta TODAS as parcelas (não só a do mês)";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.87",
+    bullets: [
+      "No <b>Ritmo de gastos</b> (em Gráficos) agora dá pra escolher o que entra na análise: <b>Tudo, Fixas, Cartões ou Débito</b> — é só usar o seletor no topo do card.",
+      "O <b>limite do cartão</b> ficou correto: agora ele desconta <b>todas as parcelas</b> de uma compra parcelada (não só a do mês). Ex.: parcelou R$ 300 em 3×, o limite já considera os R$ 300 e vai liberando conforme você paga cada mês.",
+    ],
+  },
   {
     version: "3.13.86",
     bullets: [
@@ -2995,23 +3002,25 @@ const serieSaldo = () => { const b = curYear() * 12; return Array.from({ length:
 
 /* ---------- Ritmo de gastos: gasto acumulado por dia (mês vigente × anterior × média 3m) ---------- */
 let _ritmo = null;   // dados do gráfico atual, p/ o resumo que responde ao dedo (scrub)
+let _ritmoFiltro = "tudo";   // "tudo" | "fixas" | "cartao" | "diaria" — fonte do Ritmo de gastos
 function monthDays(m) { const y = DATA.year + Math.floor(m / 12); const mi = ((m % 12) + 12) % 12; return new Date(y, mi + 1, 0).getDate(); }
-function ritmoSpendPerDay(m) {
+function ritmoSpendPerDay(m, f) {
+  f = f || "tudo";
   const dim = monthDays(m);
   const per = new Array(dim + 1).fill(0);
   const add = (dia, val) => { val = Number(val) || 0; if (val > 0) { let d = parseInt(dia, 10); if (!(d >= 1 && d <= dim)) d = 1; per[d] += val; } };
-  (DATA.fixas || []).forEach(l => add(l.dia, (l.vals || [])[m]));
-  (DATA.cartao || []).forEach(l => add(l.dia, (l.vals || [])[m]));
-  (DATA.diaria || []).forEach(d => { if (d.mes === m) add(d.dia, d.valor); });
+  if (f === "tudo" || f === "fixas") (DATA.fixas || []).forEach(l => add(l.dia, (l.vals || [])[m]));
+  if (f === "tudo" || f === "cartao") (DATA.cartao || []).forEach(l => add(l.dia, (l.vals || [])[m]));
+  if (f === "tudo" || f === "diaria") (DATA.diaria || []).forEach(d => { if (d.mes === m) add(d.dia, d.valor); });
   const cum = []; let s = 0; for (let d = 1; d <= dim; d++) { s += per[d]; cum.push(Math.round(s * 100) / 100); }
   return cum;
 }
 function renderRitmoChart() {
   const cv = $("#gRitmo"); if (!cv) return;
   if (charts.gRitmo) { try { charts.gRitmo.destroy(); } catch (e) {} charts.gRitmo = null; }
-  const m = curMonth;
-  const curC = ritmoSpendPerDay(m), prevC = ritmoSpendPerDay(m - 1);
-  const a1 = prevC, a2 = ritmoSpendPerDay(m - 2), a3 = ritmoSpendPerDay(m - 3);
+  const m = curMonth, f = _ritmoFiltro;
+  const curC = ritmoSpendPerDay(m, f), prevC = ritmoSpendPerDay(m - 1, f);
+  const a1 = prevC, a2 = ritmoSpendPerDay(m - 2, f), a3 = ritmoSpendPerDay(m - 3, f);
   const maxDays = Math.max(curC.length, prevC.length, a2.length, a3.length, 28);
   const labels = Array.from({ length: maxDays }, (_, i) => i + 1);
   const at = (arr, i) => (i < arr.length ? arr[i] : (arr.length ? arr[arr.length - 1] : 0));
@@ -3052,6 +3061,8 @@ function renderRitmoChart() {
     }
   });
   fillRitmoScrub(null);   // estado inicial = hoje
+  const fsel = $("#ritmoFiltro");
+  if (fsel) { fsel.value = _ritmoFiltro; fsel.onchange = () => { _ritmoFiltro = fsel.value; renderRitmoChart(); }; }
 }
 // resumo do gasto diário — atualiza conforme o dedo passa no gráfico (idx 0-based; null = hoje)
 function fillRitmoScrub(idx) {
@@ -3083,6 +3094,12 @@ function renderGraficos(host) {
     <div class="section-card g-card fade-in">
       <h3>🔥 Ritmo de gastos — ${mLong(curMonth)}</h3>
       <p class="hint" style="text-align:left;margin:-2px 0 8px">Quanto você já gastou acumulado, dia a dia — comparado com o mês passado e a média dos últimos 3 meses.</p>
+      <div class="ritmo-filter"><select id="ritmoFiltro" class="sel" aria-label="O que entra na análise">
+        <option value="tudo">📊 Tudo</option>
+        <option value="fixas">📌 Fixas</option>
+        <option value="cartao">💳 Cartões</option>
+        <option value="diaria">🛒 Débito</option>
+      </select></div>
       <div id="ritmoHead" class="ritmo-head"></div>
       <div class="chart-wrap"><canvas id="gRitmo" height="210"></canvas></div>
       <div id="ritmoScrub" class="ritmo-scrub"></div>
@@ -3922,13 +3939,36 @@ function faturaCartaoNoMes(card, m) {
     return s + (dele ? (Number(l.vals[m]) || 0) : 0);
   }, 0);
 }
+// QUANTO o cartão ocupa do LIMITE = soma das parcelas do MÊS REAL em diante (atual + futuras),
+// não só a fatura do mês. Ex.: 300 em 3x a partir de junho = 300 comprometidos (Jun+Jul+Ago);
+// em julho cai pra 200 (Jul+Ago), e assim por diante conforme o tempo passa. Usa o mês REAL
+// (não o mês visualizado), e ignora o "pago" automático do mês corrente (a fatura do mês ainda
+// ocupa o limite até vencer/pagar). #pedido-kaick
+function usadoLimiteCartao(card) {
+  if (!card) return 0;
+  const only = (DATA.cartoes || []).length === 1;
+  const keys = [card.last4, card.nome, c0(card.nome)].filter(Boolean).map(String);
+  const base = (typeof realMesAbs === "function") ? realMesAbs() : 0;
+  return (DATA.cartao || []).reduce((s, l) => {
+    const tag = String(l.cartao || "");
+    const dele = (tag && keys.indexOf(tag) >= 0) || (only && !tag);
+    if (!dele) return s;
+    const vals = l.vals || [];
+    let sub = 0;
+    for (let m = Math.max(0, base); m < vals.length; m++) sub += (Number(vals[m]) || 0);
+    return s + sub;
+  }, 0);
+}
 function cardLimitHTML(c) {
   if (!c || !c.limite) return "";
-  const usado = faturaCartaoNoMes(c, curMonth), lim = c.limite, pct = Math.max(0, Math.min(100, Math.round(usado / lim * 100)));
+  const fatura = faturaCartaoNoMes(c, curMonth);              // fatura SÓ do mês vigente (informativo)
+  const usado = usadoLimiteCartao(c), lim = c.limite;          // TUDO o que ocupa o limite (parcelas não pagas)
+  const pct = Math.max(0, Math.min(100, Math.round(usado / lim * 100)));
   const cls = pct >= 90 ? "lim-bad" : pct >= 70 ? "lim-warn" : "lim-ok";
   const livre = Math.max(0, lim - usado);
   return `<div class="card-lim">
-    <div class="card-lim-head"><span>Fatura de ${mLong(curMonth)}</span><span><b>${brl(usado)}</b> de ${brl(lim)} · ${pct}%</span></div>
+    <div class="card-lim-head"><span>Fatura de ${mLong(curMonth)}</span><span><b>${brl(fatura)}</b></span></div>
+    <div class="card-lim-head"><span>Limite usado</span><span><b>${brl(usado)}</b> de ${brl(lim)} · ${pct}%</span></div>
     <div class="card-lim-bar"><div class="card-lim-fill ${cls}" style="width:${pct}%"></div></div>
     <div class="card-lim-foot">Disponível no limite: <b>${brl(livre)}</b></div>
   </div>`;
@@ -5877,6 +5917,7 @@ const MANUAL = [
   ["📋 Resumo do mês", "Mostra o caminho do seu dinheiro: o que sobrou somado às receitas dá o disponível, e tirando as despesas você vê o que ainda resta. Tem também o <b>Previsto × Realizado</b> (o que já entrou e saiu de verdade) e a divisão das despesas entre Fixas, Cartão e Débito."],
   ["💪 Saúde financeira", "Uma notinha de 0 a 100. Quanto mais você guarda do que ganha, mais ela sobe. Vai de Crítica a Ótima, passando por Atenção e Boa. Embaixo aparece quanto você guardou no mês (ou o quanto ficou no vermelho)."],
   ["📊 Gráficos", "Em <b>Gráficos</b> dá pra ver o <b>Orçamento × Realizado</b> por categoria (verde quer dizer dentro do combinado, vermelho quer dizer que estourou), o <b>saldo acumulado</b> ao longo do ano e as <b>despesas e receitas mês a mês</b>. Toque numa barra pra abrir os lançamentos daquele mês."],
+  ["🔥 Ritmo de gastos", "O primeiro card dos Gráficos: mostra <b>quanto você já gastou acumulado, dia a dia</b>, comparado com o <b>mês passado</b> e a <b>média dos últimos 3 meses</b> — e se está acima ou abaixo no mesmo ponto do mês. No seletor do topo dá pra escolher o que entra: <b>Tudo, Fixas, Cartões ou Débito</b>. Passe o dedo no gráfico pra ver o resumo de cada dia."],
   ["🧪 Simulador de gastos", "Ainda em Gráficos: digite um valor e o número de parcelas, e ele desenha uma linha tracejada mostrando como ficaria seu saldo <b>se</b> você fizesse essa compra. No fim, um aviso te diz se cabe ou em que mês vai apertar. O ↺ limpa tudo."],
   ["💳 Gastos no cartão", "Mais pra baixo nos Gráficos tem uma parte só do cartão. Escolha o cartão no filtro de cima e veja, mês a mês, quanto foi de cartão no ano. Embaixo aparece a lista das suas compras, da maior pra menor. Toque numa compra que o gráfico vira a linha do tempo das parcelas — as pagas ficam verdes, as que ainda vêm ficam roxas — e do lado uma leitura te diz quantas parcelas faltam, quanto ainda falta pagar e em que mês ela termina. É ótimo pra saber quando o cartão vai aliviar."],
   ["💡 Insights", "É a leitura do seu mês. Ele aponta o que foi bem e o que saiu do controle, dá umas dicas (quanto você poupou, qual gasto vale a pena revisar, como ficou comparado ao mês passado) e ainda arrisca como o mês deve fechar."],
@@ -5884,8 +5925,8 @@ const MANUAL = [
   ["🎯 Metas", "Crie seus objetivos: uma viagem, a casa, o carro. Coloque o nome, quanto custa e quanto já guardou. A barra mostra o progresso e o emoji se ajusta sozinho ao nome que você escolheu. Quando chega nos 100%, vem o confete. Pra mexer é no ✎, e dá pra excluir lá dentro da edição."],
   ["💰 Receitas", "Tudo que entra: salário, um extra aqui e ali. Cada item tem valor, dia e situação (Recebido ou Programado). Na hora de adicionar, escolha <b>Ativa</b> pra algo que se repete (tipo o salário) ou <b>Extra</b> pra um valor avulso (tipo um freela)."],
   ["📌 Fixas", "As contas que voltam todo mês: aluguel, assinaturas e afins. Dá pra definir o dia do vencimento, o aviso, uma meta de gasto e marcar como <b>Necessário</b>. Marcou <b>Repetir nos próximos meses</b>? Ele já preenche os meses seguintes pra você."],
-  ["💳 Cartões", "As compras no cartão. No topo aparecem seus cartões com limite usado e disponível, fechamento e vencimento. No +, escolha <b>à vista</b> ou <b>parcelado em até 60×</b>, e ele coloca cada parcela no mês certo conforme a data de fechamento."],
-  ["🛒 Débito (dia a dia)", "Os gastos do dia a dia: mercado, farmácia, gasolina. Cada um com categoria e método (PIX ou Débito), tudo agrupado por categoria. Diferente das Fixas, eles não se repetem; cada gasto entra na hora que acontece."],
+  ["💳 Cartões", "As compras no cartão. No topo aparecem seus cartões com <b>limite usado e disponível</b> (já contando <b>todas as parcelas</b> das compras parceladas, não só a do mês — vai liberando conforme você paga), fechamento e vencimento. No +, escolha <b>à vista</b> ou <b>parcelado em até 60×</b>, e ele coloca cada parcela no mês certo conforme a data de fechamento."],
+  ["🛒 Débito (dia a dia)", "Os gastos do dia a dia: mercado, farmácia, gasolina. Cada um com <b>categoria</b>, agrupados por categoria. Diferente das Fixas, eles não se repetem; cada gasto entra na hora que acontece."],
   ["➕ Adicionar, editar, apagar", "O <b>+</b> verde abre um novo lançamento na aba em que você está. Toque num item pra <b>editar</b>. Pra apagar, segure o dedo num item: ele entra no modo de seleção, e aí o <b>+</b> vira uma <b>🗑️ vermelha</b> no mesmo canto — marque os que quiser e toque na lixeira. Cancelou ou apagou? O <b>+</b> volta. O <b>↩︎</b> lá em cima desfaz. Uma mão na roda: os <b>centavos são automáticos</b>, então digitar 1000 vira R$ 10,00."],
   ["🟢 Badge de status", "Em Receitas, Fixas e Cartões, aquele selinho do lado do valor mostra se está <b>Pago/Recebido</b> (verde) ou <b>Programado</b> (âmbar). Toque direto nele pra alternar, sem precisar abrir a edição."],
   ["☰ Menu", "Aqui mora tudo: editar perfil, os tutoriais, conta e acesso (o PIN), backup e sincronização, categorias, metas, configurações, aviso de vencimento, tema, começar do zero e sair do app. Lá em cima, a barra de <b>Exploração do app</b> mostra o quanto você já passeou por ele."],
