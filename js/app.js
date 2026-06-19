@@ -1,12 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.95";
-const VERSION_NOTES = "🧹 acertos da auditoria: a 'Sobra do ano' agora conta seu saldo inicial (bate com a do mês), o cartão vira 'Cartão' genérico nos gráficos e fizemos uma faxina interna (app mais leve)";
+const APP_VERSION = "3.13.96";
+const VERSION_NOTES = "🔐 'Esqueci minha senha' agora REDEFINE a senha de verdade (acertou a pergunta → cria um novo PIN 2x) + cronômetro do 'muitas tentativas' mais limpo (só números → mm:ss → hh:mm:ss)";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.96",
+    bullets: [
+      "<b>“Esqueci minha senha” agora redefine a senha de verdade.</b> Ao acertar sua pergunta secreta, o app pede pra você <b>criar um novo PIN</b> (digitado 2 vezes pra confirmar) e ele passa a valer na hora. Antes, só acertar a resposta já entrava no app sem trocar a senha.",
+      "Cronômetro do <b>“Muitas tentativas”</b> mais limpo: mostra só os <b>números correndo</b>; a partir de 1 minuto vira <b>mm:ss</b> e, se passar de 1 hora, <b>hh:mm:ss</b>.",
+    ],
+  },
   {
     version: "3.13.95",
     bullets: [
@@ -6263,6 +6270,15 @@ function openRecovery(env) {
   renderRec(); showModal("#recModal");
 }
 function closeRec() { clearInterval(_recTimer); _recTimer = null; const m = document.getElementById("recModal"); if (m) m.classList.add("hidden"); }
+// Cronômetro do bloqueio: < 1min mostra só os segundos correndo (sem "s"); a partir de 1min vira
+// mm:ss; acima de 59:59 vira hh:mm:ss. #recovery-countdown
+function fmtCountdown(s) {
+  s = Math.max(0, Math.floor(s));
+  if (s < 60) return String(s);
+  const p = (n) => String(n).padStart(2, "0");
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return h > 0 ? `${p(h)}:${p(m)}:${p(sec)}` : `${p(m)}:${p(sec)}`;
+}
 function renderRec() {
   const m = document.getElementById("recModal"); if (!m) return;
   const rec = getRec(), st = recLockState();
@@ -6275,7 +6291,7 @@ function renderRec() {
       + '<div class="rec-count" id="recCount">—</div>'
       + '<div class="modal-actions"><button type="button" class="btn ghost" id="recClose2">Voltar ao código</button></div></div>';
     m.querySelector("#recClose").onclick = closeRec; m.querySelector("#recClose2").onclick = closeRec;
-    const tick = () => { const left = Math.max(0, recLockState().until - Date.now()); const el = m.querySelector("#recCount"); if (el) { const s = Math.ceil(left / 1000); el.textContent = (s >= 60 ? Math.floor(s / 60) + "m " + (s % 60) + "s" : s + "s"); } if (left <= 0) { clearInterval(_recTimer); _recTimer = null; renderRec(); } };
+    const tick = () => { const left = Math.max(0, recLockState().until - Date.now()); const el = m.querySelector("#recCount"); if (el) el.textContent = fmtCountdown(Math.ceil(left / 1000)); if (left <= 0) { clearInterval(_recTimer); _recTimer = null; renderRec(); } };
     tick(); _recTimer = setInterval(tick, 250);
     return;
   }
@@ -6300,9 +6316,8 @@ async function recTry(answer, btn) {
     const pk = await deriveKey(pin, env.salt);              // recupera o PIN → desbloqueia os dados atuais
     const data = await decryptEnvelope(pk, env);
     recLockReset();
-    window.CRYPTO_KEY = pk; DATA = migrate(data); localStorage.setItem("financas2026.profile", "real");
-    document.body.classList.remove("test-mode");
-    closeRec(); toast("Acesso recuperado ✓"); playUnlock(startApp);
+    // NÃO entra mais só por acertar: OBRIGA criar uma senha nova (2x) e troca o PIN de verdade.
+    renderRecReset(migrate(data), answer);
   } catch (e) {                                             // errou
     if (btn) btn.disabled = false;
     let st = recLockState(); st.tries = (st.tries != null ? st.tries : 3) - 1;
@@ -6318,6 +6333,39 @@ async function recTry(answer, btn) {
       const op = m && m.querySelector(".rec-opts"); if (op) { op.classList.remove("shake"); void op.offsetWidth; op.classList.add("shake"); }
     }
   }
+}
+// Acertou a pergunta secreta → tela pra DEFINIR uma senha nova (2x). Não entra mais só por acertar:
+// re-encripta os dados com o PIN novo e atualiza a recuperação pra apontar pro novo PIN. #recovery-reset
+function renderRecReset(data, answer) {
+  const m = document.getElementById("recModal"); if (!m) return;
+  const rec = getRec() || {};
+  m.innerHTML = '<div class="modal-card greet-card">'
+    + '<div style="text-align:center;font-size:44px;line-height:1;margin:2px 0 6px">🔒</div>'
+    + '<h2 style="text-align:center;margin:0 0 4px">Criar nova senha</h2>'
+    + '<p class="hint" style="text-align:center;margin:0 0 14px">Resposta certa! Agora escolha um <b>novo PIN de 4 dígitos</b> pra proteger o app.</p>'
+    + '<label class="field"><span>Novo PIN</span><input id="rcPin1" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••"></label>'
+    + '<label class="field"><span>Repita o PIN</span><input id="rcPin2" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••"></label>'
+    + '<div id="rcMsg" class="rec-msg"></div>'
+    + '<div class="modal-actions"><button type="button" class="btn primary" id="rcSave">Salvar e entrar</button></div></div>';
+  const p1 = m.querySelector("#rcPin1"), p2 = m.querySelector("#rcPin2"), msg = m.querySelector("#rcMsg");
+  setTimeout(() => { try { p1.focus(); } catch (e) {} }, 120);
+  const submit = async () => {
+    const v1 = (p1.value || "").trim(), v2 = (p2.value || "").trim();
+    if (!/^\d{4}$/.test(v1)) { msg.textContent = "Use exatamente 4 dígitos numéricos"; return; }
+    if (v1 === TEST_CODE) { msg.textContent = "Esse código é reservado — escolha outro"; return; }
+    if (v1 !== v2) { msg.textContent = "Os PINs não conferem"; return; }
+    try {
+      window.CRYPTO_KEY = await deriveKey(v1);                 // chave do PIN NOVO (salt novo)
+      DATA = data; localStorage.setItem("financas2026.profile", "real");
+      document.body.classList.remove("test-mode");
+      saveData(DATA);                                          // re-encripta os dados com a senha NOVA
+      try { await saveRecovery(rec.q, answer, (rec.opts || []).filter(o => o !== answer), v1); } catch (e) {}  // recuperação passa a abrir o PIN novo
+      recLockReset();
+      closeRec(); toast("Senha redefinida ✓"); playUnlock(startApp);
+    } catch (e) { msg.textContent = "Não consegui salvar — tente de novo"; }
+  };
+  m.querySelector("#rcSave").onclick = submit;
+  p2.onkeydown = (e) => { if (e.key === "Enter") submit(); };
 }
 const TEST_CODE = "8040";   // código do modo teste (privado — sem dica na tela)
 // Mantém o quadro de código SEMPRE centralizado na área visível: quando o teclado abre,
