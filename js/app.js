@@ -1,12 +1,23 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.97";
-const VERSION_NOTES = "📈 Ritmo de gastos (filtro Cartões) usa o dia de vencimento do cartão (sem pico falso no dia 1) + busca de emoji mais fluida (debounce) + faxina interna";
+const APP_VERSION = "3.13.98";
+const VERSION_NOTES = "💳 Compra recorrente no cartão (por X meses ou meses escolhidos) + campo de observações + sugestão de descrição pelo histórico · 🎯 busca de emoji nas Metas · 🔔 pop-up de contas maior e 📂 menu mais enxuto (cantos arredondados) · 📸 editor de foto com zoom + girar sempre visíveis";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.98",
+    bullets: [
+      "<b>Voltou a compra recorrente no cartão</b> (tipo assinatura): escolha <b>por quantos meses</b> ela se repete <b>ou marque os meses exatos</b> em que ela cai. E agora dá pra deixar uma <b>observação</b> em cada compra.",
+      "Ao digitar a <b>descrição</b>, o app <b>sugere compras que você já fez</b> e já traz a <b>categoria</b> daquele lugar — assim fica rapidinho e bate certinho com a fatura.",
+      "Nas <b>Metas</b>, agora você pode <b>buscar e escolher o emoji por nome</b> (igual nas categorias): escreva “beijinho”, “carro”, “praia”… toque no emoji do objetivo pra trocar.",
+      "O aviso de <b>Contas a vencer</b> ficou <b>maior e mais arejado</b>, esticando conforme aparecem mais contas.",
+      "O <b>menu lateral</b> ficou mais <b>compacto</b> (com cantos arredondados), sem ocupar a tela toda.",
+      "No <b>ajuste da foto de perfil</b>, as barras de <b>zoom</b> e de <b>girar</b> aparecem juntas, sem precisar rolar — e agora dá pra <b>girar</b> a imagem.",
+    ],
+  },
   {
     version: "3.13.97",
     bullets: [
@@ -2299,6 +2310,12 @@ function metaEmojiFor(nome) {
 }
 function objetivos() { return (DATA.objetivos = DATA.objetivos || []); }
 let _metaEdit = null;   // id em edição (ou null = novo)
+let _metaPick = null;   // emoji escolhido à mão nesta sessão do form (null = automático pelo nome)
+// emoji da meta: manual (escolhido no seletor) vira unicode estático; senão usa o animado sugerido pelo nome
+function metaEmojiHTML(o, cls) {
+  if (o && o.emojiManual && o.emoji) return '<span class="meta-emoji meta-emoji-uni ' + (cls || "") + '">' + o.emoji + '</span>';
+  return animEmoji((o && o.e) || metaEmojiFor((o && o.nome) || "").e, (o && o.emoji) || "🎯", cls);
+}
 // Metas agora moram numa aba do topo do Resumo (Resumo · Gráficos · Insights · Metas).
 // Qualquer atalho que abria o modal (menu ☰, FAQ) leva o usuário pra essa aba.
 function openMetasModal() {
@@ -2317,7 +2334,7 @@ function renderMetasList() {
     const done = alvo > 0 && guard >= alvo;
     const falta = Math.max(0, alvo - guard);
     return '<div class="meta-row" data-mid="' + o.id + '">'
-      + '<div class="meta-ic">' + animEmoji(o.e || metaEmojiFor(o.nome).e, o.emoji || "🎯", "meta-emoji") + '</div>'
+      + '<div class="meta-ic">' + metaEmojiHTML(o, "meta-emoji") + '</div>'
       + '<div class="meta-body">'
       +   '<div class="meta-top"><span class="meta-nome">' + esc(o.nome || "Meta") + '</span><span class="meta-pct">' + (done ? "✅ concluída!" : pct + "%") + '</span></div>'
       +   '<div class="meta-bar"><div class="meta-fill' + (done ? " done" : "") + '" style="width:' + pct + '%"></div></div>'
@@ -2326,16 +2343,19 @@ function renderMetasList() {
       + '<button type="button" class="meta-edit" data-edit="' + o.id + '" aria-label="Editar">✎</button>'
       + '</div>';
   }).join("");
-  $$(".meta-edit", wrap).forEach(b => b.onclick = () => { _metaEdit = b.dataset.edit; renderMetaForm(); });
+  $$(".meta-edit", wrap).forEach(b => b.onclick = () => { _metaEdit = b.dataset.edit; _metaPick = null; renderMetaForm(); });
 }
 function renderMetaForm() {
   const wrap = document.getElementById("metasForm"); if (!wrap) return;
   const editing = _metaEdit ? objetivos().find(o => o.id === _metaEdit) : null;
   const nome = editing ? editing.nome : "";
   const sug = metaEmojiFor(nome);
+  // editando meta com emoji manual e ainda sem mexer nesta sessão → herda a escolha manual
+  if (!_metaPick && editing && editing.emojiManual && editing.emoji) _metaPick = { emoji: editing.emoji, manual: true };
+  const previewHTML = _metaPick ? '<span class="meta-emoji meta-emoji-uni">' + _metaPick.emoji + '</span>' : animEmoji((editing && editing.e) || sug.e, (editing && editing.emoji) || sug.emoji, "meta-emoji");
   wrap.innerHTML = '<div class="meta-form">'
-    + '<div class="meta-form-head"><span class="meta-prev" id="metaPrev">' + animEmoji((editing && editing.e) || sug.e, (editing && editing.emoji) || sug.emoji, "meta-emoji") + '</span>'
-    +   '<b>' + (editing ? "Editar meta" : "Nova meta") + '</b></div>'
+    + '<div class="meta-form-head"><button type="button" class="meta-prev meta-prev-btn" id="metaPrev" aria-label="Escolher emoji" title="Toque para escolher o emoji">' + previewHTML + '<span class="meta-prev-edit" aria-hidden="true">✎</span></button>'
+    +   '<div class="meta-head-txt"><b>' + (editing ? "Editar meta" : "Nova meta") + '</b><i>toque no emoji pra buscar e escolher</i></div></div>'
     + '<label class="field"><span>O que você quer?</span><input id="metaNome" type="text" maxlength="40" value="' + esc(nome) + '" placeholder="Ex.: Viagem pro Chile" /></label>'
     + '<div class="field-row">'
     +   '<label class="field" style="flex:1"><span>Quanto custa (R$)</span><input id="metaAlvo" class="money" value="' + (editing && editing.alvo ? fmtMoneyBR(editing.alvo) : "") + '" placeholder="0,00" /></label>'
@@ -2347,9 +2367,12 @@ function renderMetaForm() {
     + '</div></div>';
   bindMoneyAll(wrap);
   const nIn = $("#metaNome", wrap), prev = $("#metaPrev", wrap);
-  if (nIn) nIn.oninput = () => { const s = metaEmojiFor(nIn.value); prev.innerHTML = animEmoji(s.e, s.emoji, "meta-emoji"); };   // emoji se mexe ao digitar
+  // digitar o nome troca o emoji AUTOMÁTICO — só enquanto não houver escolha manual
+  if (nIn) nIn.oninput = () => { if (_metaPick) return; const s = metaEmojiFor(nIn.value); prev.innerHTML = animEmoji(s.e, s.emoji, "meta-emoji") + '<span class="meta-prev-edit" aria-hidden="true">✎</span>'; };
+  // tocar no emoji → abre o seletor COM BUSCA (igual ao de categorias)
+  if (prev) prev.onclick = () => openEmojiPicker(em => { _metaPick = { emoji: em, manual: true }; prev.innerHTML = '<span class="meta-emoji meta-emoji-uni">' + em + '</span><span class="meta-prev-edit" aria-hidden="true">✎</span>'; });
   const sv = $("#metaSave", wrap); if (sv) sv.onclick = saveMeta;
-  const dl = $("#metaDel", wrap); if (dl) dl.onclick = () => modalConfirm("Excluir esta meta?", () => { tombstone(_metaEdit); DATA.objetivos = objetivos().filter(o => o.id !== _metaEdit); _metaEdit = null; persist(); renderMetasList(); renderMetaForm(); }, "Excluir");
+  const dl = $("#metaDel", wrap); if (dl) dl.onclick = () => modalConfirm("Excluir esta meta?", () => { tombstone(_metaEdit); DATA.objetivos = objetivos().filter(o => o.id !== _metaEdit); _metaEdit = null; _metaPick = null; persist(); renderMetasList(); renderMetaForm(); }, "Excluir");
 }
 function saveMeta() {
   const nome = ($("#metaNome").value || "").trim();
@@ -2357,13 +2380,17 @@ function saveMeta() {
   const alvo = moneyVal($("#metaAlvo")) || 0, guard = moneyVal($("#metaGuard")) || 0;
   if (alvo <= 0) { toast("Quanto custa essa meta?"); return; }
   const sug = metaEmojiFor(nome);
+  // emoji final: manual (escolhido agora) tem prioridade; senão segue a sugestão pelo nome
+  let e, emoji, man;
+  if (_metaPick) { man = true; emoji = _metaPick.emoji; e = ""; }
+  else { man = false; e = sug.e; emoji = sug.emoji; }
   if (_metaEdit) {
     const o = objetivos().find(x => x.id === _metaEdit);
-    if (o) { o.nome = nome; o.alvo = alvo; o.guardado = guard; o.e = sug.e; o.emoji = sug.emoji; o.m = nowMs(); }
+    if (o) { o.nome = nome; o.alvo = alvo; o.guardado = guard; o.e = e; o.emoji = emoji; o.emojiManual = man; o.m = nowMs(); }
   } else {
-    objetivos().push({ id: uid(), nome: nome, alvo: alvo, guardado: guard, e: sug.e, emoji: sug.emoji, m: nowMs() });
+    objetivos().push({ id: uid(), nome: nome, alvo: alvo, guardado: guard, e: e, emoji: emoji, emojiManual: man, m: nowMs() });
   }
-  _metaEdit = null; persist(); renderMetasList(); renderMetaForm();
+  _metaEdit = null; _metaPick = null; persist(); renderMetasList(); renderMetaForm();
   toast("Meta salva ✓");
 }
 
@@ -3902,6 +3929,7 @@ function lineRow(l, idx, pos) {
   const bits = [];
   if (l.dia) bits.push("dia " + l.dia);
   if (curTab === "cartao" && l.parcAtual && l.parcTotal) bits.push(`parcela ${l.parcAtual}/${l.parcTotal}`);
+  if (curTab === "cartao" && l.rec) bits.push("recorrente");
   if (curTab === "cartao" && l.cartao) bits.push("•" + esc(l.cartao));
   const sub = bits.join(" · ");
   const on = selected.has(idx);
@@ -3909,7 +3937,7 @@ function lineRow(l, idx, pos) {
   return `<div class="list-row${selMode ? " sel-mode" : ""}${on ? " sel-on" : ""}" data-idx="${idx}" style="--i:${Math.min(pos || 0, 16)}">
     ${box}<div class="desc"><div class="name">${esc(l.desc || "—")}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>
     <span class="badge ${st}" data-toggle="${idx}">${st}</span>
-    <div class="amt-wrap"><span class="amount">${brl(val)}</span>${l.nec ? `<span class="nec-flag" title="Necessário — não posso deixar de pagar">✓</span>` : ""}</div></div>`;
+    <div class="amt-wrap"><span class="amount">${brl(val)}</span>${l.obs ? `<span class="nec-flag obs-flag" title="${esc(l.obs)}">📝</span>` : ""}${l.nec ? `<span class="nec-flag" title="Necessário — não posso deixar de pagar">✓</span>` : ""}</div></div>`;
 }
 
 function renderDiaria(view) {
@@ -4109,50 +4137,139 @@ function dateParts(iso) {
   if (mes < 0) mes = 0;
   return { dia: d.getDate(), mes };
 }
+// ---- Autocomplete de descrição: aprende com o histórico (mesmo estabelecimento) ----
+function firstVal(l) { const a = l.vals || []; for (let i = 0; i < a.length; i++) if (a[i]) return a[i]; return 0; }
+function descHistory() {
+  const seen = new Map();
+  const push = (desc, catId, val, m) => {
+    const key = normEmoji(desc || "").trim(); if (!key) return;
+    const prev = seen.get(key);
+    if (!prev || (m || 0) >= (prev.m || 0)) seen.set(key, { desc: (desc || "").trim(), catId: catId || null, val: val || 0, m: m || 0 });
+  };
+  (DATA.cartao || []).forEach(l => push(l.desc, l.catId, firstVal(l), l.m));
+  (DATA.diaria || []).forEach(l => push(l.desc, entryCatId(l), l.valor, l.m));
+  (DATA.fixas || []).forEach(l => push(l.desc, l.catId, firstVal(l), l.m));
+  return Array.from(seen.values()).sort((a, b) => (b.m || 0) - (a.m || 0));
+}
+// liga uma caixa de sugestões a um input de descrição; aparece conforme digita; onPick recebe {desc,catId,val}
+function attachDescSuggest(input, listEl, onPick) {
+  if (!input || !listEl) return;
+  const all = descHistory();
+  const close = () => { listEl.classList.add("hidden"); listEl.innerHTML = ""; };
+  const render = () => {
+    const q = normEmoji(input.value).trim();
+    if (!q) { close(); return; }
+    const hits = all.filter(h => { const d = normEmoji(h.desc); return d.includes(q) && d !== q; }).slice(0, 6);
+    if (!hits.length) { close(); return; }
+    listEl.innerHTML = hits.map((h, i) => {
+      const c = h.catId ? catById(h.catId) : null;
+      return `<button type="button" class="ac-item" data-i="${i}"><span class="ac-d">${esc(h.desc)}</span>${c ? `<span class="ac-c">${c.emoji} ${esc(c.nome)}</span>` : ""}</button>`;
+    }).join("");
+    listEl.classList.remove("hidden");
+    $$(".ac-item", listEl).forEach(b => b.onclick = () => { const h = hits[+b.dataset.i]; input.value = h.desc; close(); if (onPick) onPick(h); });
+  };
+  input.addEventListener("input", render);
+  input.addEventListener("focus", render);
+  input.addEventListener("blur", () => setTimeout(close, 180));
+}
+// ---- Compra recorrente no cartão: por X meses OU meses escolhidos a dedo ----
+let _recPick = new Set();
+function cartaoPayMode() { const a = $("#f_seg .seg-btn.active"); return a ? a.dataset.pay : "avista"; }
+function recMode() { const a = $("#f_rec_mode .seg-btn.active"); return a ? a.dataset.rec : "count"; }
+function renderRecMonths() {
+  const box = $("#f_rec_months"); if (!box) return;
+  const { mes: base } = dateParts($("#f_data") && $("#f_data").value);
+  let from = Math.max(0, base); _recPick.forEach(i => { if (i < from) from = i; });   // garante mostrar o 1º selecionado
+  box.innerHTML = Array.from({ length: 24 }, (_, k) => { const i = from + k; return `<button type="button" class="mchip${_recPick.has(i) ? " on" : ""}" data-m="${i}">${mLabel(i)}</button>`; }).join("");
+  $$(".mchip", box).forEach(b => b.onclick = () => { const i = +b.dataset.m; if (_recPick.has(i)) _recPick.delete(i); else _recPick.add(i); b.classList.toggle("on"); updateParcelaPreview(); });
+}
 function openCartaoModal() {
   const cs = DATA.cartoes || [];
+  _recPick = new Set();
   $("#modalTitle").textContent = "Nova compra no cartão";
   const cardOpts = cs.map(c => `<option value="${c.id}">${cardLabel(c)}</option>`).join("");
   const parcOpts = Array.from({ length: 59 }, (_, i) => `<option value="${i + 2}">${i + 2}×</option>`).join("");  // 2× a 60×
   $("#entryForm").innerHTML = `
     ${cs.length ? "" : `<p class="hint" style="text-align:left;margin-bottom:10px">💡 Cadastre seu cartão (com o dia do fechamento) em <b>Meus cartões</b> para as parcelas caírem no mês certo.</p>`}
-    <label class="field"><span>Descrição</span><input id="f_desc" type="text" required placeholder="Ex.: Tênis" /></label>
+    <label class="field"><span>Descrição</span><div class="ac-wrap"><input id="f_desc" type="text" required placeholder="Ex.: Tênis" autocomplete="off" /><div id="f_descSug" class="ac-list hidden"></div></div></label>
     <label class="field"><span>Cartão</span><select id="f_card">${cardOpts}<option value="">Outro (sem cadastro)</option></select></label>
     <label class="field"><span>Categoria</span><select id="f_catId" class="sel">${catSelectHTML(null)}</select></label>
-    <div class="seg" id="f_seg" role="tablist">
+    <div class="seg seg3" id="f_seg" role="tablist">
       <button type="button" class="seg-btn active" data-pay="avista">À vista</button>
       <button type="button" class="seg-btn" data-pay="parc">Parcelado</button>
+      <button type="button" class="seg-btn" data-pay="rec">Recorrente</button>
     </div>
     <div class="field-row">
       <label class="field"><span id="f_val_lbl">Valor da compra</span><input id="f_val" class="money" placeholder="0,00" required /></label>
       <label class="field" id="f_n_field" style="display:none"><span>Em quantas vezes</span><select id="f_n" class="sel">${parcOpts}</select></label>
-    </div>    <label class="field"><span>Data da compra</span><input id="f_data" type="date" value="${todayISO()}" min="${DATA.year}-01-01" /></label>
+    </div>
+    <div id="f_rec_box" class="rec-box" style="display:none">
+      <div class="seg" id="f_rec_mode" role="tablist">
+        <button type="button" class="seg-btn active" data-rec="count">Por X meses</button>
+        <button type="button" class="seg-btn" data-rec="pick">Escolher meses</button>
+      </div>
+      <label class="field" id="f_rec_count_wrap"><span>Por quantos meses? (conta a partir da data — pode passar de 2026)</span><input id="f_rec_count" type="number" min="1" max="120" inputmode="numeric" value="12" /></label>
+      <div id="f_rec_pick_wrap" style="display:none"><div class="rec-hint">Toque nos meses em que essa compra entra:</div><div id="f_rec_months" class="month-chips"></div></div>
+    </div>
+    <label class="field"><span>Data da compra</span><input id="f_data" type="date" value="${todayISO()}" min="${DATA.year}-01-01" /></label>
     <label class="field row-check nec-check"><input id="f_nec" type="checkbox" /><span>🔒 Necessário — não posso deixar de pagar</span></label>
+    <label class="field"><span>Observações (opcional)</span><textarea id="f_obs" class="f-obs" rows="2" maxlength="200" placeholder="Algo sobre essa compra? Ex.: dividi com a Ana, troca até 30 dias…"></textarea></label>
     <div id="f_parc_prev" class="impact"></div>`;
-  // segmento À vista / Parcelado → muda a interface na hora
-  $$("#f_seg .seg-btn").forEach(b => b.onclick = () => {
-    $$("#f_seg .seg-btn").forEach(x => x.classList.toggle("active", x === b));
-    const parc = b.dataset.pay === "parc";
-    $("#f_n_field").style.display = parc ? "" : "none";
-    $("#f_val_lbl").textContent = parc ? "Valor de cada parcela" : "Valor da compra";
+  // autocomplete de descrição → ao escolher, traz a categoria (e o valor típico) do mesmo estabelecimento
+  attachDescSuggest($("#f_desc"), $("#f_descSug"), (h) => {
+    if (h.catId && $("#f_catId")) $("#f_catId").value = h.catId;
+    const fv = $("#f_val"); if (fv && !fv.value && h.val && cartaoPayMode() !== "parc") fv.value = fmtMoneyBR(h.val);
     updateParcelaPreview();
   });
-  ["f_val", "f_n", "f_data", "f_card"].forEach(id => { const el = $("#" + id); if (el) { el.oninput = updateParcelaPreview; el.onchange = updateParcelaPreview; } });
+  // segmento À vista / Parcelado / Recorrente → muda a interface na hora
+  $$("#f_seg .seg-btn").forEach(b => b.onclick = () => {
+    $$("#f_seg .seg-btn").forEach(x => x.classList.toggle("active", x === b));
+    const mode = b.dataset.pay;
+    $("#f_n_field").style.display = mode === "parc" ? "" : "none";
+    $("#f_rec_box").style.display = mode === "rec" ? "" : "none";
+    $("#f_val_lbl").textContent = mode === "parc" ? "Valor de cada parcela" : mode === "rec" ? "Valor por mês" : "Valor da compra";
+    if (mode === "rec" && recMode() === "pick") renderRecMonths();
+    updateParcelaPreview();
+  });
+  // sub-modo recorrente: por X meses × escolher meses
+  $$("#f_rec_mode .seg-btn").forEach(b => b.onclick = () => {
+    $$("#f_rec_mode .seg-btn").forEach(x => x.classList.toggle("active", x === b));
+    const pick = b.dataset.rec === "pick";
+    $("#f_rec_count_wrap").style.display = pick ? "none" : "";
+    $("#f_rec_pick_wrap").style.display = pick ? "" : "none";
+    if (pick) renderRecMonths();
+    updateParcelaPreview();
+  });
+  ["f_val", "f_n", "f_data", "f_card", "f_rec_count"].forEach(id => { const el = $("#" + id); if (el) { el.oninput = () => { if (id === "f_data") renderRecMonths(); updateParcelaPreview(); }; el.onchange = updateParcelaPreview; } });
   updateParcelaPreview();
   $("#btnDelete").classList.add("hidden");
   $("#entryForm").onsubmit = (e) => {
     e.preventDefault();
-    const parc = $("#f_seg .seg-btn.active").dataset.pay === "parc";
+    const mode = cartaoPayMode();
     const valor = moneyVal($("#f_val"));
-    const n = parc ? Math.min(60, Math.max(2, parseInt($("#f_n").value) || 2)) : 1;
     const { dia, mes: base } = dateParts($("#f_data").value);
     const card = cs.find(c => c.id === $("#f_card").value) || null;
-    const start = parcelaStartMonth(base, dia, card ? card.fechamento : null);
     const paidUntil = realMesAbs();
     const nec = $("#f_nec") ? $("#f_nec").checked : false;
-    const last = Math.max(start + n - 1, 11);
     const catId = $("#f_catId") ? ($("#f_catId").value || null) : null;
-    const line = { id: uid(), desc: $("#f_desc").value.trim(), cartao: card ? card.nome : "", catId, parcAtual: 1, parcTotal: n > 1 ? n : null, dia: card ? card.vencimento : dia, nec, vals: Array(12).fill(0), sts: Array(12).fill("vazio") };
+    const obs = $("#f_obs") ? $("#f_obs").value.trim() : "";
+    const baseLine = { id: uid(), desc: $("#f_desc").value.trim(), cartao: card ? card.nome : "", catId, nec, obs, vals: Array(12).fill(0), sts: Array(12).fill("vazio") };
+    if (mode === "rec") {                                       // compra recorrente (assinatura): cai em vários meses
+      let months;
+      if (recMode() === "pick") { months = Array.from(_recPick).sort((a, b) => a - b); if (!months.length) { toast("Escolha pelo menos um mês"); return; } }
+      else { const q = Math.max(1, Math.min(120, parseInt($("#f_rec_count").value) || 12)), start = Math.max(0, base); months = Array.from({ length: q }, (_, k) => start + k); }
+      const line = { ...baseLine, rec: true, dia: card ? card.vencimento : dia, parcAtual: null, parcTotal: null };
+      ensureLen(line, Math.max.apply(null, months) + 1);
+      months.forEach(mo => { if (mo < 0) return; line.vals[mo] = valor; line.sts[mo] = mo <= paidUntil ? "pago" : "programado"; });
+      line.m = nowMs(); DATA.cartao.push(line);
+      persist(); closeModal();
+      toast(`Recorrente lançada ✓ ${months.length}× de ${brl(valor)}`);
+      return;
+    }
+    const n = mode === "parc" ? Math.min(60, Math.max(2, parseInt($("#f_n").value) || 2)) : 1;
+    const start = parcelaStartMonth(base, dia, card ? card.fechamento : null);
+    const last = Math.max(start + n - 1, 11);
+    const line = { ...baseLine, parcAtual: 1, parcTotal: n > 1 ? n : null, dia: card ? card.vencimento : dia };
     ensureLen(line, last + 1);                                 // estende os meses se a última parcela passa de Dez/26
     for (let k = 0; k < n; k++) { const mo = start + k; if (mo < 0) continue; line.vals[mo] = valor; line.sts[mo] = mo <= paidUntil ? "pago" : "programado"; }
     line.m = nowMs();                                          // mtime p/ o merge da conta conjunta
@@ -4165,15 +4282,23 @@ function openCartaoModal() {
 }
 function updateParcelaPreview() {
   const el = $("#f_parc_prev"); if (!el) return;
-  const parc = $("#f_seg .seg-btn.active") && $("#f_seg .seg-btn.active").dataset.pay === "parc";
+  const mode = cartaoPayMode();
   const valor = moneyVal($("#f_val"));
-  const n = parc ? Math.min(60, Math.max(2, parseInt($("#f_n") && $("#f_n").value) || 2)) : 1;
   const { dia, mes: base } = dateParts($("#f_data") && $("#f_data").value);
   const cs = DATA.cartoes || [];
   const card = cs.find(c => c.id === ($("#f_card") && $("#f_card").value)) || null;
+  el.className = "impact ok";
+  if (mode === "rec") {
+    let count = 0, fromTo = "";
+    if (recMode() === "pick") { count = _recPick.size; if (count) { const arr = Array.from(_recPick).sort((a, b) => a - b); fromTo = mLong(arr[0]) + (count > 1 ? " … " + mLong(arr[arr.length - 1]) : ""); } }
+    else { count = Math.max(1, Math.min(120, parseInt($("#f_rec_count") && $("#f_rec_count").value) || 12)); const start = Math.max(0, base); fromTo = mLong(start) + " … " + mLong(start + count - 1); }
+    el.innerHTML = `<div class="impact-row"><span>Recorrente · ${brl(valor)}/mês</span><b>${count ? brl(valor * count) : "—"}</b></div>`
+      + (count ? `<div class="impact-sub">${count}× · ${fromTo}</div>` : `<div class="impact-sub">Escolha os meses acima.</div>`);
+    return;
+  }
+  const n = mode === "parc" ? Math.min(60, Math.max(2, parseInt($("#f_n") && $("#f_n").value) || 2)) : 1;
   const start = parcelaStartMonth(base, dia, card ? card.fechamento : null);
   const fim = start + n - 1;
-  el.className = "impact ok";
   let txt = `<div class="impact-row"><span>${n > 1 ? n + "× de " + brl(valor) : "Compra"}</span><b>${brl(valor * n)}</b></div>`;
   if (card && card.fechamento && dia) {
     const mesmoMes = dia <= card.fechamento;
@@ -4208,7 +4333,8 @@ function openEntryModal(tab, idx) {
   else if (tab === "cartao") extra = `<div class="field-row">
       <label class="field"><span>Parcela atual</span><input id="f_pa" type="number" min="1" value="${isNew || !l.parcAtual ? "" : l.parcAtual}" placeholder="--" /></label>
       <label class="field"><span>de (total)</span><input id="f_pt" type="number" min="1" value="${isNew || !l.parcTotal ? "" : l.parcTotal}" placeholder="--" /></label>
-      <label class="field"><span>Cartão</span><input id="f_cartao" type="text" value="${isNew || !l.cartao ? "" : esc(l.cartao)}" placeholder="final" /></label></div>` + necCheck;
+      <label class="field"><span>Cartão</span><input id="f_cartao" type="text" value="${isNew || !l.cartao ? "" : esc(l.cartao)}" placeholder="final" /></label></div>` + necCheck
+      + `<label class="field"><span>Observações (opcional)</span><textarea id="f_obs" class="f-obs" rows="2" maxlength="200" placeholder="Algo sobre essa compra?">${isNew || !l.obs ? "" : esc(l.obs)}</textarea></label>`;
 
   const valMes = isDiaria && !isNew ? (l.mes != null ? l.mes : curMonth) : curMonth;
   const valVal = isNew ? "" : (isDiaria ? (l.valor || "") : (l.vals[curMonth] || ""));
@@ -4275,7 +4401,7 @@ function openEntryModal(tab, idx) {
     line.dia = parseInt($("#f_dia").value) || null;
     if (isReceita) line.tipo = $("#f_tipo").value;
     if (tab === "fixas") { line.aviso = parseInt($("#f_aviso").value) || null; line.meta = moneyVal($("#f_meta")) || null; }
-    if (tab === "cartao") { line.parcAtual = parseInt($("#f_pa").value) || null; line.parcTotal = parseInt($("#f_pt").value) || null; line.cartao = $("#f_cartao").value.trim(); }
+    if (tab === "cartao") { line.parcAtual = parseInt($("#f_pa").value) || null; line.parcTotal = parseInt($("#f_pt").value) || null; line.cartao = $("#f_cartao").value.trim(); const fo = $("#f_obs"); if (fo) line.obs = fo.value.trim(); }
     if (tab === "fixas" || tab === "cartao") { const ne = $("#f_nec"); line.nec = ne ? ne.checked : (line.nec || false); const ci = $("#f_catId"); if (ci) line.catId = ci.value || null; }
     if (all) {
       const q = Math.max(1, Math.min(120, parseInt($("#f_rep").value) || 12));
@@ -5542,14 +5668,15 @@ function openCoupleHistory() {
 }
 
 /* ---------- Recorte CIRCULAR da foto: arrasta pra posicionar + zoom; exporta 320×320 ---------- */
-let _crop = { img: null, S: 0, base: 1, z: 1, tx: 0, ty: 0, dispW: 0, dispH: 0 };
+let _crop = { img: null, S: 0, base: 1, z: 1, rot: 0, tx: 0, ty: 0, dispW: 0, dispH: 0 };
 function openCropper(dataUrl) {
   const m = $("#cropModal"), img = $("#cropImg"), stage = $("#cropStage");
   img.onload = () => {
     const S = stage.clientWidth || 260;
-    _crop.img = img; _crop.S = S; _crop.z = 1;
+    _crop.img = img; _crop.S = S; _crop.z = 1; _crop.rot = 0;
     _crop.base = S / Math.min(img.naturalWidth, img.naturalHeight);
-    $("#cropZoom").value = 1;
+    const z = $("#cropZoom"); if (z) z.value = 1;
+    const r = $("#cropRotate"); if (r) r.value = 0;
     layoutCrop(true);
     m.classList.remove("hidden");
   };
@@ -5562,14 +5689,38 @@ function layoutCrop(center) {
   if (center) { c.tx = (c.S - c.dispW) / 2; c.ty = (c.S - c.dispH) / 2; }
   clampCrop(); applyCrop();
 }
-function clampCrop() { const c = _crop; c.tx = Math.min(0, Math.max(c.S - c.dispW, c.tx)); c.ty = Math.min(0, Math.max(c.S - c.dispH, c.ty)); }
-function applyCrop() { const c = _crop, img = c.img; if (!img) return; img.style.width = c.dispW + "px"; img.style.height = c.dispH + "px"; img.style.left = c.tx + "px"; img.style.top = c.ty + "px"; }
+// Clamp ciente da rotação: a imagem (girada em torno do próprio centro) precisa cobrir o círculo
+// de raio R no centro do palco. Levo o centro do círculo pro referencial da imagem (des-rotaciono) e
+// limito a |x|≤dispW/2−R e |y|≤dispH/2−R. Como base = S/min(lado), min(dispW,dispH)≥S → sempre cobre.
+function clampCrop() {
+  const c = _crop, R = c.S / 2, th = (c.rot || 0) * Math.PI / 180;
+  const cx = c.tx + c.dispW / 2, cy = c.ty + c.dispH / 2;     // centro da imagem (coords do palco)
+  let vx = R - cx, vy = R - cy;                               // vetor centro-do-círculo − centro-da-imagem
+  const cs = Math.cos(th), sn = Math.sin(th);
+  let lx = vx * cs + vy * sn, ly = -vx * sn + vy * cs;        // gira v por −th (referencial da imagem)
+  const mx = Math.max(0, c.dispW / 2 - R), my = Math.max(0, c.dispH / 2 - R);
+  lx = Math.min(mx, Math.max(-mx, lx)); ly = Math.min(my, Math.max(-my, ly));
+  vx = lx * cs - ly * sn; vy = lx * sn + ly * cs;             // volta por +th
+  c.tx = (R - vx) - c.dispW / 2; c.ty = (R - vy) - c.dispH / 2;
+}
+function applyCrop() {
+  const c = _crop, img = c.img; if (!img) return;
+  img.style.width = c.dispW + "px"; img.style.height = c.dispH + "px";
+  img.style.left = c.tx + "px"; img.style.top = c.ty + "px";
+  img.style.transformOrigin = "center center";
+  img.style.transform = "rotate(" + (c.rot || 0) + "deg)";
+}
 function cropExport() {
   const c = _crop, out = 320, k = out / c.S;
   const cv = document.createElement("canvas"); cv.width = out; cv.height = out;
   const ctx = cv.getContext("2d");
   ctx.fillStyle = "#06251a"; ctx.fillRect(0, 0, out, out);
-  ctx.drawImage(c.img, c.tx * k, c.ty * k, c.dispW * k, c.dispH * k);
+  const cx = (c.tx + c.dispW / 2) * k, cy = (c.ty + c.dispH / 2) * k;   // centro da imagem no canvas
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((c.rot || 0) * Math.PI / 180);
+  ctx.drawImage(c.img, -c.dispW * k / 2, -c.dispH * k / 2, c.dispW * k, c.dispH * k);
+  ctx.restore();
   return cv.toDataURL("image/jpeg", 0.85);
 }
 (function bindCropper() {
@@ -5586,6 +5737,7 @@ function cropExport() {
     c.dispW = c.img.naturalWidth * c.base * c.z; c.dispH = c.img.naturalHeight * c.base * c.z;
     clampCrop(); applyCrop();
   };
+  const rotc = $("#cropRotate"); if (rotc) rotc.oninput = (e) => { const c = _crop; if (!c.img) return; c.rot = parseFloat(e.target.value) || 0; clampCrop(); applyCrop(); };
   const cancel = $("#cropCancel"); if (cancel) cancel.onclick = () => $("#cropModal").classList.add("hidden");
   const ok = $("#cropOk"); if (ok) ok.onclick = () => { _profFotoTmp = cropExport(); refreshProfPhoto(); $("#cropModal").classList.add("hidden"); };
 })();
