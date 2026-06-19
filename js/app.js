@@ -1,12 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.13.96";
-const VERSION_NOTES = "🔐 'Esqueci minha senha' agora REDEFINE a senha de verdade (acertou a pergunta → cria um novo PIN 2x) + cronômetro do 'muitas tentativas' mais limpo (só números → mm:ss → hh:mm:ss)";
+const APP_VERSION = "3.13.97";
+const VERSION_NOTES = "📈 Ritmo de gastos (filtro Cartões) usa o dia de vencimento do cartão (sem pico falso no dia 1) + busca de emoji mais fluida (debounce) + faxina interna";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.13.97",
+    bullets: [
+      "No <b>Ritmo de gastos</b> com o filtro <b>Cartões</b>, a fatura agora entra no <b>dia de vencimento do cartão</b> em vez de cair no dia 1 — a curva fica fiel, sem aquele “pulo” falso no começo do mês.",
+      "A <b>busca de emoji</b> ficou mais fluida: ela espera você terminar de digitar antes de filtrar (sem travadinhas em celular mais lento).",
+      "Mais uma faxina por baixo do capô (código de diagnóstico antigo removido) — app mais enxuto.",
+    ],
+  },
   {
     version: "3.13.96",
     bullets: [
@@ -3066,13 +3074,23 @@ const serieSaldo = () => { const b = curYear() * 12; return Array.from({ length:
 let _ritmo = null;   // dados do gráfico atual, p/ o resumo que responde ao dedo (scrub)
 let _ritmoFiltro = "tudo";   // "tudo" | "fixas" | "cartao" | "diaria" — fonte do Ritmo de gastos
 function monthDays(m) { const y = DATA.year + Math.floor(m / 12); const mi = ((m % 12) + 12) % 12; return new Date(y, mi + 1, 0).getDate(); }
+// Dia do lançamento de CARTÃO no Ritmo: usa o dia da linha; se faltar, o vencimento do cartão
+// cadastrado (por nome) — antes caía no dia 1 e criava um pico falso no início do mês. #audit-P3.1
+function cartaoDiaRitmo(l) {
+  let d = parseInt(l && l.dia, 10);
+  if (d >= 1 && d <= 31) return d;
+  const nome = cardOfLine(l);
+  const c = nome ? (DATA.cartoes || []).find(x => x && String(x.nome).trim() === nome) : null;
+  d = c ? parseInt(c.vencimento, 10) : NaN;
+  return (d >= 1 && d <= 31) ? d : null;
+}
 function ritmoSpendPerDay(m, f) {
   f = f || "tudo";
   const dim = monthDays(m);
   const per = new Array(dim + 1).fill(0);
   const add = (dia, val) => { val = Number(val) || 0; if (val > 0) { let d = parseInt(dia, 10); if (!(d >= 1 && d <= dim)) d = 1; per[d] += val; } };
   if (f === "tudo" || f === "fixas") (DATA.fixas || []).forEach(l => add(l.dia, (l.vals || [])[m]));
-  if (f === "tudo" || f === "cartao") (DATA.cartao || []).forEach(l => add(l.dia, (l.vals || [])[m]));
+  if (f === "tudo" || f === "cartao") (DATA.cartao || []).forEach(l => add(cartaoDiaRitmo(l), (l.vals || [])[m]));
   if (f === "tudo" || f === "diaria") (DATA.diaria || []).forEach(d => { if (d.mes === m) add(d.dia, d.valor); });
   const cum = []; let s = 0; for (let d = 1; d <= dim; d++) { s += per[d]; cum.push(Math.round(s * 100) / 100); }
   return cum;
@@ -4448,7 +4466,7 @@ let _emojiCb = null, _emojiTab = 0;
 function openEmojiPicker(cb) {
   _emojiCb = cb; _emojiTab = 0;
   const search = $("#emojiSearch");
-  if (search) { search.value = ""; search.oninput = () => renderEmojiGrid(); }
+  if (search) { search.value = ""; let _eqT = null; search.oninput = () => { clearTimeout(_eqT); _eqT = setTimeout(renderEmojiGrid, 130); }; }
   const tabs = $("#emojiTabs");
   if (tabs) {
     tabs.innerHTML = EMOJI_GROUPS.map((g, i) => `<button type="button" class="emoji-tab${i === 0 ? " active" : ""}" data-tab="${i}" title="${g.name}">${g.icon || g.emojis[0]}</button>`).join("");
@@ -7335,34 +7353,6 @@ function refreshInPlace() {
   window.addEventListener("resize", onScroll);
   btn.onclick = () => { try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); } };
   onScroll();
-})();
-
-/* 🔬 Diagnóstico da barra (TEMPORÁRIO) — ative abrindo o app com #dbg na URL
-   (ex.: morbiusfin.github.io/#dbg). Mostra no topo, ao vivo: gap da tabbar até o fundo da tela,
-   altura da tela, altura da visual viewport, scrollY, position/top do body e classes ativas.
-   Serve pra ler no iPhone o valor exato quando a barra "sobe" no Débito (não reproduz no PC). */
-(function barDebug() {
-  try {
-    if (!/(^|[#&])dbg\b/i.test(location.hash)) return;
-    const box = document.createElement("div");
-    box.id = "barDbg";
-    box.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:99999;background:rgba(0,0,0,.86);color:#0f0;font:11px/1.35 monospace;padding:6px 8px;white-space:pre-wrap;pointer-events:none;text-align:left";
-    document.body.appendChild(box);
-    const vv = window.visualViewport;
-    setInterval(() => {
-      const tb = document.querySelector(".tabbar"), fab = document.getElementById("fab");
-      const r = tb ? tb.getBoundingClientRect() : null;
-      const cs = tb ? getComputedStyle(tb) : null;
-      const gapBar = r ? Math.round(window.innerHeight - r.bottom) : "?";
-      const rest = cs ? Math.round(parseFloat(cs.bottom) || 0) : "?";
-      box.textContent =
-        "GAP barra→fundo: " + gapBar + "px  (descanso ~" + rest + ")\n" +
-        "innerH " + window.innerHeight + "  vvH " + (vv ? Math.round(vv.height) : "?") + "  vvTop " + (vv ? Math.round(vv.offsetTop) : "?") + "\n" +
-        "scrollY " + Math.round(window.scrollY) + "  bodyPos " + getComputedStyle(document.body).position + "  bodyTop " + (document.body.style.top || "0") + "\n" +
-        "tb.display " + (cs ? cs.display : "?") + "  tb.vis " + (cs ? cs.visibility : "?") + "\n" +
-        "classes: " + (document.body.className || "(nenhuma)") + (document.querySelector(".modal:not(.hidden)") ? "  +MODAL" : "");
-    }, 200);
-  } catch (e) {}
 })();
 
 boot();
