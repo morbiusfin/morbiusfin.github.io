@@ -1,12 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.15.0";
-const VERSION_NOTES = "🎯 Orçamento unificado: agora é só POR CATEGORIA (o antigo por tipo foi aposentado; saúde e insights acompanham, nada apagado) · 😀 muito mais emojis (roupas + ~150 bandeiras de países) com busca pt/en · 📝 observação da compra abre em tela cheia (toque no 📝)";
+const APP_VERSION = "3.15.1";
+const VERSION_NOTES = "🐛 Correções: a compra no cartão agora guarda a DATA que você escolheu (não troca mais pelo vencimento) · 📝 campo Observações no tema escuro (sem fundo branco) e no mesmo lugar ao criar e editar · 🔎 janela da observação maior e mais legível";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.15.1",
+    bullets: [
+      "Corrigido: a <b>compra no cartão</b> agora <b>guarda a data que você escolheu</b>. Antes, ao salvar, o dia virava o vencimento do cartão (ex.: caía no dia 4) — agora fica a data certa da compra.",
+      "O campo <b>Observações</b> entrou no <b>tema escuro</b> (acabou o fundo branco) e ficou no <b>mesmo lugar</b> tanto ao criar quanto ao editar a compra.",
+      "A <b>janela da observação</b> (toque no 📝) ficou <b>maior e mais fácil de ler</b>.",
+    ],
+  },
   {
     version: "3.15.0",
     bullets: [
@@ -4341,7 +4349,7 @@ function openCartaoModal() {
       let months;
       if (recMode() === "pick") { months = Array.from(_recPick).sort((a, b) => a - b); if (!months.length) { toast("Escolha pelo menos um mês"); return; } }
       else { const q = Math.max(1, Math.min(120, parseInt($("#f_rec_count").value) || 12)), start = Math.max(0, base); months = Array.from({ length: q }, (_, k) => start + k); }
-      const line = { ...baseLine, rec: true, dia: card ? card.vencimento : dia, parcAtual: null, parcTotal: null };
+      const line = { ...baseLine, rec: true, dia: dia, parcAtual: null, parcTotal: null };
       ensureLen(line, Math.max.apply(null, months) + 1);
       months.forEach(mo => { if (mo < 0) return; line.vals[mo] = valor; line.sts[mo] = mo <= paidUntil ? "pago" : "programado"; });
       line.m = nowMs(); DATA.cartao.push(line);
@@ -4352,7 +4360,7 @@ function openCartaoModal() {
     const n = mode === "parc" ? Math.min(60, Math.max(2, parseInt($("#f_n").value) || 2)) : 1;
     const start = parcelaStartMonth(base, dia, card ? card.fechamento : null);
     const last = Math.max(start + n - 1, 11);
-    const line = { ...baseLine, parcAtual: 1, parcTotal: n > 1 ? n : null, dia: card ? card.vencimento : dia };
+    const line = { ...baseLine, parcAtual: 1, parcTotal: n > 1 ? n : null, dia: dia };
     ensureLen(line, last + 1);                                 // estende os meses se a última parcela passa de Dez/26
     for (let k = 0; k < n; k++) { const mo = start + k; if (mo < 0) continue; line.vals[mo] = valor; line.sts[mo] = mo <= paidUntil ? "pago" : "programado"; }
     line.m = nowMs();                                          // mtime p/ o merge da conta conjunta
@@ -4416,8 +4424,7 @@ function openEntryModal(tab, idx) {
   else if (tab === "cartao") extra = `<div class="field-row">
       <label class="field"><span>Parcela atual</span><input id="f_pa" type="number" min="1" value="${isNew || !l.parcAtual ? "" : l.parcAtual}" placeholder="--" /></label>
       <label class="field"><span>de (total)</span><input id="f_pt" type="number" min="1" value="${isNew || !l.parcTotal ? "" : l.parcTotal}" placeholder="--" /></label>
-      <label class="field"><span>Cartão</span><input id="f_cartao" type="text" value="${isNew || !l.cartao ? "" : esc(l.cartao)}" placeholder="final" /></label></div>` + necCheck
-      + `<label class="field"><span>Observações (opcional)</span><textarea id="f_obs" class="f-obs" rows="2" maxlength="200" placeholder="Algo sobre essa compra?">${isNew || !l.obs ? "" : esc(l.obs)}</textarea></label>`;
+      <label class="field"><span>Cartão</span><input id="f_cartao" type="text" value="${isNew || !l.cartao ? "" : esc(l.cartao)}" placeholder="final" /></label></div>` + necCheck;
 
   const valMes = isDiaria && !isNew ? (l.mes != null ? l.mes : curMonth) : curMonth;
   const valVal = isNew ? "" : (isDiaria ? (l.valor || "") : (l.vals[curMonth] || ""));
@@ -4443,6 +4450,8 @@ function openEntryModal(tab, idx) {
   // Aviso inteligente: mostra a sobra do mês DEPOIS deste lançamento (em tempo real).
   const isExpenseE = tab !== "receitas";
   const oldValAt = (m) => isNew ? 0 : (isDiaria ? (Number(l.valor) || 0) : (Number(l.vals[m]) || 0));
+  if (tab === "cartao")   // Observações no FIM do form (mesmo lugar do "Nova compra")
+    $("#entryForm").insertAdjacentHTML("beforeend", `<label class="field"><span>Observações (opcional)</span><textarea id="f_obs" class="f-obs" rows="2" maxlength="200" placeholder="Algo sobre essa compra?">${isNew || !l.obs ? "" : esc(l.obs)}</textarea></label>`);
   $("#entryForm").insertAdjacentHTML("beforeend", `<div id="f_impact" class="impact"></div>`);
   const fv = $("#f_val"); if (fv) fv.oninput = () => updateImpact(isExpenseE, oldValAt(+$("#f_mes").value));
   $("#f_mes").onchange = () => {

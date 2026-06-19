@@ -1292,7 +1292,7 @@ body.scroll-locked { left: 0; right: 0; width: 100%; overflow: hidden; overscrol
 .ac-item .ac-c { flex: 0 0 auto; font-size: 11.5px; color: var(--muted); }
 
 /* observações da compra (textarea) */
-.f-obs { width: 100%; resize: none; min-height: 46px; font-family: var(--font); }
+.f-obs { width: 100%; resize: none; min-height: 56px; line-height: 1.45; font-family: var(--font); }
 
 /* emoji da meta escolhido à mão (unicode estático, sem webp animado) + botão de escolher */
 .meta-emoji-uni { display: inline-flex; align-items: center; justify-content: center; line-height: 1; font-size: 30px; }
@@ -1358,9 +1358,9 @@ body.scroll-locked { left: 0; right: 0; width: 100%; overflow: hidden; overscrol
 
 .field { display: block; margin-bottom: 14px; }
 .field span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 700; }
-.field input, .field select { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 13px; font-size: 16px;
+.field input, .field select, .field textarea { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 13px; font-size: 16px;
   background: var(--card-2); color: var(--ink); font-family: var(--font); transition: border-color .2s ease, box-shadow .2s ease; }
-.field input:focus, .field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--ring); }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--ring); }
 /* input[type=date] no iOS: o controle nativo impõe altura/centralização próprias e o valor
    saía CENTRALIZADO e fora da caixa. -webkit-appearance:none remove o estilo nativo → vira uma
    caixa idêntica à de texto (mesma altura do "Valor da compra"). O toque ainda abre o calendário. */
@@ -1611,10 +1611,10 @@ body.scroll-locked { left: 0; right: 0; width: 100%; overflow: hidden; overscrol
 .orc-total.neg b { color: var(--red); }
 /* observação da compra em tela cheia (toque no 📝) */
 .obs-flag { cursor: pointer; }
-.obs-card { max-width: 360px; }
+.obs-card { max-width: 380px; }
 .obs-ic { font-size: 34px; line-height: 1; text-align: center; }
 .obs-desc { font-weight: 800; font-size: 15px; color: var(--ink); text-align: center; margin: 0 0 10px; }
-.obs-text { white-space: pre-wrap; word-break: break-word; text-align: left; background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14.5px; line-height: 1.5; color: var(--ink); max-height: 50vh; overflow-y: auto; }
+.obs-text { white-space: pre-wrap; word-break: break-word; text-align: left; background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 15.5px; line-height: 1.55; color: var(--ink); min-height: 92px; max-height: 50vh; overflow-y: auto; }
 .pr-block { margin: 14px 0; padding: 0 16px; }
 .pr-head { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 7px; }
 .pr-head i { font-style: normal; color: var(--muted); font-weight: 500; }
