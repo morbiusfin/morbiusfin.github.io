@@ -1,12 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.18.8";
-const VERSION_NOTES = "Foto do perfil voltou a ficar redonda; etiqueta do plano ajustada.";
+const APP_VERSION = "3.19.0";
+const VERSION_NOTES = "Mudança de plano/acesso reflete sozinha no app em segundos.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.19.0",
+    bullets: [
+      "Mudou de plano ou liberou acesso? Agora <b>reflete sozinho no app em poucos segundos</b>, sem precisar fechar e abrir.",
+      "A etiqueta do plano (acima da foto) e o destaque no menu <b>atualizam na hora</b>.",
+    ],
+  },
   {
     version: "3.18.7",
     bullets: [
@@ -5107,16 +5114,7 @@ function openMenu() {
     foot.innerHTML = "MorbiusFin · v" + esc(APP_VERSION) + (em ? '<br><span class="menu-foot-email">' + esc(em) + "</span>" : "");
   }
   updateHdrPlan();                                                           // pílula do plano no header (acima da foto)
-  const planCard = $("#menuPlanCard");                                       // card vermelho do plano (corpo do menu)
-  if (planCard) {
-    const info = currentPlanInfo();
-    if (info) {
-      const right = info.vitalicio ? "vitalício" : (info.dias != null ? (info.dias <= 1 ? "último dia" : "faltam " + info.dias + " dias") : "");
-      planCard.innerHTML = '<span class="mpc-l">📋 <b>Plano ' + esc(info.tier) + "</b>" + (right ? " · " + esc(right) : "") + '</span><span class="mpc-go">Ver planos ›</span>';
-      planCard.classList.remove("hidden");
-      planCard.onclick = () => { closeMenu(); openPlanosModal(); };
-    } else planCard.classList.add("hidden");
-  }
+  renderMenuPlanCard();                                                      // card vermelho do plano (corpo do menu)
   renderExploreWidget();                                                     // % de exploração no topo
   m.classList.remove("hidden");
   $$(".menu-item", m).forEach((it, i) => it.style.setProperty("--mi", i));   // entrada em sequência (stagger)
@@ -5142,6 +5140,17 @@ function updateHdrPlan() {
   const info = currentPlanInfo();
   if (info) { el.className = "hdr-plan plan-" + info.key; el.textContent = info.tier; }
   else el.className = "hdr-plan hidden";
+}
+// Card vermelho do plano no corpo do menu.
+function renderMenuPlanCard() {
+  const planCard = $("#menuPlanCard"); if (!planCard) return;
+  const info = currentPlanInfo();
+  if (info) {
+    const right = info.vitalicio ? "vitalício" : (info.dias != null ? (info.dias <= 1 ? "último dia" : "faltam " + info.dias + " dias") : "");
+    planCard.innerHTML = '<span class="mpc-l">📋 <b>Plano ' + esc(info.tier) + "</b>" + (right ? " · " + esc(right) : "") + '</span><span class="mpc-go">Ver planos ›</span>';
+    planCard.classList.remove("hidden");
+    planCard.onclick = () => { closeMenu(); openPlanosModal(); };
+  } else planCard.classList.add("hidden");
 }
 const _onbHide = () => { const o = $("#onboarding"); if (o) o.classList.add("hidden"); };
 $("#btnMenu").onclick = openMenu;
@@ -7564,13 +7573,13 @@ function stopLiveSync() { if (liveT) { clearInterval(liveT); liveT = null; } }
 let _focusSyncT = null;
 function onAppFocus() {
   clearTimeout(_focusSyncT);
-  _focusSyncT = setTimeout(() => { if (syncCfg()) pullSync(false); checkForUpdate(); licenseFocusCheck(); }, 1200);
+  _focusSyncT = setTimeout(() => { if (syncCfg()) pullSync(false); checkForUpdate(); licenseSync(); }, 1200);
 }
-// Re-checa a licença na nuvem ao voltar pro app (destrava tela / troca de aba / reabre).
-// Bloqueou no admin/webhook → grava na tabela 'licencas' (= nuvem) → aqui o app puxa fresco e,
-// se barrado, recarrega na tela de bloqueio. Fail-open: offline/erro → não tranca ninguém.
-let _licChkBusy = false;
-async function licenseFocusCheck() {
+// Sincroniza a licença com a nuvem (admin/webhook escrevem na tabela 'licencas').
+// Roda: ao voltar pro app (focus) E a cada ~15s com o app aberto (poll) → mudança no admin
+// reflete em ≤15s, SEM o usuário precisar reabrir. Fail-open: offline/erro → não tranca.
+let _licChkBusy = false, _lastPlanoSeen = null;
+async function licenseSync() {
   try {
     if (isTestMode()) return;
     if (!(window.CLOUD && window.CLOUD.dek)) return;          // só quando logado e dentro do app
@@ -7580,15 +7589,35 @@ async function licenseFocusCheck() {
     if (_licChkBusy) return; _licChkBusy = true;
     let lic; try { lic = await MFCloud.checkLicenca(); } catch (e) { lic = { ok: true }; }
     _licChkBusy = false;
-    if (lic && lic.ok === false) {
-      try { await MFCloud.signOut(); } catch (e) {}
-      try { localStorage.removeItem("financas2026.cloudDek"); localStorage.removeItem(CLOUD_LOCAL_KEY); } catch (e) {}
-      window.CLOUD = { dek: null, email: null };
-      try { sessionStorage.setItem("financas2026.licBlock", lic.reason || "1"); } catch (e) {}
-      location.reload();   // boot() detecta a flag e abre direto na tela de bloqueio
-    }
+    if (lic && lic.ok === false) return applyLicBlock(lic.reason);   // bloqueado/expirado → tela de bloqueio
+    applyPlanLive();                                          // plano/validade podem ter mudado → atualiza UI ao vivo
   } catch (e) { _licChkBusy = false; }
 }
+// Bloqueio detectado ao vivo → encerra sessão e recarrega na tela de bloqueio.
+async function applyLicBlock(reason) {
+  try { await MFCloud.signOut(); } catch (e) {}
+  try { localStorage.removeItem("financas2026.cloudDek"); localStorage.removeItem(CLOUD_LOCAL_KEY); } catch (e) {}
+  window.CLOUD = { dek: null, email: null };
+  try { sessionStorage.setItem("financas2026.licBlock", reason || "1"); } catch (e) {}
+  location.reload();   // boot() detecta a flag e abre direto na tela de bloqueio
+}
+// Reflete o plano atual na UI (header + banner de trial + card do menu) e avisa quando muda.
+function applyPlanLive() {
+  const p = (window.CLOUD && window.CLOUD.plano) || null;
+  try { updateHdrPlan(); } catch (e) {}
+  try { renderTrialBanner(); } catch (e) {}
+  try { renderMenuPlanCard(); } catch (e) {}
+  if (_lastPlanoSeen && p && p !== _lastPlanoSeen) {
+    const nomes = { teste: "Teste", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
+    try { toast("Plano atualizado: " + (nomes[p] || p) + " ✓"); } catch (e) {}
+  }
+  _lastPlanoSeen = p;
+}
+// Poll da licença enquanto o app está aberto e visível (ativa/bloqueia/muda plano sem reabrir).
+let _licPollT = null;
+const LICENSE_POLL_MS = 15000;
+function startLicensePoll() { stopLicensePoll(); _licPollT = setInterval(() => { if (document.visibilityState === "visible") licenseSync(); }, LICENSE_POLL_MS); }
+function stopLicensePoll() { if (_licPollT) { clearInterval(_licPollT); _licPollT = null; } }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") onAppFocus(); });
 window.addEventListener("focus", onAppFocus);
 window.addEventListener("online", onAppFocus);
@@ -7620,6 +7649,8 @@ function startApp() {
   forceAnimOnce = true;        // só a abertura tem a animação de entrada (intro); o resto é estático
   renderAvatar();              // 👤 mostra a foto/inicial do perfil no header
   updateHdrPlan();             // pílula do plano acima da foto
+  _lastPlanoSeen = (window.CLOUD && window.CLOUD.plano) || null;
+  startLicensePoll();          // puxa licença a cada ~15s → mudança no admin reflete sem reabrir
   render();
   if (curTab === "resumo" && !annual) renderCharts();
   checkAndNotify(); checkVersion();
