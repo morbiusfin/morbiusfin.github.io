@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.18.2";
-const VERSION_NOTES = "Tela de acesso bloqueado/expirado mais bonita e organizada.";
+const APP_VERSION = "3.18.3";
+const VERSION_NOTES = "Planos destacam a melhor escolha com brilho, conforme Mensal/Anual.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.18.3",
+    bullets: [
+      "Na tela de planos, a <b>melhor escolha agora brilha</b> com destaque animado — e muda conforme você alterna entre <b>Mensal</b> (Pro) e <b>Anual</b> (Ultimate), pra te ajudar a decidir.",
+    ],
+  },
   {
     version: "3.18.2",
     bullets: [
@@ -5386,6 +5392,11 @@ function openPlanosModal() {
 function renderPlanosModal(m) {
   if (!m) m = document.getElementById("planosModal"); if (!m) return;
   const tog = _planoToggle;
+  // Melhor escolha por ciclo (lógica): Mensal -> Pro (mais recursos pelo melhor preço);
+  // Anual -> Ultimate (paga 1x, vira vitalício -> mais barato que renovar todo ano).
+  const recId = tog === "anual" ? "ultimate" : "pro";
+  const recBadge = tog === "anual" ? "★ Melhor escolha" : "★ Mais escolhido";
+  const recEcon = tog === "anual" ? "Paga uma vez — nunca mais mensalidade" : "Mais recursos pelo melhor preço";
   const cards = [
     {
       id: "plus", nome: "Plus", cor: "#1a7f5a",
@@ -5417,10 +5428,13 @@ function renderPlanosModal(m) {
       link = tog === "anual" ? c.link_anual : c.link_mensal;
     }
     const btnHtml = `<button type="button" class="btn primary plan-btn" data-plan="${esc(c.id)}" data-link="${esc(link || "")}" style="background:${c.cor}">Assinar</button>`;
-    return `<div class="plan-card" style="border-color:${c.cor}">
+    const isRec = c.id === recId;
+    return `<div class="plan-card${isRec ? " plan-rec" : ""}" style="border-color:${c.cor}${isRec ? ";--glow:" + c.cor : ""}">
+      ${isRec ? `<div class="plan-badge" style="background:${c.cor}">${recBadge}</div>` : ""}
       <div class="plan-name" style="color:${c.cor}">${esc(c.nome)}</div>
       <div class="plan-desc">${esc(c.desc)}</div>
       ${precoHtml}
+      ${isRec ? `<div class="plan-econ" style="color:${c.cor}">${recEcon}</div>` : ""}
       ${btnHtml}
     </div>`;
   }).join("");
