@@ -1,0 +1,116 @@
+/* ===== Conta na nuvem (Supabase) — login email+senha + cofre E2E =====
+   Privacidade: a senha NÃO é a chave de cifra. No cadastro gera-se uma DEK aleatória
+   (cifra os dados). Da senha deriva-se uma KEK (PBKDF2) que SÓ embrulha a DEK.
+   A nuvem guarda: email (auth), wrapped_dek, salt, ct (ciphertext). Nunca a senha,
+   a KEK, a DEK ou os números em claro.
+   Tudo dentro de uma IIFE; exposto via window.MFCloud. */
+(function () {
+  "use strict";
+  var SUPABASE_URL = "https://fyjzrsmfeokdkhboeopc.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_oUTz-QGMaaMo42n0hXJMlw_JVUst6Om";   // publishable (pública por design)
+  var CLOUD_PENDING_KEY = "financas2026.cloudPending";
+
+  var _sb = null;
+  function sbClient() {
+    if (_sb) return _sb;
+    if (!window.supabase || !window.supabase.createClient) return null;
+    _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    });
+    return _sb;
+  }
+  function cloudConfigured() { return !!sbClient(); }
+
+  // estado da conta na sessão (DEK só vive em memória)
+  window.CLOUD = window.CLOUD || { dek: null, email: null };
+
+  /* ---- cripto E2E ---- */
+  var _cb64 = function (u8) { return btoa(String.fromCharCode.apply(null, new Uint8Array(u8))); };
+  var _cub64 = function (s) { return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); }); };
+  function _importDEK(bytes) { return crypto.subtle.importKey("raw", bytes, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]); }
+  async function _encKey(cryptoKey, obj) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, cryptoKey, new TextEncoder().encode(JSON.stringify(obj)));
+    return { iv: _cb64(iv), ct: _cb64(ct) };
+  }
+  async function _decKey(cryptoKey, env) {
+    var pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: _cub64(env.iv) }, cryptoKey, _cub64(env.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  // monta o cofre cifrado: gera DEK, embrulha pela KEK(senha), cifra os dados
+  async function _buildVault(senha, data) {
+    var dek = crypto.getRandomValues(new Uint8Array(32));
+    var kek = await window.deriveKey(senha);                       // {key, salt(b64)}
+    var wrapped = await _encKey(kek.key, { dek: _cb64(dek) });
+    var dekKey = await _importDEK(dek);
+    var ct = await _encKey(dekKey, data);
+    return { dek: dek, wrapped_dek: JSON.stringify(wrapped), salt: kek.salt, ct: JSON.stringify(ct) };
+  }
+  async function _uid() { var sb = sbClient(); if (!sb) return null; var r = await sb.auth.getUser(); return (r.data && r.data.user) ? r.data.user.id : null; }
+
+  /* ---- fluxos ---- */
+  async function cloudSignUp(email, senha, data) {
+    var sb = sbClient(); if (!sb) return { ok: false, reason: "sdk" };
+    email = (email || "").trim().toLowerCase();
+    var r = await sb.auth.signUp({ email: email, password: senha });
+    if (r.error) return { ok: false, reason: r.error.message };
+    var built = await _buildVault(senha, data);
+    window.CLOUD.dek = built.dek; window.CLOUD.email = email;
+    var row = { wrapped_dek: built.wrapped_dek, salt: built.salt, ct: built.ct };
+    if (r.data && r.data.session && r.data.user) {                 // já logado (confirm-email OFF)
+      var ins = await sb.from("vaults").upsert(Object.assign({ user_id: r.data.user.id }, row));
+      if (ins.error) return { ok: false, reason: ins.error.message };
+      return { ok: true, confirm: false };
+    }
+    try { localStorage.setItem(CLOUD_PENDING_KEY, JSON.stringify(row)); } catch (e) {}   // grava após confirmar+logar
+    return { ok: true, confirm: true };
+  }
+  async function cloudSignIn(email, senha) {
+    var sb = sbClient(); if (!sb) return { ok: false, reason: "sdk" };
+    email = (email || "").trim().toLowerCase();
+    var r = await sb.auth.signInWithPassword({ email: email, password: senha });
+    if (r.error) return { ok: false, reason: r.error.message };
+    var uid = r.data.user.id;
+    var q = await sb.from("vaults").select("*").eq("user_id", uid).limit(1);
+    if (q.error) return { ok: false, reason: q.error.message };
+    var row = q.data && q.data[0];
+    if (!row) {                                                    // 1º login pós-confirmação → grava o pendente
+      var pend = null; try { pend = JSON.parse(localStorage.getItem(CLOUD_PENDING_KEY) || "null"); } catch (e) {}
+      if (pend) { var up = await sb.from("vaults").upsert(Object.assign({ user_id: uid }, pend)); if (up.error) return { ok: false, reason: up.error.message }; row = pend; try { localStorage.removeItem(CLOUD_PENDING_KEY); } catch (e) {} }
+      else return { ok: false, reason: "sem-cofre" };
+    }
+    var kek = await window.deriveKey(senha, row.salt);
+    var dekObj; try { dekObj = await _decKey(kek.key, JSON.parse(row.wrapped_dek)); } catch (e) { return { ok: false, reason: "senha-errada" }; }
+    var dek = _cub64(dekObj.dek);
+    window.CLOUD.dek = dek; window.CLOUD.email = email;
+    var data = null;
+    try { var dekKey = await _importDEK(dek); data = await _decKey(dekKey, JSON.parse(row.ct)); } catch (e) { return { ok: false, reason: "cofre-corrompido" }; }
+    return { ok: true, data: data };
+  }
+  async function cloudPush(data) {
+    var sb = sbClient(); if (!sb || !window.CLOUD.dek) return { ok: false, reason: "sem-dek" };
+    var uid = await _uid(); if (!uid) return { ok: false, reason: "noauth" };
+    var dekKey = await _importDEK(window.CLOUD.dek);
+    var ct = await _encKey(dekKey, data);
+    var u = await sb.from("vaults").update({ ct: JSON.stringify(ct) }).eq("user_id", uid);
+    return { ok: !u.error, reason: u.error && u.error.message };
+  }
+  async function cloudPull() {
+    var sb = sbClient(); if (!sb || !window.CLOUD.dek) return { ok: false, reason: "sem-dek" };
+    var uid = await _uid(); if (!uid) return { ok: false, reason: "noauth" };
+    var q = await sb.from("vaults").select("ct,updated_at").eq("user_id", uid).limit(1);
+    if (q.error) return { ok: false, reason: q.error.message };
+    var row = q.data && q.data[0]; if (!row || !row.ct) return { ok: false, reason: "sem-cofre" };
+    var data; try { var dekKey = await _importDEK(window.CLOUD.dek); data = await _decKey(dekKey, JSON.parse(row.ct)); } catch (e) { return { ok: false, reason: "cofre-corrompido" }; }
+    return { ok: true, data: data, updated_at: row.updated_at };
+  }
+  async function cloudSignOut() { var sb = sbClient(); if (sb) { try { await sb.auth.signOut(); } catch (e) {} } window.CLOUD = { dek: null, email: null }; }
+  async function cloudSession() { var sb = sbClient(); if (!sb) return null; var r = await sb.auth.getSession(); return (r.data && r.data.session) ? r.data.session : null; }
+  async function cloudResetSenha(email) { var sb = sbClient(); if (!sb) return { ok: false, reason: "sdk" }; var r = await sb.auth.resetPasswordForEmail((email || "").trim().toLowerCase(), { redirectTo: "https://morbiusfin.github.io" }); return { ok: !r.error, reason: r.error && r.error.message }; }
+
+  window.MFCloud = {
+    configured: cloudConfigured,
+    signUp: cloudSignUp, signIn: cloudSignIn, push: cloudPush, pull: cloudPull,
+    signOut: cloudSignOut, session: cloudSession, reset: cloudResetSenha,
+  };
+})();

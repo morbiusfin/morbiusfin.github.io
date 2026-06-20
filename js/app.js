@@ -1,12 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.15.1";
-const VERSION_NOTES = "🐛 Correções: a compra no cartão agora guarda a DATA que você escolheu (não troca mais pelo vencimento) · 📝 campo Observações no tema escuro (sem fundo branco) e no mesmo lugar ao criar e editar · 🔎 janela da observação maior e mais legível";
+const APP_VERSION = "3.16.0";
+const VERSION_NOTES = "☁️ NOVO: Conta na nuvem (email + senha) — crie conta e acesse seus dados em outro aparelho, tudo cifrado de ponta a ponta (E2E, só você abre com a senha). Opcional, no menu ☰ → Conta na nuvem. Seu PIN segue destravando o dia a dia.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.16.0",
+    bullets: [
+      "Chegou a <b>Conta na nuvem</b> (email + senha)! Crie sua conta e seus dados sobem <b>cifrados</b> — só você abre com a senha, <b>nem o servidor lê</b>. Depois é só <b>entrar em outro celular</b> e ter tudo lá.",
+      "É <b>opcional</b>: fica no menu ☰ → <b>Conta na nuvem</b>. Seu <b>PIN</b> continua destravando o app no dia a dia, mais rápido.",
+      "Tudo de ponta a ponta (E2E): a chave dos seus dados nasce no seu aparelho e nunca sai dele em texto puro.",
+    ],
+  },
   {
     version: "3.15.1",
     bullets: [
@@ -4932,7 +4940,7 @@ function persist() {
   // gravar/sincronizar FORA do caminho síncrono do fechar-modal (no modo teste isso é leve/pulado;
   // aqui garantimos o MESMO comportamento) e blindado por try — nada do salvar pode travar a barra
   // de baixo ao fechar o modal no iPhone (o bug do Débito só no modo real). cpSend = parceiro ao vivo.
-  setTimeout(() => { try { saveData(DATA); } catch (e) {} try { pushSync(); } catch (e) {} try { cpSend(); } catch (e) {} }, 0);
+  setTimeout(() => { try { saveData(DATA); } catch (e) {} try { pushSync(); } catch (e) {} try { cpSend(); } catch (e) {} try { if (window.CLOUD && window.CLOUD.dek && window.MFCloud) MFCloud.push(DATA); } catch (e) {} }, 0);
 }
 function undo() {
   if (!history.length) { toast("Nada para desfazer"); return; }
@@ -6407,6 +6415,135 @@ window.decryptEnvelope = async function (k, env) {
   return JSON.parse(new TextDecoder().decode(pt));
 };
 
+/* ---------- Conta na nuvem (Supabase · email+senha · E2E) — UI ---------- */
+let _cloudTab = "entrar";
+function openCloudModal() { closeMenu(); _cloudTab = "entrar"; renderCloud(); showModal("#cloudModal"); }
+function cloudMsg(t, bad) { const m = $("#cloudMsg"); if (m) { m.textContent = t || ""; m.className = "cloud-msg" + (bad ? " bad" : ""); } }
+function cloudErr(reason) {
+  reason = reason || "";
+  if (reason === "senha-errada" || /invalid login/i.test(reason)) return "Email ou senha incorretos";
+  if (reason === "sem-cofre") return "Conta sem cofre ainda — confirme o email e entre";
+  if (/already registered|already been registered/i.test(reason)) return "Esse email já tem conta — use Entrar";
+  if (/invalid/i.test(reason) && /email/i.test(reason)) return "Email inválido";
+  if (reason === "cofre-corrompido") return "Não consegui abrir o cofre";
+  if (reason === "sdk") return "Sem conexão com o servidor";
+  return reason || "Não consegui agora";
+}
+async function renderCloud() {
+  const body = $("#cloudBody"); if (!body) return;
+  if (!window.MFCloud || !MFCloud.configured()) { body.innerHTML = `<p class="hint" style="text-align:center">Indisponível agora (sem conexão com o servidor).</p>`; return; }
+  body.innerHTML = `<p class="hint" style="text-align:center">Carregando…</p>`;
+  let sess = null; try { sess = await MFCloud.session(); } catch (e) {}
+  if (sess && sess.user) return renderCloudIn(sess.user.email || window.CLOUD.email || "");
+  body.innerHTML = `
+    <div class="seg" id="cloudSeg" role="tablist">
+      <button type="button" class="seg-btn ${_cloudTab === "entrar" ? "active" : ""}" data-ct="entrar">Entrar</button>
+      <button type="button" class="seg-btn ${_cloudTab === "criar" ? "active" : ""}" data-ct="criar">Criar conta</button>
+    </div>
+    <label class="field"><span>Email</span><input id="cl_email" type="email" inputmode="email" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="voce@email.com" /></label>
+    <label class="field"><span>Senha</span><input id="cl_sen" type="password" autocomplete="${_cloudTab === "criar" ? "new-password" : "current-password"}" placeholder="${_cloudTab === "criar" ? "crie uma senha (mín. 6)" : "sua senha"}" /></label>
+    <label class="field${_cloudTab === "criar" ? "" : " hidden"}" id="cl_sen2wrap"><span>Repita a senha</span><input id="cl_sen2" type="password" autocomplete="new-password" placeholder="repita a senha" /></label>
+    <div id="cloudMsg" class="cloud-msg"></div>
+    <div class="modal-actions"><button type="button" class="btn primary" id="cl_go">${_cloudTab === "criar" ? "Criar conta" : "Entrar"}</button></div>
+    ${_cloudTab === "entrar"
+      ? `<button type="button" class="lock-forgot" id="cl_forgot">Esqueci minha senha</button>`
+      : `<p class="hint" style="text-align:center;margin-top:10px">🔒 Seus dados vão cifrados pra nuvem — só você abre com a senha. Nem o servidor lê.</p>`}`;
+  $$("#cloudSeg .seg-btn").forEach(b => b.onclick = () => { _cloudTab = b.dataset.ct; renderCloud(); });
+  const go = $("#cl_go"); if (go) go.onclick = (_cloudTab === "criar") ? cloudDoSignup : cloudDoSignin;
+  const fg = $("#cl_forgot"); if (fg) fg.onclick = cloudDoReset;
+  bindMoneyAll(body);
+}
+function renderCloudIn(email) {
+  const body = $("#cloudBody"); if (!body) return;
+  const unlocked = !!window.CLOUD.dek;
+  body.innerHTML = `
+    <p class="cloud-acct">Conectado como<br><b>${esc(email)}</b></p>
+    ${unlocked ? `
+      <div class="cloud-acts">
+        <button type="button" class="btn primary" id="cl_push">☁️ Enviar para a nuvem</button>
+        <button type="button" class="btn ghost" id="cl_pull">⬇️ Baixar da nuvem</button>
+      </div>` : `
+      <p class="hint" style="text-align:center">Sessão ativa. Digite sua senha pra destravar o cofre neste aparelho.</p>
+      <label class="field"><span>Senha</span><input id="cl_sen" type="password" autocomplete="current-password" placeholder="sua senha" /></label>
+      <div class="modal-actions"><button type="button" class="btn primary" id="cl_unlock">Destravar</button></div>`}
+    <div id="cloudMsg" class="cloud-msg"></div>
+    <button type="button" class="lock-forgot" id="cl_logout">Sair da conta</button>`;
+  if (unlocked) { $("#cl_push").onclick = cloudDoPush; $("#cl_pull").onclick = cloudDoPull; }
+  else {
+    $("#cl_unlock").onclick = async () => {
+      const sen = ($("#cl_sen").value || ""); if (sen.length < 4) { cloudMsg("Digite sua senha", true); return; }
+      cloudMsg("Destravando…");
+      const r = await MFCloud.signIn(email, sen);
+      if (!r.ok) { cloudMsg(cloudErr(r.reason), true); return; }
+      await cloudStoreDekLocal(); cloudOfferApply(r.data);
+    };
+  }
+  $("#cl_logout").onclick = cloudDoLogout;
+}
+async function cloudDoSignup() {
+  const email = ($("#cl_email").value || "").trim(), s1 = $("#cl_sen").value || "", s2 = $("#cl_sen2").value || "";
+  if (!/.+@.+\..+/.test(email)) { cloudMsg("Digite um email válido", true); return; }
+  if (s1.length < 6) { cloudMsg("Senha de pelo menos 6 caracteres", true); return; }
+  if (s1 !== s2) { cloudMsg("As senhas não batem", true); return; }
+  cloudMsg("Criando conta…");
+  const r = await MFCloud.signUp(email, s1, DATA);
+  if (!r.ok) { cloudMsg(cloudErr(r.reason), true); return; }
+  await cloudStoreDekLocal();
+  if (r.confirm) {
+    $("#cloudBody").innerHTML = `<div class="cloud-ok"><div class="cloud-ok-ic">📧</div><p>Conta criada!<br>Enviamos um <b>email de confirmação</b> para<br><b>${esc(email)}</b>.<br>Confirme (veja o spam) e depois toque em <b>Entrar</b>.</p></div><div class="modal-actions"><button type="button" class="btn primary" id="cl_okc">Ok, entendi</button></div>`;
+    $("#cl_okc").onclick = () => { _cloudTab = "entrar"; renderCloud(); };
+  } else { toast("Conta criada ✓ dados na nuvem"); renderCloud(); }
+}
+async function cloudDoSignin() {
+  const email = ($("#cl_email").value || "").trim(), s1 = $("#cl_sen").value || "";
+  if (!/.+@.+\..+/.test(email)) { cloudMsg("Digite um email válido", true); return; }
+  if (!s1) { cloudMsg("Digite a senha", true); return; }
+  cloudMsg("Entrando…");
+  const r = await MFCloud.signIn(email, s1);
+  if (!r.ok) { cloudMsg(cloudErr(r.reason), true); return; }
+  await cloudStoreDekLocal(); cloudOfferApply(r.data);
+}
+function cloudOfferApply(data) {
+  if (!data) { toast("Conectado ✓"); renderCloud(); return; }
+  modalConfirm("Trazer os dados da nuvem para este aparelho? Substitui os dados atuais deste celular.", () => {
+    try { DATA = migrate(data); lastSnap = JSON.stringify(DATA); saveData(DATA); render(); toast("Dados da nuvem aplicados ✓"); } catch (e) { toast("Falha ao aplicar"); }
+    renderCloud();
+  }, "Trazer da nuvem");
+}
+async function cloudDoPush() { cloudMsg("Enviando…"); const r = await MFCloud.push(DATA); cloudMsg(r.ok ? "Enviado ✓" : cloudErr(r.reason), !r.ok); }
+async function cloudDoPull() { cloudMsg("Baixando…"); const r = await MFCloud.pull(); if (!r.ok) { cloudMsg(cloudErr(r.reason), true); return; } cloudOfferApply(r.data); }
+async function cloudDoReset() {
+  const email = ($("#cl_email").value || "").trim();
+  if (!/.+@.+\..+/.test(email)) { cloudMsg("Digite seu email acima e toque de novo", true); return; }
+  cloudMsg("Enviando…"); const r = await MFCloud.reset(email);
+  cloudMsg(r.ok ? "Email de recuperação enviado (veja a caixa/spam)" : cloudErr(r.reason), !r.ok);
+}
+function cloudDoLogout() {
+  modalConfirm("Sair da conta na nuvem neste aparelho? Os dados locais continuam aqui.", async () => {
+    await MFCloud.signOut(); try { localStorage.removeItem("financas2026.cloudDek"); } catch (e) {}
+    toast("Saiu da conta"); renderCloud();
+  }, "Sair");
+}
+// embrulha o DEK pelo PIN (quick-unlock depois). Só com PIN ativo.
+async function cloudStoreDekLocal() {
+  try {
+    if (!window.CLOUD.dek || !window.CRYPTO_KEY || !window.encryptEnvelope) return;
+    const env = await window.encryptEnvelope(window.CRYPTO_KEY, { dek: b64(window.CLOUD.dek) });
+    localStorage.setItem("financas2026.cloudDek", JSON.stringify(env));
+  } catch (e) {}
+}
+// no unlock por PIN: recupera o DEK sem pedir a senha da conta
+async function cloudUnlockWithPin() {
+  try {
+    if (window.CLOUD.dek || !window.CRYPTO_KEY || !window.decryptEnvelope) return;
+    const raw = localStorage.getItem("financas2026.cloudDek"); if (!raw) return;
+    const obj = await window.decryptEnvelope(window.CRYPTO_KEY, JSON.parse(raw));
+    if (obj && obj.dek) window.CLOUD.dek = ub64(obj.dek);
+  } catch (e) {}
+}
+{ const mc = $("#miCloud"); if (mc) mc.onclick = openCloudModal; }
+{ const cc = $("#cloudClose"); if (cc) cc.onclick = () => $("#cloudModal").classList.add("hidden"); const cm = $("#cloudModal"); if (cm) cm.onclick = (e) => { if (e.target === cm) cm.classList.add("hidden"); }; }
+
 async function definirPin() {
   const p1 = prompt("Crie um PIN (mínimo 4 dígitos).\n\n⚠️ IMPORTANTE: se esquecer o PIN, os dados deste app NÃO poderão ser recuperados. Guarde um backup (⚙️ → Exportar).");
   if (!p1) return;
@@ -6699,6 +6836,7 @@ function showLock(env) {
       window.CRYPTO_KEY = k; DATA = migrate(obj);
       localStorage.setItem("financas2026.profile", "real");
       document.body.classList.remove("test-mode");
+      try { cloudUnlockWithPin(); } catch (e) {}      // recupera o DEK da nuvem com o PIN (sync silencioso)
       playUnlock(startApp);
     } catch (e) {
       if (showErr) { msg.textContent = "código incorreto"; pin.value = ""; lastTried = ""; pin.focus(); }

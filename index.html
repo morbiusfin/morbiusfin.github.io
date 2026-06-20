@@ -192,6 +192,7 @@
       <button class="menu-item" id="miInstalar"><span class="mi-ic">📱</span><span><b>Instalar na tela de início</b></span></button>
       <button class="menu-item" id="miAcesso"><span class="mi-ic">🔒</span><span><b>Conta e acesso</b></span></button>
       <button class="menu-item" id="miBackup"><span class="mi-ic">☁️</span><span><b>Backup e sincronização</b></span></button>
+      <button class="menu-item" id="miCloud"><span class="mi-ic">🔐</span><span><b>Conta na nuvem</b><i id="miCloudSub">entrar com email e senha</i></span></button>
       <button class="menu-item" id="miCategorias"><span class="mi-ic">🏷️</span><span><b>Categorias e orçamento</b></span></button>
       <button class="menu-item" id="miMetas"><span class="mi-ic">🎯</span><span><b>Metas</b></span></button>
       <button class="menu-item" id="miConfig"><span class="mi-ic">⚙️</span><span><b>Configurações</b></span></button>
@@ -335,9 +336,21 @@
     </div>
   </div>
 
+  <!-- MODAL: Conta na nuvem (login email + senha, E2E) -->
+  <div id="cloudModal" class="modal center hidden" role="dialog" aria-modal="true" aria-labelledby="cloudTitle">
+    <div class="modal-card cloud-card">
+      <button type="button" id="cloudClose" class="sheet-x" aria-label="Fechar">✕</button>
+      <div class="cloud-ic" aria-hidden="true">☁️</div>
+      <h2 id="cloudTitle" style="text-align:center;margin:6px 0 4px">Conta na nuvem</h2>
+      <div id="cloudBody" class="cloud-body"></div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
   <script src="js/data.js" defer></script>
   <script src="js/app.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
+  <script src="js/cloud.js" defer></script>
 </body>
 </html>
