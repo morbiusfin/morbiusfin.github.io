@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.17.5";
+const APP_VERSION = "3.17.6";
 const VERSION_NOTES = "🔐 Agora você entra no app com EMAIL e SENHA, direto na tela inicial (com 'esqueci minha senha' e 'criar conta'). Seus dados migram pra conta cifrados (E2E) e você acessa de qualquer aparelho.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
