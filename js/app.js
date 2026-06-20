@@ -1,14 +1,14 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.17.0";
-const VERSION_NOTES = "🔐 Agora você entra no app com EMAIL e SENHA, direto na tela inicial (com 'esqueci minha senha' e 'criar conta'). Seus dados migram pra conta cifrados (E2E) e você acessa de qualquer aparelho. Em teste no /financas antes da produção.";
+const APP_VERSION = "3.17.1";
+const VERSION_NOTES = "🔐 Agora você entra no app com EMAIL e SENHA, direto na tela inicial (com 'esqueci minha senha' e 'criar conta'). Seus dados migram pra conta cifrados (E2E) e você acessa de qualquer aparelho.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
   {
-    version: "3.17.0",
+    version: "3.17.1",
     bullets: [
       "Agora você <b>entra no app com email e senha</b>, direto na tela inicial — com <b>“esqueci minha senha”</b> e <b>“criar uma nova conta”</b> no mesmo lugar.",
       "Seus dados <b>migram para a conta cifrados</b> (de ponta a ponta) — e você acessa de <b>qualquer aparelho</b>.",
@@ -5176,7 +5176,6 @@ function renderWelcome(w) {
     let raw = null; try { raw = JSON.parse(localStorage.getItem(STORE_KEY) || localStorage.getItem("financas2026.v1") || "null"); } catch (e) {}
     const needPin = !!(raw && raw.enc);
     inner = `<div class="wel-name">Criar sua conta</div>
-      <div class="wel-sub">Email + senha · seus dados ficam cifrados (só você abre)</div>
       <label class="wel-field"><span>Email</span><input id="welEmail" type="email" inputmode="email" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(lastEmail)}" placeholder="voce@email.com"></label>
       <label class="wel-field"><span>Senha</span><input id="welSen" type="password" autocomplete="new-password" placeholder="crie uma senha (mín. 6)"></label>
       <label class="wel-field"><span>Repita a senha</span><input id="welSen2" type="password" autocomplete="new-password" placeholder="repita a senha"></label>
