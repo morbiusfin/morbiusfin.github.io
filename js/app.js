@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.17.2";
+const APP_VERSION = "3.17.3";
 const VERSION_NOTES = "🔐 Agora você entra no app com EMAIL e SENHA, direto na tela inicial (com 'esqueci minha senha' e 'criar conta'). Seus dados migram pra conta cifrados (E2E) e você acessa de qualquer aparelho.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
@@ -5255,6 +5255,7 @@ async function welDoSignup() {
   } else { welApply(data, email); }
 }
 async function welApply(data, email) {
+  try { if (window.MFCloud && MFCloud.registerLicenca) MFCloud.registerLicenca(); } catch (e) {}   // registra a conta no painel admin (idempotente)
   if (data) { try { DATA = migrate(data); } catch (e) {} }
   lastSnap = JSON.stringify(DATA);
   try { const ct = await MFCloud.makeCt(DATA); if (ct) localStorage.setItem(CLOUD_LOCAL_KEY, MFCloud.snapshot(ct)); } catch (e) {}

@@ -129,10 +129,21 @@
     } catch (e) { return { ok: false, reason: "senha-errada" }; }
   }
 
+  // registra a licença do usuário (1 linha por conta) p/ o painel admin gerir acesso.
+  // Sempre começa teste/ativo (a RLS exige isso no insert). Idempotente: se já existe, ignora.
+  async function cloudRegisterLicenca() {
+    try {
+      var sb = sbClient(); if (!sb) return;
+      var u = await sb.auth.getUser(); if (!u.data || !u.data.user) return;
+      await sb.from("licencas").insert({ user_id: u.data.user.id, email: u.data.user.email, status: "ativo", plano: "teste" });
+    } catch (e) {}
+  }
+
   window.MFCloud = {
     configured: cloudConfigured,
     signUp: cloudSignUp, signIn: cloudSignIn, push: cloudPush, pull: cloudPull,
     signOut: cloudSignOut, session: cloudSession, reset: cloudResetSenha,
     makeCt: cloudMakeCt, snapshot: cloudSnapshot, offlineUnlock: cloudOfflineUnlock,
+    registerLicenca: cloudRegisterLicenca,
   };
 })();
