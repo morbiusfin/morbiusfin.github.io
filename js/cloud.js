@@ -131,7 +131,7 @@
 
   // Garante que TODA conta nova apareça no painel admin (linha em 'licencas').
   // 1) tenta a RPC ensure_licenca() (se o SQL foi rodado: SECURITY DEFINER, anti-clobber);
-  // 2) FALLBACK robusto: se não há linha pra este usuário, cria o trial de 3 dias direto
+  // 2) FALLBACK robusto: se não há linha pra este usuário, cria o trial de 7 dias direto
   //    (idempotente; não duplica se já existir por user_id ou por email). Fail-silent.
   async function cloudRegisterLicenca() {
     try {
@@ -143,7 +143,7 @@
       var q1 = await sb.from("licencas").select("user_id").eq("user_id", uid).limit(1);
       if (q1.error || (q1.data && q1.data.length)) return;                 // já tem linha (ou erro) → nada a fazer
       if (email) { var q2 = await sb.from("licencas").select("email").eq("email", email).limit(1); if (q2.error || (q2.data && q2.data.length)) return; }
-      var validade = new Date(Date.now() + 3 * 86400000).toISOString();    // teste grátis: 3 dias
+      var validade = new Date(Date.now() + 7 * 86400000).toISOString();    // teste grátis: 7 dias
       await sb.from("licencas").insert({ user_id: uid, email: email, status: "ativo", plano: "teste", validade: validade });
     } catch (e) {}
   }

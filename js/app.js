@@ -1,12 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.19.6";
-const VERSION_NOTES = "Toda conta nova aparece no painel de acessos pra liberar.";
+const APP_VERSION = "3.19.7";
+const VERSION_NOTES = "Teste grátis de 7 dias, pop-ups sem vazar e botão Voltar no jurídico.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.19.7",
+    bullets: [
+      "O <b>teste grátis</b> agora é de <b>7 dias</b>.",
+      "Os <b>pop-ups</b> ganharam fundo mais escuro — o app não “vaza” mais por trás ao rolar.",
+      "Nas páginas de <b>Privacidade e Termos</b>, um botão <b>← Voltar</b> flutuante leva direto pro login (sem recarregar).",
+    ],
+  },
   {
     version: "3.19.6",
     bullets: [
@@ -5547,7 +5555,7 @@ function renderPlanosModal(m) {
   m.innerHTML = `<div class="modal-card planos-card">
     <button type="button" class="wn-close" id="planosClose" aria-label="Fechar">✕</button>
     <h2 class="planos-title">Escolha seu plano</h2>
-    <p class="planos-sub">Comece com 3 dias grátis · cancele quando quiser</p>
+    <p class="planos-sub">Comece com 7 dias grátis · cancele quando quiser</p>
     ${toggleHtml}
     <div class="planos-cards">${cardsHtml}</div>
     <p class="planos-note">Pagamento via Mercado Pago. Dúvidas: <a href="mailto:morbiusfin@gmail.com">morbiusfin@gmail.com</a></p>
@@ -7718,7 +7726,7 @@ function applyPlanLive() {
 }
 // Poll da licença enquanto o app está aberto e visível (ativa/bloqueia/muda plano sem reabrir).
 let _licPollT = null;
-const LICENSE_POLL_MS = 15000;
+const LICENSE_POLL_MS = 10000;
 function startLicensePoll() { stopLicensePoll(); _licPollT = setInterval(() => { if (document.visibilityState === "visible") licenseSync(); }, LICENSE_POLL_MS); }
 function stopLicensePoll() { if (_licPollT) { clearInterval(_licPollT); _licPollT = null; } }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") onAppFocus(); });

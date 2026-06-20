@@ -1301,14 +1301,14 @@ body.scroll-locked { left: 0; right: 0; width: 100%; overflow: hidden; overscrol
 
 
 /* ===== MODAL ===== */
-.modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; display: flex; align-items: center; justify-content: center;
-  padding: 22px 14px; backdrop-filter: blur(2px); animation: fadeInUp .2s ease both;
-  touch-action: none; overscroll-behavior: none; }   /* TODOS os pop-ups no MEIO da tela; backdrop não rola a tela atrás (iOS) */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.62); z-index: 100; display: flex; align-items: center; justify-content: center;
+  padding: 22px 14px; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); animation: fadeInUp .2s ease both;
+  touch-action: none; overscroll-behavior: none; }   /* TODOS os pop-ups no MEIO da tela; backdrop ESCURO p/ o app não "vazar" atrás */
 .modal.hidden { display: none; }
 .modal-card { background: var(--card); color: var(--ink); width: 100%; max-width: 440px; border-radius: 22px;
   padding: 22px 18px 22px; max-height: 88dvh; overflow-y: auto; box-shadow: var(--shadow-lg);
   border: 1px solid var(--line); animation: popIn .24s cubic-bezier(.2,.8,.2,1);
-  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }   /* centralizado → sem safe-area embaixo (não encosta na borda); pan-y → o card rola por dentro */
+  -webkit-overflow-scrolling: touch; overscroll-behavior: none; touch-action: pan-y; }   /* centralizado → sem safe-area embaixo (não encosta na borda); pan-y → o card rola por dentro; sem rubber-band vazando */
 /* Rodapé de ações FIXO (Cancelar/Salvar sempre visíveis): o conteúdo rola por dentro, o modal nunca
    "vaza" os botões pra fora da tela. Padrão para todas as inclusões (+) e formulários. */
 .modal-card > .modal-actions { position: sticky; bottom: 0; z-index: 4; background: var(--card);
