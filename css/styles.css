@@ -691,6 +691,13 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 .plan-btn { width: 100%; border-radius: 13px !important; font-size: 15px !important; }
 .planos-note { font-size: 11px; color: var(--muted); text-align: center; margin: 0; line-height: 1.6; }
 .planos-note a { color: var(--accent-2); font-weight: 700; text-decoration: none; }
+/* popup informativo central (ex.: verifique seu email) */
+.info-card { max-width: 340px !important; text-align: center; padding: 28px 22px 20px !important; }
+.info-ic { font-size: 46px; line-height: 1; margin-bottom: 12px; }
+.info-title { font-size: 19px; font-weight: 800; margin: 0 0 8px; color: var(--ink); letter-spacing: -.3px; }
+.info-msg { font-size: 14.5px; line-height: 1.55; color: var(--muted); margin: 0 0 18px; }
+.info-msg b { color: var(--ink); }
+.info-ok { width: 100%; }
 
 /* ===== Recuperação por pergunta secreta ===== */
 .lock-forgot { display: block; width: 100%; margin: 12px auto 0; background: none; border: 0; color: rgba(255,255,255,.82); font: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; }

@@ -1,12 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.19.0";
-const VERSION_NOTES = "Mudança de plano/acesso reflete sozinha no app em segundos.";
+const APP_VERSION = "3.19.1";
+const VERSION_NOTES = "Observações em todo lançamento + aviso claro ao recuperar a senha.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.19.1",
+    bullets: [
+      "Agora dá pra adicionar uma <b>observação</b> em <b>qualquer lançamento</b> (receita, despesa fixa e débito) — não só no cartão. Toque no <b>📝</b> na lista pra ler.",
+      "Em <b>“Esqueci minha senha”</b>, aparece um aviso grande no centro da tela pedindo pra conferir o <b>e-mail</b> e também o <b>SPAM</b>.",
+    ],
+  },
   {
     version: "3.19.0",
     bullets: [
@@ -4532,8 +4539,8 @@ function openEntryModal(tab, idx) {
   // Aviso inteligente: mostra a sobra do mês DEPOIS deste lançamento (em tempo real).
   const isExpenseE = tab !== "receitas";
   const oldValAt = (m) => isNew ? 0 : (isDiaria ? (Number(l.valor) || 0) : (Number(l.vals[m]) || 0));
-  if (tab === "cartao")   // Observações no FIM do form (mesmo lugar do "Nova compra")
-    $("#entryForm").insertAdjacentHTML("beforeend", `<label class="field"><span>Observações (opcional)</span><textarea id="f_obs" class="f-obs" rows="2" maxlength="200" placeholder="Algo sobre essa compra?">${isNew || !l.obs ? "" : esc(l.obs)}</textarea></label>`);
+  // Observações (opcional) no FIM do form — pra TODOS os tipos (igual ao cartão)
+  $("#entryForm").insertAdjacentHTML("beforeend", `<label class="field"><span>Observações (opcional)</span><textarea id="f_obs" class="f-obs" rows="2" maxlength="200" placeholder="Algo que queira lembrar sobre esse lançamento?">${isNew || !l || !l.obs ? "" : esc(l.obs)}</textarea></label>`);
   $("#entryForm").insertAdjacentHTML("beforeend", `<div id="f_impact" class="impact"></div>`);
   const fv = $("#f_val"); if (fv) fv.oninput = () => updateImpact(isExpenseE, oldValAt(+$("#f_mes").value));
   $("#f_mes").onchange = () => {
@@ -4557,7 +4564,7 @@ function openEntryModal(tab, idx) {
     const bm = +$("#f_mes").value;
     if (isDiaria) {                                            // Débito: item de 1 mês só (sem vals/sts)
       const catId = $("#f_catId") ? ($("#f_catId").value || null) : null;
-      const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, catId, categoria: catId ? ((catById(catId) || {}).nome || "Geral") : "Geral" };
+      const o = { desc: $("#f_desc").value.trim(), valor: val, dia: parseInt($("#f_dia").value) || null, catId, categoria: catId ? ((catById(catId) || {}).nome || "Geral") : "Geral", obs: ($("#f_obs") ? $("#f_obs").value.trim() : "") };
       if (isNew) DATA.diaria.push({ id: uid(), mes: bm, ...o, m: nowMs() });
       else { Object.assign(l, o); l.mes = bm; l.m = nowMs(); }
       afterKeyboardDown(() => {                                 // fecha o teclado e ESPERA descer antes de salvar/fechar
@@ -4575,8 +4582,9 @@ function openEntryModal(tab, idx) {
     line.dia = parseInt($("#f_dia").value) || null;
     if (isReceita) line.tipo = $("#f_tipo").value;
     if (tab === "fixas") { line.aviso = parseInt($("#f_aviso").value) || null; line.meta = moneyVal($("#f_meta")) || null; }
-    if (tab === "cartao") { line.parcAtual = parseInt($("#f_pa").value) || null; line.parcTotal = parseInt($("#f_pt").value) || null; line.cartao = $("#f_cartao").value.trim(); const fo = $("#f_obs"); if (fo) line.obs = fo.value.trim(); }
+    if (tab === "cartao") { line.parcAtual = parseInt($("#f_pa").value) || null; line.parcTotal = parseInt($("#f_pt").value) || null; line.cartao = $("#f_cartao").value.trim(); }
     if (tab === "fixas" || tab === "cartao") { const ne = $("#f_nec"); line.nec = ne ? ne.checked : (line.nec || false); const ci = $("#f_catId"); if (ci) line.catId = ci.value || null; }
+    { const fo = $("#f_obs"); if (fo) line.obs = fo.value.trim(); }   // observações p/ todos os tipos
     if (all) {
       const q = Math.max(1, Math.min(120, parseInt($("#f_rep").value) || 12));
       ensureLen(line, bm + q);                                  // recorrência pode passar de Dez/26 → estende os meses
@@ -5529,7 +5537,26 @@ async function welDoForgot() {
   const email = ($("#welEmail").value || "").trim();
   if (!/.+@.+\..+/.test(email)) { welMsg("Digite seu email acima e toque de novo", true); return; }
   welMsg("Enviando…"); const r = await MFCloud.reset(email);
-  welMsg(r.ok ? "Link de recuperação enviado (veja a caixa/spam)" : cloudErr(r.reason), !r.ok);
+  if (r.ok) {
+    welMsg("");
+    infoPopup("📧", "Verifique seu email", "Enviamos um link pra redefinir sua senha para <b>" + esc(email) + "</b>.<br><br>Procure na <b>caixa de entrada</b> e também no <b>SPAM/Lixo eletrônico</b>.");
+  } else welMsg(cloudErr(r.reason), true);
+}
+// Popup central informativo (ícone + título + mensagem + botão único). msg aceita HTML.
+function infoPopup(emoji, title, msg) {
+  let m = document.getElementById("infoModal");
+  if (!m) {
+    m = document.createElement("div"); m.id = "infoModal"; m.className = "modal center hidden";
+    m.innerHTML = '<div class="modal-card info-card"><div class="info-ic" id="ipIc" aria-hidden="true"></div><h3 class="info-title" id="ipTitle"></h3><p class="info-msg" id="ipMsg"></p><button type="button" class="btn primary info-ok" id="ipOk">Entendi</button></div>';
+    document.body.appendChild(m);
+    const close = () => m.classList.add("hidden");
+    m.addEventListener("click", e => { if (e.target === m) close(); });
+    m.querySelector("#ipOk").onclick = close;
+  }
+  m.querySelector("#ipIc").textContent = emoji || "";
+  m.querySelector("#ipTitle").textContent = title || "";
+  m.querySelector("#ipMsg").innerHTML = msg || "";
+  m.classList.remove("hidden");
 }
 function goSimulador() {
   closeMenu(); markExplored("simulador");
