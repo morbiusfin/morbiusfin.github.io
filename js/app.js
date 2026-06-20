@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.18.3";
-const VERSION_NOTES = "Planos destacam a melhor escolha com brilho, conforme Mensal/Anual.";
+const APP_VERSION = "3.18.4";
+const VERSION_NOTES = "Botões de assinatura já levam ao pagamento (Mercado Pago).";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.18.4",
+    bullets: [
+      "Os botões <b>Assinar</b> já abrem o <b>pagamento seguro (Mercado Pago)</b> — Pix, cartão ou boleto. É só escolher o plano e pagar.",
+    ],
+  },
   {
     version: "3.18.3",
     bullets: [
@@ -1426,11 +1432,12 @@ const CHANGELOG = [
    Kaick: preencha os links quando o MP estiver configurado.
    Botão "Assinar" abre o link em nova aba; se vazio → aviso "Em breve".     */
 const PLAN_LINKS = {
-  plus_mensal: "",
-  plus_anual: "",
-  pro_mensal: "",
-  pro_anual: "",
-  ultimate: "",
+  plus_mensal:     "https://mpago.la/1v75rri",  // R$ 9,90/mês
+  plus_anual:      "https://mpago.la/1jMBXjG",  // R$ 79,90/ano
+  pro_mensal:      "https://mpago.la/348pX4C",  // R$ 19,90/mês
+  pro_anual:       "https://mpago.la/2N3VVMp",  // R$ 149,90/ano
+  ultimate_mensal: "https://mpago.la/17XLZZw",  // R$ 249,90 único (botão no ciclo Mensal)
+  ultimate_anual:  "https://mpago.la/17axJzb",  // R$ 249,90 único (botão no ciclo Anual)
 };
 
 let history = [];
@@ -5414,14 +5421,14 @@ function renderPlanosModal(m) {
       id: "ultimate", nome: "Ultimate", cor: "#7c3aed", unico: true,
       desc: "Tudo do Pro, vitalício + novidades futuras",
       preco_unico: "R$ 249,90 (pagamento único)",
-      link_unico: PLAN_LINKS.ultimate,
+      link_mensal: PLAN_LINKS.ultimate_mensal, link_anual: PLAN_LINKS.ultimate_anual,
     },
   ];
   const cardsHtml = cards.map(c => {
     let precoHtml, link;
     if (c.unico) {
       precoHtml = `<div class="plan-price">${esc(c.preco_unico)}</div>`;
-      link = c.link_unico;
+      link = tog === "anual" ? c.link_anual : c.link_mensal;
     } else {
       const preco = tog === "anual" ? c.preco_anual : c.preco_mensal;
       precoHtml = `<div class="plan-price">${esc(preco)}</div>`;
