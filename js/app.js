@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.18.4";
-const VERSION_NOTES = "Botões de assinatura já levam ao pagamento (Mercado Pago).";
+const APP_VERSION = "3.18.5";
+const VERSION_NOTES = "Descrições dos planos revisadas (sem prometer o que ainda não existe).";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.18.5",
+    bullets: [
+      "Descrições dos planos mais claras e honestas — o <b>Pro</b> agora destaca <b>suporte prioritário e novidades antes de todo mundo</b>.",
+    ],
+  },
   {
     version: "3.18.4",
     bullets: [
@@ -35,7 +41,7 @@ const CHANGELOG = [
     version: "3.18.0",
     bullets: [
       "Chegou o <b>teste grátis de 3 dias</b> — você já está usando. Um aviso discreto no topo mostra quantos dias restam.",
-      "Novos <b>planos de assinatura</b>: <b>Plus</b> (sync + multi-dispositivo), <b>Pro</b> (tudo do Plus + IA e relatórios) e <b>Ultimate</b> (vitalício, tudo do Pro + novidades futuras). Toque no banner ou em <b>“Ver planos”</b> pra conhecer.",
+      "Novos <b>planos de assinatura</b>: <b>Plus</b> (sync + multi-dispositivo), <b>Pro</b> (tudo do Plus + suporte prioritário) e <b>Ultimate</b> (vitalício, tudo do Pro + novidades futuras). Toque no banner ou em <b>“Ver planos”</b> pra conhecer.",
       "Tela de acesso expirado melhorada: agora aparece a mensagem certa e um botão direto pra você ver os planos ou entrar em contato.",
     ],
   },
@@ -5413,7 +5419,7 @@ function renderPlanosModal(m) {
     },
     {
       id: "pro", nome: "Pro", cor: "#0b6e91",
-      desc: "Tudo do Plus + IA assistente + insights pro + relatórios",
+      desc: "Tudo do Plus + suporte prioritário + acesso antecipado às novidades",
       preco_mensal: "R$ 19,90/mês", preco_anual: "R$ 149,90/ano",
       link_mensal: PLAN_LINKS.pro_mensal, link_anual: PLAN_LINKS.pro_anual,
     },
