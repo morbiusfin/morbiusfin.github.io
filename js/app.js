@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.18.5";
-const VERSION_NOTES = "Descrições dos planos revisadas (sem prometer o que ainda não existe).";
+const APP_VERSION = "3.18.6";
+const VERSION_NOTES = "Seu plano atual aparece no topo do menu.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.18.6",
+    bullets: [
+      "Agora dá pra ver <b>seu plano atual</b> ali no topo do menu (Teste, Plus, Pro ou Ultimate) — com os dias restantes. Toque pra ver os planos.",
+    ],
+  },
   {
     version: "3.18.5",
     bullets: [
@@ -5099,11 +5105,33 @@ function openMenu() {
     let em = ""; try { em = (window.CLOUD && window.CLOUD.email) || localStorage.getItem(CLOUD_EMAIL_KEY) || ""; } catch (e) {}
     foot.innerHTML = "MorbiusFin · v" + esc(APP_VERSION) + (em ? '<br><span class="menu-foot-email">' + esc(em) + "</span>" : "");
   }
+  const planEl = $("#menuPlan");                                             // badge do plano atual (ao lado de "Menu")
+  if (planEl) {
+    const info = currentPlanInfo();
+    if (info) { planEl.className = "menu-plan plan-" + info.key; planEl.textContent = info.label; planEl.onclick = () => { closeMenu(); openPlanosModal(); }; }
+    else planEl.className = "menu-plan hidden";
+  }
   renderExploreWidget();                                                     // % de exploração no topo
   m.classList.remove("hidden");
   $$(".menu-item", m).forEach((it, i) => it.style.setProperty("--mi", i));   // entrada em sequência (stagger)
 }
 function closeMenu() { const m = $("#menuDrawer"); if (m) m.classList.add("hidden"); }
+// Plano atual da conta (pra badge do menu). Lê window.CLOUD (preenchido no login/checkLicenca).
+function currentPlanInfo() {
+  let plano = null, validade = null;
+  try { plano = window.CLOUD && window.CLOUD.plano; validade = window.CLOUD && window.CLOUD.validade; } catch (e) {}
+  if (!plano && window.CLOUD && window.CLOUD.email) plano = "teste";   // logado mas sem leitura ainda → assume teste
+  if (!plano) return null;
+  const nomes = { teste: "Teste", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
+  const nome = nomes[plano] || plano;
+  let extra = "";
+  if (plano === "ultimate") extra = " · vitalício";
+  else if (validade) {
+    const d = Math.ceil((new Date(validade) - new Date()) / 86400000);
+    if (d >= 0) extra = " · " + (d <= 1 ? "último dia" : d + "d");
+  }
+  return { key: nomes[plano] ? plano : "teste", label: nome + extra };
+}
 const _onbHide = () => { const o = $("#onboarding"); if (o) o.classList.add("hidden"); };
 $("#btnMenu").onclick = openMenu;
 $("#menuClose").onclick = closeMenu;
