@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.20.0";
-const VERSION_NOTES = "Mudança no acesso aplica na hora; planos com cor do app e animação.";
+const APP_VERSION = "3.20.1";
+const VERSION_NOTES = "Acesso/plano sincroniza a cada 5 segundos.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.20.1",
+    bullets: [
+      "Seu acesso e plano agora sincronizam <b>a cada 5 segundos</b> — qualquer mudança entra praticamente na hora.",
+    ],
+  },
   {
     version: "3.20.0",
     bullets: [
@@ -7695,7 +7701,7 @@ function applyPlanLive() {
 }
 // Poll da licença enquanto o app está aberto e visível.
 let _licPollT = null;
-const LICENSE_POLL_MS = 10000;
+const LICENSE_POLL_MS = 5000;
 function startLicensePoll() { stopLicensePoll(); _licPollT = setInterval(() => { if (document.visibilityState === "visible") licenseSync(); }, LICENSE_POLL_MS); }
 function stopLicensePoll() { if (_licPollT) { clearInterval(_licPollT); _licPollT = null; } }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") onAppFocus(); });
