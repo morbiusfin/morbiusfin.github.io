@@ -129,18 +129,19 @@
     } catch (e) { return { ok: false, reason: "senha-errada" }; }
   }
 
-  // registra a licença do usuário (1 linha por conta) p/ o painel admin gerir acesso.
-  // Sempre começa teste/ativo (a RLS exige isso no insert). Idempotente: se já existe, ignora.
+  // registra a licença do usuário via RPC ensure_licenca() (SECURITY DEFINER, anti-clobber).
+  // A RPC cria o trial se não existir, nunca rebaixa quem já pagou. Fail-silent.
   async function cloudRegisterLicenca() {
     try {
       var sb = sbClient(); if (!sb) return;
       var u = await sb.auth.getUser(); if (!u.data || !u.data.user) return;
-      await sb.from("licencas").insert({ user_id: u.data.user.id, email: u.data.user.email, status: "ativo", plano: "teste" });
+      await sb.rpc("ensure_licenca");
     } catch (e) {}
   }
 
   // checa a licença no login. FAIL-OPEN: qualquer erro/sem linha/sem rede => libera (nunca trancar por bug).
-  // Só barra em caso EXPLÍCITO: status 'bloqueado' ou validade vencida.
+  // Só barra em caso EXPLÍCITO: status 'bloqueado' ou validade vencida (validade null = vitalício, nunca expira).
+  // Lê plano e validade e expõe em window.CLOUD.plano / window.CLOUD.validade p/ a UI de trial/tier.
   async function cloudCheckLicenca() {
     try {
       var sb = sbClient(); if (!sb) return { ok: true };
@@ -148,13 +149,16 @@
       var q = await sb.from("licencas").select("status,plano,validade").eq("user_id", u.data.user.id).limit(1);
       if (q.error) return { ok: true };
       var l = q.data && q.data[0]; if (!l) return { ok: true };
+      // Expõe plano e validade na sessão (pra UI do banner/tier)
+      window.CLOUD.plano = l.plano || "teste";
+      window.CLOUD.validade = l.validade || null;
       if (l.status === "bloqueado") return { ok: false, reason: "bloqueado" };
       if (l.validade) {
-        var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-        var v = new Date(String(l.validade) + "T00:00:00");
-        if (!isNaN(v.getTime()) && v < hoje) return { ok: false, reason: "expirado", validade: l.validade };
+        var agora = new Date();
+        var v = new Date(l.validade);
+        if (!isNaN(v.getTime()) && v < agora) return { ok: false, reason: "expirado", validade: l.validade };
       }
-      return { ok: true, plano: l.plano };
+      return { ok: true, plano: l.plano, validade: l.validade };
     } catch (e) { return { ok: true }; }
   }
 

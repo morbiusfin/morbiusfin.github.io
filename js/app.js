@@ -1,12 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.17.6";
-const VERSION_NOTES = "🔐 Agora você entra no app com EMAIL e SENHA, direto na tela inicial (com 'esqueci minha senha' e 'criar conta'). Seus dados migram pra conta cifrados (E2E) e você acessa de qualquer aparelho.";
+const APP_VERSION = "3.18.0";
+const VERSION_NOTES = "Planos de assinatura, teste grátis de 3 dias e tela pra assinar.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.18.0",
+    bullets: [
+      "Chegou o <b>teste grátis de 3 dias</b> — você já está usando. Um aviso discreto no topo mostra quantos dias restam.",
+      "Novos <b>planos de assinatura</b>: <b>Plus</b> (sync + multi-dispositivo), <b>Pro</b> (tudo do Plus + IA e relatórios) e <b>Ultimate</b> (vitalício, tudo do Pro + novidades futuras). Toque no banner ou em <b>“Ver planos”</b> pra conhecer.",
+      "Tela de acesso expirado melhorada: agora aparece a mensagem certa e um botão direto pra você ver os planos ou entrar em contato.",
+    ],
+  },
   {
     version: "3.17.2",
     bullets: [
@@ -1395,6 +1403,18 @@ const CHANGELOG = [
     ]
   },
 ];
+
+/* ===== PLAN_LINKS — edite aqui os links de pagamento do Mercado Pago =====
+   Kaick: preencha os links quando o MP estiver configurado.
+   Botão "Assinar" abre o link em nova aba; se vazio → aviso "Em breve".     */
+const PLAN_LINKS = {
+  plus_mensal: "",
+  plus_anual: "",
+  pro_mensal: "",
+  pro_anual: "",
+  ultimate: "",
+};
+
 let history = [];
 let redoStack = [];
 let lastSnap = JSON.stringify(DATA);
@@ -5204,7 +5224,7 @@ function renderWelcome(w) {
       <div class="wel-avatar" id="welAvatar" aria-hidden="true"></div>
       ${inner}
     </div>
-    <div class="wel-copy">© ${new Date().getFullYear()} MorbiusFin · Todos os direitos reservados.<br><a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos de Uso</a></div>`;
+    <div class="wel-copy">© ${new Date().getFullYear()} MorbiusFin · Todos os direitos reservados.<br><a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos de Uso</a> · <button type="button" class="wel-plans-link" id="welVerPlanos">Ver planos</button></div>`;
   setAvatarInto(w.querySelector("#welAvatar"), p.foto, p.nome);
   const go = $("#welGo"); if (go) go.onclick = (_welMode === "signup") ? welDoSignup : welDoLogin;
   const fg = $("#welForgot"); if (fg) fg.onclick = welDoForgot;
@@ -5212,6 +5232,7 @@ function renderWelcome(w) {
   const bk = $("#welBack"); if (bk) bk.onclick = () => { _welMode = "login"; renderWelcome(); };
   const rt = $("#welRetry"); if (rt) rt.onclick = () => renderWelcome();
   const se = $("#welSen"); if (se) se.onkeydown = (e) => { if (e.key === "Enter" && go) go.click(); };
+  const vp = $("#welVerPlanos"); if (vp) vp.onclick = () => openPlanosModal();
 }
 async function welDoLogin() {
   const email = ($("#welEmail").value || "").trim(), senha = $("#welSen").value || "";
@@ -5224,12 +5245,44 @@ async function welDoLogin() {
     if (snap) { const o = await MFCloud.offlineUnlock(senha, snap); if (o.ok) { welMsg(""); return welApply(o.data, email); } welMsg("Sem internet e a senha não confere", true); return; }
     welMsg("Sem conexão agora — entre com internet na 1ª vez", true); return;
   }
-  if (!r.ok) { welMsg(cloudErr(r.reason), true); return; }
+  if (!r.ok) { welMsg(cloudErrLogin(r.reason), true); return; }
   localStorage.setItem(CLOUD_EMAIL_KEY, email);
   try { if (window.MFCloud && MFCloud.registerLicenca) await MFCloud.registerLicenca(); } catch (e) {}   // garante a linha
   var lic = (window.MFCloud && MFCloud.checkLicenca) ? await MFCloud.checkLicenca() : { ok: true };       // enforcement (fail-open)
-  if (!lic.ok) { try { await MFCloud.signOut(); } catch (e) {} welMsg(lic.reason === "expirado" ? "Seu acesso expirou — fale com o suporte." : "Conta bloqueada — fale com o suporte.", true); return; }
+  if (!lic.ok) { try { await MFCloud.signOut(); } catch (e) {} showWelcomeLicFail(lic.reason); return; }
   welApply(r.data, email);
+}
+// Mensagens de erro de login amigáveis (sem vazar detalhe técnico do Supabase)
+function cloudErrLogin(reason) {
+  reason = reason || "";
+  if (/invalid login|invalid_credentials|email not confirmed/i.test(reason)) return "Conta não encontrada. Crie uma conta nova.";
+  if (reason === "senha-errada") return "Senha incorreta";
+  if (reason === "sem-cofre") return "Conta sem cofre ainda — confirme o email e entre";
+  if (/network|net|fetch|failed/i.test(reason)) return "Sem conexão com o servidor";
+  if (reason === "sdk") return "Sem conexão com o servidor";
+  return reason || "Não consegui agora";
+}
+// Tela de licença bloqueada/expirada — mensagem clara + botão de planos + suporte
+function showWelcomeLicFail(reason) {
+  const w = document.getElementById("welcomeScreen"); if (!w) return;
+  const inner = w.querySelector(".wel-inner"); if (!inner) return;
+  const isBlocked = reason === "bloqueado";
+  inner.innerHTML = `
+    <div class="wel-name">${isBlocked ? "Acesso bloqueado" : "Seu acesso expirou"}</div>
+    <div class="wel-sub">${isBlocked
+      ? "Sua conta foi bloqueada pelo administrador."
+      : "O período de teste ou a assinatura chegou ao fim."
+    }</div>
+    <button type="button" class="btn primary wel-enter" id="welVerPlanos">Ver planos</button>
+    <div class="wel-msg" style="margin-top:12px;text-align:center;font-size:13px;color:var(--muted)">
+      Já pagou? Seu acesso será liberado em alguns minutos.<br>
+      Suporte: <a href="mailto:morbiusfin@gmail.com" style="color:var(--accent-2)">morbiusfin@gmail.com</a>
+    </div>
+    <button type="button" class="wel-link" id="welVoltarLogin">← Voltar ao login</button>`;
+  const bp = inner.querySelector("#welVerPlanos");
+  if (bp) bp.onclick = () => openPlanosModal();
+  const bv = inner.querySelector("#welVoltarLogin");
+  if (bv) bv.onclick = () => { _welMode = "login"; renderWelcome(); };
 }
 async function welMigrationData(pin) {
   let raw = localStorage.getItem(STORE_KEY) || localStorage.getItem("financas2026.v1"), parsed = null;
@@ -5263,7 +5316,120 @@ async function welApply(data, email) {
   lastSnap = JSON.stringify(DATA);
   try { const ct = await MFCloud.makeCt(DATA); if (ct) localStorage.setItem(CLOUD_LOCAL_KEY, MFCloud.snapshot(ct)); } catch (e) {}
   localStorage.removeItem(LOGGED_OUT_KEY);
-  leaveWelcome(startApp);
+  leaveWelcome(() => { startApp(); setTimeout(() => renderTrialBanner(), 800); });
+}
+
+/* ===== Banner de trial / tier ===== */
+function renderTrialBanner() {
+  try {
+    let el = document.getElementById("trialBanner");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "trialBanner";
+      el.className = "trial-banner hidden";
+      // insere abaixo do header
+      const hdr = document.querySelector(".app-header");
+      if (hdr && hdr.parentNode) hdr.parentNode.insertBefore(el, hdr.nextSibling);
+      else document.body.appendChild(el);
+      el.addEventListener("click", () => openPlanosModal());
+    }
+    const plano = (window.CLOUD && window.CLOUD.plano) || null;
+    const validade = (window.CLOUD && window.CLOUD.validade) || null;
+    if (!plano || plano !== "teste") { el.classList.add("hidden"); return; }
+    if (!validade) { el.classList.add("hidden"); return; }
+    const agora = new Date();
+    const fim = new Date(validade);
+    const diffMs = fim - agora;
+    const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    let texto;
+    if (diffDias <= 0) texto = "Teste grátis · último dia — Assinar";
+    else if (diffDias === 1) texto = "Teste grátis · último dia — Assinar";
+    else texto = `Teste grátis · faltam ${diffDias} dias — Assinar`;
+    el.textContent = texto;
+    el.classList.remove("hidden");
+  } catch (e) {}
+}
+
+/* ===== Modal de planos ===== */
+let _planoToggle = "mensal"; // "mensal" | "anual"
+function openPlanosModal() {
+  let m = document.getElementById("planosModal");
+  if (!m) {
+    m = document.createElement("div");
+    m.id = "planosModal";
+    m.className = "modal center hidden";
+    document.body.appendChild(m);
+    m.addEventListener("click", e => { if (e.target === m) m.classList.add("hidden"); });
+  }
+  renderPlanosModal(m);
+  m.classList.remove("hidden");
+}
+function renderPlanosModal(m) {
+  if (!m) m = document.getElementById("planosModal"); if (!m) return;
+  const tog = _planoToggle;
+  const cards = [
+    {
+      id: "plus", nome: "Plus", cor: "#1a7f5a",
+      desc: "Sync na nuvem + backup automático + multi-dispositivo",
+      preco_mensal: "R$ 9,90/mês", preco_anual: "R$ 79,90/ano",
+      link_mensal: PLAN_LINKS.plus_mensal, link_anual: PLAN_LINKS.plus_anual,
+    },
+    {
+      id: "pro", nome: "Pro", cor: "#0b6e91",
+      desc: "Tudo do Plus + IA assistente + insights pro + relatórios",
+      preco_mensal: "R$ 19,90/mês", preco_anual: "R$ 149,90/ano",
+      link_mensal: PLAN_LINKS.pro_mensal, link_anual: PLAN_LINKS.pro_anual,
+    },
+    {
+      id: "ultimate", nome: "Ultimate", cor: "#7c3aed", unico: true,
+      desc: "Tudo do Pro, vitalício + novidades futuras",
+      preco_unico: "R$ 249,90 (pagamento único)",
+      link_unico: PLAN_LINKS.ultimate,
+    },
+  ];
+  const cardsHtml = cards.map(c => {
+    let precoHtml, link;
+    if (c.unico) {
+      precoHtml = `<div class="plan-price">${esc(c.preco_unico)}</div>`;
+      link = c.link_unico;
+    } else {
+      const preco = tog === "anual" ? c.preco_anual : c.preco_mensal;
+      precoHtml = `<div class="plan-price">${esc(preco)}</div>`;
+      link = tog === "anual" ? c.link_anual : c.link_mensal;
+    }
+    const btnHtml = `<button type="button" class="btn primary plan-btn" data-plan="${esc(c.id)}" data-link="${esc(link || "")}" style="background:${c.cor}">Assinar</button>`;
+    return `<div class="plan-card" style="border-color:${c.cor}">
+      <div class="plan-name" style="color:${c.cor}">${esc(c.nome)}</div>
+      <div class="plan-desc">${esc(c.desc)}</div>
+      ${precoHtml}
+      ${btnHtml}
+    </div>`;
+  }).join("");
+
+  const toggleHtml = `<div class="plan-toggle" role="group" aria-label="Ciclo de cobrança">
+    <button type="button" class="plan-tog-btn${tog === "mensal" ? " active" : ""}" data-tog="mensal">Mensal</button>
+    <button type="button" class="plan-tog-btn${tog === "anual" ? " active" : ""}" data-tog="anual">Anual</button>
+  </div>`;
+
+  m.innerHTML = `<div class="modal-card planos-card">
+    <button type="button" class="wn-close" id="planosClose" aria-label="Fechar">✕</button>
+    <h2 class="planos-title">Escolha seu plano</h2>
+    <p class="planos-sub">Comece com 3 dias grátis · cancele quando quiser</p>
+    ${toggleHtml}
+    <div class="planos-cards">${cardsHtml}</div>
+    <p class="planos-note">Pagamento via Mercado Pago. Dúvidas: <a href="mailto:morbiusfin@gmail.com">morbiusfin@gmail.com</a></p>
+  </div>`;
+
+  m.querySelector("#planosClose").onclick = () => m.classList.add("hidden");
+  m.querySelectorAll(".plan-tog-btn").forEach(b => b.onclick = () => {
+    _planoToggle = b.dataset.tog;
+    renderPlanosModal(m);
+  });
+  m.querySelectorAll(".plan-btn").forEach(b => b.onclick = () => {
+    const link = b.dataset.link;
+    if (link) { window.open(link, "_blank", "noopener"); }
+    else { toast("Em breve — pagamento ainda não configurado"); }
+  });
 }
 async function welDoForgot() {
   const email = ($("#welEmail").value || "").trim();
