@@ -151,7 +151,7 @@
   // 1) tenta a RPC ensure_licenca() (se o SQL foi rodado: SECURITY DEFINER, anti-clobber);
   // 2) FALLBACK robusto: se não há linha pra este usuário, cria o trial de 7 dias direto
   //    (idempotente; não duplica se já existir por user_id ou por email). Fail-silent.
-  async function cloudRegisterLicenca() {
+  async function cloudRegisterLicenca(nome) {
     try {
       var sb = sbClient(); if (!sb) return;
       var u = await sb.auth.getUser(); if (!u.data || !u.data.user) return;
@@ -159,11 +159,20 @@
       var email = (u.data.user.email || "").toLowerCase().trim();
       try { await sb.rpc("ensure_licenca"); } catch (e) {}                 // se a RPC existir, já cria/vincula
       var q1 = await sb.from("licencas").select("user_id").eq("user_id", uid).limit(1);
-      if (q1.error || (q1.data && q1.data.length)) return;                 // já tem linha (ou erro) → nada a fazer
-      if (email) { var q2 = await sb.from("licencas").select("email").eq("email", email).limit(1); if (q2.error || (q2.data && q2.data.length)) return; }
-      var validade = new Date(Date.now() + 7 * 86400000).toISOString();    // teste grátis: 7 dias
-      await sb.from("licencas").insert({ user_id: uid, email: email, status: "ativo", plano: "teste", validade: validade });
+      var temLinha = !q1.error && q1.data && q1.data.length;               // já tem linha por user_id?
+      if (!q1.error && !temLinha) {
+        var skip = false;
+        if (email) { var q2 = await sb.from("licencas").select("email").eq("email", email).limit(1); if (q2.error || (q2.data && q2.data.length)) skip = true; }
+        if (!skip) { var validade = new Date(Date.now() + 7 * 86400000).toISOString(); await sb.from("licencas").insert({ user_id: uid, email: email, status: "ativo", plano: "teste", validade: validade }); }   // 1ª vez: trial 7 dias (plano key="teste", rótulo "Novo" na UI)
+      }
+      // Sobe o NOME pro painel admin (coluna licencas.nome via RPC SECURITY DEFINER). NÃO entra no insert
+      // de propósito: se o Kaick ainda não rodou o ALTER/RPC, a conta continua nascendo normal (fail-silent).
+      if (nome && (nome = nome.trim())) { await cloudSetNome(nome); }
     } catch (e) {}
+  }
+  // Grava o nome do usuário na licença (pro admin achar pelo nome). RPC atualiza por user_id OU email da sessão.
+  async function cloudSetNome(nome) {
+    try { var sb = sbClient(); if (!sb) return; nome = (nome || "").trim(); if (!nome) return; await sb.rpc("set_licenca_nome", { p_nome: nome }); } catch (e) {}
   }
 
   // checa a licença no login. FAIL-OPEN: qualquer erro/sem linha/sem rede => libera (nunca trancar por bug).
@@ -230,7 +239,7 @@
     updatePassword: cloudUpdatePassword,
     watchLicenca: cloudWatchLicenca, unwatchLicenca: cloudUnwatchLicenca,
     makeCt: cloudMakeCt, snapshot: cloudSnapshot, offlineUnlock: cloudOfflineUnlock,
-    registerLicenca: cloudRegisterLicenca, checkLicenca: cloudCheckLicenca,
+    registerLicenca: cloudRegisterLicenca, checkLicenca: cloudCheckLicenca, setNome: cloudSetNome,
   };
   // Inicia o cliente já no carregamento → processa o token do link de recuperação (detectSessionInUrl)
   // e registra o listener de PASSWORD_RECOVERY mesmo antes de qualquer login.

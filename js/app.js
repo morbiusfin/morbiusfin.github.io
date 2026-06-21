@@ -1,12 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.21.10";
+const APP_VERSION = "3.22.0";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.22.0",
+    bullets: [
+      "Conta nova agora começa como <b>Novo</b> (no lugar de \"Teste\") — bem mais simpático.",
+      "No primeiro acesso, depois do tutorial e do guia de instalação, o app pede seu <b>nome</b> e <b>data de nascimento</b> pra deixar tudo com a sua cara.",
+    ],
+  },
   {
     version: "3.21.3",
     bullets: [
@@ -5217,7 +5224,7 @@ function currentPlanInfo() {
   try { plano = window.CLOUD && window.CLOUD.plano; validade = window.CLOUD && window.CLOUD.validade; } catch (e) {}
   if (!plano && window.CLOUD && window.CLOUD.email) plano = "teste";   // logado mas sem leitura ainda → assume teste
   if (!plano) return null;
-  const nomes = { teste: "Teste", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
+  const nomes = { teste: "Novo", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
   const key = nomes[plano] ? plano : "teste";
   const tier = nomes[plano] || plano;
   const vitalicio = (plano === "ultimate");
@@ -5420,7 +5427,7 @@ async function welDoLogin() {
   }
   if (!r.ok) { welMsg(cloudErrLogin(r.reason), true); return; }
   localStorage.setItem(CLOUD_EMAIL_KEY, email);
-  try { if (window.MFCloud && MFCloud.registerLicenca) await MFCloud.registerLicenca(); } catch (e) {}   // garante a linha
+  try { if (window.MFCloud && MFCloud.registerLicenca) await MFCloud.registerLicenca((getPerfil() || {}).nome); } catch (e) {}   // garante a linha (+ nome se já tiver)
   var lic = (window.MFCloud && MFCloud.checkLicenca) ? await MFCloud.checkLicenca() : { ok: true };       // enforcement (fail-open)
   if (!lic.ok) { welMsg(""); _blockedNow = true; welApply(r.data, email); setTimeout(() => showBlockOverlay(lic.reason), 350); return; }   // entra com overlay de bloqueio → some sozinho quando liberarem
   welApply(r.data, email);
@@ -5489,7 +5496,7 @@ async function welDoSignup() {
   } else { welApply(data, email, true); }   // conta nova → dispara tutorial + guia de instalação
 }
 async function welApply(data, email, isNewSignup) {
-  try { if (window.MFCloud && MFCloud.registerLicenca) MFCloud.registerLicenca(); } catch (e) {}   // registra a conta no painel admin (idempotente)
+  try { if (window.MFCloud && MFCloud.registerLicenca) MFCloud.registerLicenca((getPerfil() || {}).nome); } catch (e) {}   // registra a conta no painel admin (idempotente) + sobe o nome se já tiver
   if (data) { try { DATA = migrate(data); } catch (e) {} }
   lastSnap = JSON.stringify(DATA);
   try { const ct = await MFCloud.makeCt(DATA); if (ct) localStorage.setItem(CLOUD_LOCAL_KEY, MFCloud.snapshot(ct)); } catch (e) {}
@@ -5501,7 +5508,8 @@ async function welApply(data, email, isNewSignup) {
   });
 }
 // Fluxo pós-cadastro: abre o tutorial rápido marcado pra, ao fechar, abrir o guia de instalação.
-function startSignupOnboarding() { window._tutThenInstall = true; try { openTutorial(); } catch (e) {} }
+// 1º acesso: tutorial → (ao fechar) guia de instalação → (ao fechar) perfil OBRIGATÓRIO (nome + nascimento).
+function startSignupOnboarding() { window._tutThenInstall = true; window._installThenProfile = true; try { openTutorial(); } catch (e) {} }
 
 /* ===== Banner de trial / tier ===== */
 function renderTrialBanner() {
@@ -5526,9 +5534,9 @@ function renderTrialBanner() {
     const diffMs = fim - agora;
     const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
     let texto;
-    if (diffDias <= 0) texto = "Teste grátis · último dia — Assinar";
-    else if (diffDias === 1) texto = "Teste grátis · último dia — Assinar";
-    else texto = `Teste grátis · faltam ${diffDias} dias — Assinar`;
+    if (diffDias <= 0) texto = "Plano Novo · último dia grátis — Assinar";
+    else if (diffDias === 1) texto = "Plano Novo · último dia grátis — Assinar";
+    else texto = `Plano Novo · faltam ${diffDias} dias grátis — Assinar`;
     el.textContent = texto;
     el.classList.remove("hidden");
   } catch (e) {}
@@ -5901,6 +5909,8 @@ function renderInstallGuide(os) {
 function closeInstallGuide() {
   const m = document.getElementById("installModal"); if (m) m.classList.add("hidden");
   try { localStorage.setItem(INSTALL_SEEN_KEY, "1"); } catch (e) {}   // 1x só
+  // 1º acesso: ao fechar o guia de instalação, abre o perfil OBRIGATÓRIO (nome + data de nascimento).
+  if (window._installThenProfile) { window._installThenProfile = false; setTimeout(() => { try { openProfile({ mandatory: true }); } catch (e) {} }, 360); }
 }
 
 /* Sequência de abertura (uma vez por abertura): atualizou? → novidades. 1ª vez no celular? → guia
@@ -6161,10 +6171,25 @@ function renderAvatar() {
   const ini = b.querySelector(".avatar-ini"); if (ini) ini.textContent = "";
   b.title = p.nome ? esc(p.nome) : "Meu perfil";
 }
-let _profFotoTmp = "", _profTipo = "pessoal";
-function openProfile() {
+let _profFotoTmp = "", _profTipo = "pessoal", _profMandatory = false;
+function openProfile(opts) {
+  // opts.mandatory === true → 1º acesso: exige nome + nascimento, sem botão de fechar / sem fechar no fundo.
+  // (chamado via onclick o 1º arg é um Event → opts.mandatory é undefined → modo normal. Seguro.)
+  _profMandatory = !!(opts && opts.mandatory === true);
   markExplored("perfil");
   const m = $("#profileModal"); if (!m) return;
+  const closeBtn = $("#profClose"); if (closeBtn) closeBtn.classList.toggle("hidden", _profMandatory);
+  let hint = $("#profMandHint");
+  if (_profMandatory) {
+    if (!hint) {
+      hint = document.createElement("p"); hint.id = "profMandHint"; hint.className = "hint";
+      hint.style.cssText = "text-align:center;margin:6px 0 12px;color:var(--accent);font-weight:700";
+      hint.textContent = "Pra começar, preencha seu nome e data de nascimento 🙂";
+      const nomeFld = $("#profNome");
+      if (nomeFld && nomeFld.parentNode) nomeFld.parentNode.parentNode.insertBefore(hint, nomeFld.parentNode);
+      else m.querySelector(".modal-card").appendChild(hint);
+    }
+  } else if (hint) { hint.remove(); }
   const p = getPerfil();
   $("#profNome").value = p.nome || "";
   const nasc = $("#profNasc");
@@ -6208,19 +6233,28 @@ function renderAvatarPicker() {
   const imp = $("#avImport", row); if (imp) imp.onclick = () => $("#profFile").click();
 }
 function saveProfile() {
+  const nome = ($("#profNome").value || "").trim();
+  const nasc = $("#profNasc").value || "";
+  // Nome é SEMPRE obrigatório (vai pro painel admin). Data de nascimento é obrigatória no 1º acesso.
+  if (!nome) { try { toast("Digite seu nome 🙂"); } catch (e) {} const n = $("#profNome"); if (n) n.focus(); return; }
+  if (_profMandatory && !nasc) { try { toast("Escolha sua data de nascimento 🎂"); } catch (e) {} const d = $("#profNasc"); if (d) { d.classList.remove("is-empty"); try { d.showPicker ? d.showPicker() : d.focus(); } catch (e2) { d.focus(); } } return; }
   const p = getPerfil();
-  p.nome = ($("#profNome").value || "").trim();
-  p.nasc = $("#profNasc").value || "";
+  p.nome = nome;
+  p.nasc = nasc;
   p.foto = _profFotoTmp || "";
   p.tipo = _profTipo;
   setPerfil(p); renderAvatar();
+  // Sobe o NOME pro painel admin (coluna licencas.nome via RPC). E2E segue intacto: só o nome vai em claro
+  // na licença (igual o e-mail), nunca os números/dados financeiros.
+  try { if (window.MFCloud && MFCloud.setNome) MFCloud.setNome(nome); } catch (e) {}
+  _profMandatory = false;
   $("#profileModal").classList.add("hidden");
   toast("Perfil salvo ✅");
 }
 (function bindProfile() {
   const open = $("#btnProfile"); if (open) open.onclick = openProfile;
-  const c = $("#profClose"); if (c) c.onclick = () => $("#profileModal").classList.add("hidden");
-  const m = $("#profileModal"); if (m) m.onclick = (e) => { if (e.target === m) m.classList.add("hidden"); };
+  const c = $("#profClose"); if (c) c.onclick = () => { if (_profMandatory) return; $("#profileModal").classList.add("hidden"); };
+  const m = $("#profileModal"); if (m) m.onclick = (e) => { if (e.target === m && !_profMandatory) m.classList.add("hidden"); };
   const pb = $("#profPhotoBtn"); if (pb) pb.onclick = () => $("#profFile").click();
   const rm = $("#profPhotoRemove"); if (rm) rm.onclick = () => { _profFotoTmp = ""; window._profCropSrc = null; refreshProfPhoto(); };
   const ed = $("#profPhotoEdit"); if (ed) ed.onclick = () => { if (window._profCropSrc) openCropper(window._profCropSrc); else if (typeof _profFotoTmp === "string" && _profFotoTmp.indexOf("data:") === 0) openCropper(_profFotoTmp); else $("#profFile").click(); };
@@ -7778,7 +7812,7 @@ async function licenseSync() {
     var p = (window.CLOUD && window.CLOUD.plano) || null;
     applyPlanLive();                                          // header/banner/menu sempre em dia
     if (_curPlano !== null && p && p !== _curPlano) {
-      var nomes = { teste: "Teste", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
+      var nomes = { teste: "Novo", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
       try { toast("Seu plano agora é " + (nomes[p] || p) + " ✓"); } catch (e) {}
     }
     _curPlano = p;
@@ -7823,7 +7857,7 @@ async function forceLicenseSync() {
     applyPlanLive();                                       // header + card do menu + banner na hora
     const p = (window.CLOUD && window.CLOUD.plano) || null;
     _curPlano = p;
-    const nomes = { teste: "Teste", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
+    const nomes = { teste: "Novo", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
     try { toast("Acesso atualizado ✓ — Plano " + (nomes[p] || p || "—")); } catch (e) {}
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = label || "🔄 Atualizar"; }
