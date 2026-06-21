@@ -175,9 +175,16 @@
       // CHAVE = user_id (PK, NON-NULL, sempre = o usuário logado). E-mail é NULLABLE → não serve de chave.
       // Pega o user_id SEM chamada de rede: 1º da sessão em memória, senão do getSession (local).
       var uid = (window.CLOUD && window.CLOUD.uid) ? window.CLOUD.uid : "";
-      if (!uid) { try { var s = await sb.auth.getSession(); if (s && s.data && s.data.session && s.data.session.user) { uid = s.data.session.user.id; window.CLOUD.uid = uid; } } catch (e) {} }
-      if (!uid) return { ok: true, err: true };
-      var q = await sb.from("licencas").select("status,plano,validade").eq("user_id", uid).limit(1);
+      var email = (window.CLOUD && window.CLOUD.email ? window.CLOUD.email : "").toLowerCase().trim();
+      if (!uid || !email) { try { var s = await sb.auth.getSession(); if (s && s.data && s.data.session && s.data.session.user) { if (!uid) { uid = s.data.session.user.id; window.CLOUD.uid = uid; } if (!email) email = (s.data.session.user.email || "").toLowerCase().trim(); } } catch (e) {} }
+      if (!uid && !email) return { ok: true, err: true };
+      // CHAVE DUPLA: user_id (PK) OU email. Cobre linha cujo user_id ficou defasado (conta recriada em
+      // testes → novo uid, linha velha com uid antigo): o admin vê/edita pela linha, mas o app lê pelo uid
+      // logado. Se não bater por uid, casa por email (RLS lic_select_own permite ler a própria linha por email).
+      var q;
+      if (uid && email) q = await sb.from("licencas").select("user_id,status,plano,validade").or("user_id.eq." + uid + ",email.eq." + email).limit(1);
+      else if (uid)     q = await sb.from("licencas").select("user_id,status,plano,validade").eq("user_id", uid).limit(1);
+      else              q = await sb.from("licencas").select("user_id,status,plano,validade").eq("email", email).limit(1);
       if (q.error) return { ok: true, err: true };
       var l = q.data && q.data[0];
       if (!l) return { ok: true, err: true };   // sem linha → incerto: não bloqueia nem libera à toa
