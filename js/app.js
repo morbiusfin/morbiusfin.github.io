@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.21.4";
+const APP_VERSION = "3.21.5";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
@@ -7745,7 +7745,9 @@ function onAppFocus() {
 let _licChkBusy = false, _curPlano = null, _blockedNow = false;
 async function licenseSync() {
   try {
-    if (isTestMode()) return;
+    // SEM guard de isTestMode aqui: a checagem só LÊ o status da licença. O que importa é estar
+    // logado numa conta de nuvem real (CLOUD.dek presente) — demo puro não tem dek e já barra abaixo.
+    // (Antes, um flag profile="test" defasado no /financas matava o poll → plano só relia no reload.)
     if (!(window.CLOUD && window.CLOUD.dek)) return;          // só logado e dentro do app
     if (document.getElementById("welcomeScreen")) return;     // está na tela de login
     if (!(window.MFCloud && MFCloud.checkLicenca)) return;
