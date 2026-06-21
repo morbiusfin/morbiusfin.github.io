@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.20.2";
-const VERSION_NOTES = "Acesso/plano sincroniza AO VIVO a cada 5s (sem reabrir nem relogar).";
+const APP_VERSION = "3.21.0";
+const VERSION_NOTES = "Conta nova abre tutorial rápido e, ao fim, o guia de instalação.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.21.0",
+    bullets: [
+      "Acabou de <b>criar a conta</b>? Abrimos um <b>tutorial rápido</b> e, ao terminar, o passo a passo pra <b>instalar o app na tela de início</b>.",
+    ],
+  },
   {
     version: "3.20.2",
     bullets: [
@@ -5460,16 +5466,22 @@ async function welDoSignup() {
   if (r.confirm) {
     const w = document.getElementById("welcomeScreen"), inner = w && w.querySelector(".wel-inner");
     if (inner) { inner.innerHTML = `<div class="wel-avatar" id="welAvatar" aria-hidden="true"></div><div class="wel-name">Confirme seu email 📧</div><div class="wel-sub">Mandamos um link para<br><b>${esc(email)}</b>.<br>Confirme (veja o spam) e volte pra entrar.</div><button type="button" class="btn primary wel-enter" id="welToLogin">Já confirmei — Entrar</button>`; setAvatarInto(inner.querySelector("#welAvatar"), getPerfil().foto, getPerfil().nome); $("#welToLogin").onclick = () => { _welMode = "login"; renderWelcome(); }; }
-  } else { welApply(data, email); }
+  } else { welApply(data, email, true); }   // conta nova → dispara tutorial + guia de instalação
 }
-async function welApply(data, email) {
+async function welApply(data, email, isNewSignup) {
   try { if (window.MFCloud && MFCloud.registerLicenca) MFCloud.registerLicenca(); } catch (e) {}   // registra a conta no painel admin (idempotente)
   if (data) { try { DATA = migrate(data); } catch (e) {} }
   lastSnap = JSON.stringify(DATA);
   try { const ct = await MFCloud.makeCt(DATA); if (ct) localStorage.setItem(CLOUD_LOCAL_KEY, MFCloud.snapshot(ct)); } catch (e) {}
   localStorage.removeItem(LOGGED_OUT_KEY);
-  leaveWelcome(() => { startApp(); setTimeout(() => renderTrialBanner(), 800); });
+  leaveWelcome(() => {
+    startApp(); setTimeout(() => renderTrialBanner(), 800);
+    // Conta nova → tutorial rápido; ao concluir, abre o guia de instalar na tela de início.
+    if (isNewSignup) setTimeout(startSignupOnboarding, 1000);
+  });
 }
+// Fluxo pós-cadastro: abre o tutorial rápido marcado pra, ao fechar, abrir o guia de instalação.
+function startSignupOnboarding() { window._tutThenInstall = true; try { openTutorial(); } catch (e) {} }
 
 /* ===== Banner de trial / tier ===== */
 function renderTrialBanner() {
@@ -6814,7 +6826,11 @@ function renderTut() {
   const ic = document.getElementById("tutIc"); ic.innerHTML = animEmoji(s[3], s[0], "tut-ic-img"); ic.classList.remove("pop"); void ic.offsetWidth; ic.classList.add("pop");
 }
 function openTutorial() { _tutI = 0; ensureTutModal(); renderTut(); document.getElementById("tutModal").classList.remove("hidden"); }
-function closeTut() { const m = document.getElementById("tutModal"); if (m) m.classList.add("hidden"); try { localStorage.setItem("financas2026.tutDone", "1"); } catch (e) {} }
+function closeTut() {
+  const m = document.getElementById("tutModal"); if (m) m.classList.add("hidden");
+  try { localStorage.setItem("financas2026.tutDone", "1"); } catch (e) {}
+  if (window._tutThenInstall) { window._tutThenInstall = false; setTimeout(() => { try { openInstallGuide(); } catch (e) {} }, 360); }   // pós-cadastro: ao fechar o tutorial, abre o guia de instalação
+}
 (function bindHelpMenu() {
   const mt = $("#miTutorial"); if (mt) mt.onclick = () => { closeMenu(); openTutorial(); };
   const mn = $("#miManual"); if (mn) mn.onclick = () => { closeMenu(); openManual(); };
