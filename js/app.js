@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.21.5";
+const APP_VERSION = "3.21.6";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
@@ -5206,6 +5206,7 @@ function openMenu() {
   updateHdrPlan();                                                           // pílula do plano no header (acima da foto)
   renderMenuPlanCard();                                                      // card vermelho do plano (corpo do menu)
   renderExploreWidget();                                                     // % de exploração no topo
+  try { licenseSync(); } catch (e) {}                                        // abrir o menu re-checa a licença na nuvem (reflete o admin na hora)
   m.classList.remove("hidden");
   $$(".menu-item", m).forEach((it, i) => it.style.setProperty("--mi", i));   // entrada em sequência (stagger)
 }
@@ -7753,7 +7754,14 @@ async function licenseSync() {
     if (!(window.MFCloud && MFCloud.checkLicenca)) return;
     if (navigator.onLine === false) return;
     if (_licChkBusy) return; _licChkBusy = true;
-    let lic; try { lic = await MFCloud.checkLicenca(); } catch (e) { lic = { ok: true, err: true }; }
+    let lic;
+    try {
+      // Promise.race com timeout de 8s: se a rede pendurar, NÃO trava o poll pra sempre (libera o busy).
+      lic = await Promise.race([
+        MFCloud.checkLicenca(),
+        new Promise((res) => setTimeout(() => res({ ok: true, err: true }), 8000))
+      ]);
+    } catch (e) { lic = { ok: true, err: true }; }
     _licChkBusy = false;
     if (!lic || lic.err) return;                             // incerto → mantém o estado (não pisca)
     if (lic.ok === false) { _blockedNow = true; showBlockOverlay(lic.reason); return; }   // bloqueia AO VIVO
@@ -7798,10 +7806,19 @@ let _licPollT = null;
 const LICENSE_POLL_MS = 5000;
 function startLicensePoll() { stopLicensePoll(); _licPollT = setInterval(() => { if (document.visibilityState === "visible") licenseSync(); }, LICENSE_POLL_MS); }
 function stopLicensePoll() { if (_licPollT) { clearInterval(_licPollT); _licPollT = null; } }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") onAppFocus(); });
-window.addEventListener("focus", onAppFocus);
-window.addEventListener("online", onAppFocus);
-window.addEventListener("pageshow", onAppFocus);   // iOS: app restaurado do segundo plano (bfcache) → re-checa versão
+// Re-arma o Realtime da licença (canal pode cair ao trocar de rede / voltar do 2º plano) e força 1 checagem JÁ.
+function rearmLicense() {
+  try {
+    if (!(window.CLOUD && window.CLOUD.dek)) return;
+    if (document.getElementById("welcomeScreen")) return;
+    if (window.MFCloud && MFCloud.watchLicenca) MFCloud.watchLicenca(licenseSync);   // re-subscribe (watchLicenca já dá unwatch antes)
+  } catch (e) {}
+}
+// Ao voltar o foco/visibilidade: checa a licença IMEDIATAMENTE (sem esperar o debounce de 1.2s do onAppFocus) e re-arma o push.
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { try { licenseSync(); } catch (e) {} rearmLicense(); onAppFocus(); } });
+window.addEventListener("focus", () => { try { licenseSync(); } catch (e) {} rearmLicense(); onAppFocus(); });
+window.addEventListener("online", () => { try { licenseSync(); } catch (e) {} rearmLicense(); onAppFocus(); });
+window.addEventListener("pageshow", () => { try { licenseSync(); } catch (e) {} rearmLicense(); onAppFocus(); });   // iOS: app restaurado do segundo plano (bfcache) → re-checa versão+licença
 // checa atualização ao abrir (após o splash) e a cada 5 min
 setTimeout(checkForUpdate, 6500);
 setInterval(checkForUpdate, 5 * 60 * 1000);

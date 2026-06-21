@@ -191,6 +191,7 @@
       // Expõe plano e validade na sessão (pra UI do banner/tier)
       window.CLOUD.plano = l.plano || "teste";
       window.CLOUD.validade = l.validade || null;
+      try { window.__lic = { t: Date.now(), uid: uid, key: (l.user_id === uid ? "uid" : "email"), plano: l.plano, status: l.status, validade: l.validade }; } catch (e) {}
       if (l.status === "bloqueado") return { ok: false, reason: "bloqueado", plano: l.plano, validade: l.validade };
       if (l.validade) {
         var agora = new Date();
@@ -210,10 +211,15 @@
       var uid = (window.CLOUD && window.CLOUD.uid) ? window.CLOUD.uid : "";
       if (!uid) return;
       cloudUnwatchLicenca();
-      _licChannel = sb.channel("lic-" + uid)
-        .on("postgres_changes", { event: "*", schema: "public", table: "licencas", filter: "user_id=eq." + uid },
-          function () { try { if (typeof onChange === "function") onChange(); } catch (e) {} })
-        .subscribe();
+      // Assina por user_id E por email (2 filtros) — cobre linha com user_id defasado e garante o push.
+      var email = (window.CLOUD && window.CLOUD.email ? window.CLOUD.email : "").toLowerCase().trim();
+      var ch = sb.channel("lic-" + uid);
+      ch.on("postgres_changes", { event: "*", schema: "public", table: "licencas", filter: "user_id=eq." + uid },
+        function () { try { window.__licRT = { t: Date.now(), via: "uid" }; } catch (e) {} try { if (typeof onChange === "function") onChange(); } catch (e) {} });
+      if (email) ch.on("postgres_changes", { event: "*", schema: "public", table: "licencas", filter: "email=eq." + email },
+        function () { try { window.__licRT = { t: Date.now(), via: "email" }; } catch (e) {} try { if (typeof onChange === "function") onChange(); } catch (e) {} });
+      ch.subscribe(function (status) { try { window.__licRTStatus = status; } catch (e) {} });
+      _licChannel = ch;
     } catch (e) {}
   }
   function cloudUnwatchLicenca() { try { if (_licChannel) { sbClient().removeChannel(_licChannel); _licChannel = null; } } catch (e) {} }
