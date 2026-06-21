@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.21.6";
+const APP_VERSION = "3.21.7";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
@@ -5247,6 +5247,7 @@ const _onbHide = () => { const o = $("#onboarding"); if (o) o.classList.add("hid
 $("#btnMenu").onclick = openMenu;
 $("#menuClose").onclick = closeMenu;
 { const mlt = $("#menuLogout"); if (mlt) mlt.onclick = () => { closeMenu(); cloudDoLogout(); }; }   // Sair = logout da conta (volta pro login)
+{ const mr = $("#menuRefresh"); if (mr) mr.onclick = forceLicenseSync; }   // Atualizar = puxa a licença da nuvem AGORA (sem sair/reiniciar)
 $("#menuDrawer").onclick = (e) => { if (e.target.id === "menuDrawer") closeMenu(); };
 { const mu = $("#miUpdate"); if (mu) mu.onclick = updateNow; }
 { const ma = $("#miAdmin"); if (ma) ma.onclick = () => { closeMenu(); openAdminPanel(); }; }
@@ -7774,6 +7775,36 @@ async function licenseSync() {
     }
     _curPlano = p;
   } catch (e) { _licChkBusy = false; }
+}
+// BOTÃO "Atualizar" do menu (ao lado de Sair): puxa a licença da nuvem AGORA, sem sair/reiniciar/atualizar o app.
+// Ignora o lock do poll (destrava na marra), re-arma o Realtime, aplica no lugar e dá feedback claro (toast).
+async function forceLicenseSync() {
+  const btn = document.getElementById("menuRefresh");
+  const label = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ …"; }
+  try {
+    if (!(window.CLOUD && window.CLOUD.dek)) { try { toast("Entre na sua conta primeiro"); } catch (e) {} return; }
+    if (!(window.MFCloud && MFCloud.checkLicenca)) { try { toast("Sem conexão agora"); } catch (e) {} return; }
+    _licChkBusy = false;                                   // destrava qualquer poll preso
+    try { rearmLicense(); } catch (e) {}                   // re-assina o push enquanto está aqui
+    let lic;
+    try {
+      lic = await Promise.race([
+        MFCloud.checkLicenca(),
+        new Promise((res) => setTimeout(() => res({ ok: true, err: true }), 8000))
+      ]);
+    } catch (e) { lic = { ok: true, err: true }; }
+    if (!lic || lic.err) { try { toast("Não consegui ler agora — tenta de novo 🔁"); } catch (e) {} return; }
+    if (lic.ok === false) { _blockedNow = true; closeMenu(); showBlockOverlay(lic.reason); return; }
+    if (_blockedNow) { _blockedNow = false; hideBlockOverlay(); }
+    applyPlanLive();                                       // header + card do menu + banner na hora
+    const p = (window.CLOUD && window.CLOUD.plano) || null;
+    _curPlano = p;
+    const nomes = { teste: "Teste", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
+    try { toast("Acesso atualizado ✓ — Plano " + (nomes[p] || p || "—")); } catch (e) {}
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label || "🔄 Atualizar"; }
+  }
 }
 // Overlay de bloqueio (SEM deslogar) — some sozinho quando o admin/pagamento liberar (poll de 5s).
 function showBlockOverlay(reason) {

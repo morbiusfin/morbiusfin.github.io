@@ -767,6 +767,9 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 .menu-plan-card .mpc-go { font-size: 12.5px; font-weight: 800; opacity: .9; white-space: nowrap; }
 .menu-exit { display: inline-flex; align-items: center; gap: 5px; background: rgba(229,72,77,.14); border: 1px solid rgba(229,72,77,.32); color: #ff6b6b; font-family: var(--font); font-weight: 800; font-size: 13px; padding: 7px 11px; border-radius: 10px; cursor: pointer; }
 .menu-exit:active { transform: scale(.95); }
+/* botão "Atualizar" (puxa a licença da nuvem na hora) — verde do app pra diferenciar do Sair (vermelho) */
+.menu-refresh { background: rgba(21,194,102,.16); border-color: rgba(21,194,102,.36); color: #15c266; }
+.menu-refresh:disabled { opacity: .6; cursor: default; }
 /* itens entram em sequência (cascata) ao abrir o menu + o ícone dá um "pop" */
 .menu-drawer:not(.hidden) .menu-item { animation: menuItemIn .42s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(.06s + var(--mi, 0) * .055s); }
 @keyframes menuItemIn { from { opacity: 0; transform: translateX(-22px); } to { opacity: 1; transform: none; } }
