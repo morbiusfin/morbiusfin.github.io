@@ -170,9 +170,13 @@
   async function cloudCheckLicenca() {
     try {
       var sb = sbClient(); if (!sb) return { ok: true, err: true };
-      var u = await sb.auth.getUser(); if (!u.data || !u.data.user) return { ok: true, err: true };
+      // E-MAIL da sessão SEM chamada de rede (getUser bate na API a cada poll e pode falhar/limitar).
+      // 1º usa o que já está na sessão (window.CLOUD.email); senão lê do getSession (local, sem rede).
+      var email = (window.CLOUD && window.CLOUD.email) ? window.CLOUD.email : "";
+      if (!email) { try { var s = await sb.auth.getSession(); if (s && s.data && s.data.session && s.data.session.user) email = s.data.session.user.email || ""; } catch (e) {} }
+      email = (email || "").toLowerCase().trim();
+      if (!email) return { ok: true, err: true };
       // Consulta por E-MAIL (mesma chave que o painel admin gerencia) — robusto, evita problema de user_id.
-      var email = (u.data.user.email || "").toLowerCase().trim();
       var q = await sb.from("licencas").select("status,plano,validade").eq("email", email).limit(1);
       if (q.error) return { ok: true, err: true };
       var l = q.data && q.data[0];
@@ -190,11 +194,29 @@
     } catch (e) { return { ok: true, err: true }; }
   }
 
+  // REALTIME: o Supabase EMPURRA qualquer mudança na linha de licença do usuário (admin mexeu →
+  // chega na hora, sem depender só do poll). Chama onChange a cada INSERT/UPDATE/DELETE da própria linha.
+  var _licChannel = null;
+  function cloudWatchLicenca(onChange) {
+    try {
+      var sb = sbClient(); if (!sb) return;
+      var email = (window.CLOUD && window.CLOUD.email) ? window.CLOUD.email.toLowerCase().trim() : "";
+      if (!email) return;
+      cloudUnwatchLicenca();
+      _licChannel = sb.channel("lic-" + email)
+        .on("postgres_changes", { event: "*", schema: "public", table: "licencas", filter: "email=eq." + email },
+          function () { try { if (typeof onChange === "function") onChange(); } catch (e) {} })
+        .subscribe();
+    } catch (e) {}
+  }
+  function cloudUnwatchLicenca() { try { if (_licChannel) { sbClient().removeChannel(_licChannel); _licChannel = null; } } catch (e) {} }
+
   window.MFCloud = {
     configured: cloudConfigured,
     signUp: cloudSignUp, signIn: cloudSignIn, push: cloudPush, pull: cloudPull,
     signOut: cloudSignOut, session: cloudSession, reset: cloudResetSenha,
     updatePassword: cloudUpdatePassword,
+    watchLicenca: cloudWatchLicenca, unwatchLicenca: cloudUnwatchLicenca,
     makeCt: cloudMakeCt, snapshot: cloudSnapshot, offlineUnlock: cloudOfflineUnlock,
     registerLicenca: cloudRegisterLicenca, checkLicenca: cloudCheckLicenca,
   };

@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.21.1";
-const VERSION_NOTES = "Recuperação de senha: tela pra definir a nova senha pelo link do e-mail.";
+const APP_VERSION = "3.21.2";
+const VERSION_NOTES = "Mudança de acesso/plano chega na hora (tempo real) + leitura mais confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.21.2",
+    bullets: [
+      "Mudou seu <b>acesso ou plano</b>? Agora chega <b>em tempo real</b> no app, na hora — sem esperar nem reabrir.",
+    ],
+  },
   {
     version: "3.21.1",
     bullets: [
@@ -7012,6 +7018,8 @@ async function cloudDoReset() {
 }
 function cloudDoLogout() {
   modalConfirm("Sair da conta neste aparelho? Você vai precisar entrar com email e senha de novo.", async () => {
+    try { stopLicensePoll(); } catch (e) {}
+    try { if (window.MFCloud && MFCloud.unwatchLicenca) MFCloud.unwatchLicenca(); } catch (e) {}
     try { await MFCloud.signOut(); } catch (e) {}
     try { localStorage.removeItem("financas2026.cloudDek"); localStorage.removeItem(CLOUD_LOCAL_KEY); } catch (e) {}
     window.CLOUD = { dek: null, email: null };
@@ -7842,6 +7850,7 @@ function startApp() {
   updateHdrPlan();             // pílula do plano acima da foto
   _curPlano = (window.CLOUD && window.CLOUD.plano) || null;   // baseline do plano (evita aviso falso)
   startLicensePoll();          // checa licença a cada 5s → admin reflete AO VIVO, sem re-login
+  try { if (window.MFCloud && MFCloud.watchLicenca) MFCloud.watchLicenca(licenseSync); } catch (e) {}   // Realtime: admin mexeu → push na hora
   render();
   if (curTab === "resumo" && !annual) renderCharts();
   checkAndNotify(); checkVersion();
