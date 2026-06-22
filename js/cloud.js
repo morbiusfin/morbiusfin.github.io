@@ -14,11 +14,16 @@
   function sbClient() {
     if (_sb) return _sb;
     if (!window.supabase || !window.supabase.createClient) return null;
+    // Detecta o link de recuperação JÁ ANTES de criar o cliente (detectSessionInUrl consome o hash):
+    // o redirect do reset traz ?reset=1 na query (sobrevive) + type=recovery no hash. Marca o estado
+    // de forma SÍNCRONA pra a tela "definir nova senha" abrir certo, sem corrida com o boot.
+    try {
+      if (/[?&]reset=1\b/.test(location.search) || /type=recovery/.test(location.hash) || /[?&]type=recovery/.test(location.search)) { window.MFCLOUD_RECOVERY = true; }
+    } catch (e) {}
     _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     });
     // Link de "esqueci minha senha" → o cliente troca o token na URL e dispara PASSWORD_RECOVERY.
-    // Marca o estado e avisa o app pra mostrar a tela de "definir nova senha".
     try {
       _sb.auth.onAuthStateChange(function (event) {
         if (event === "PASSWORD_RECOVERY") { window.MFCLOUD_RECOVERY = true; try { if (typeof window.__onRecovery === "function") window.__onRecovery(); } catch (e) {} }
@@ -124,7 +129,7 @@
   }
   async function cloudSignOut() { var sb = sbClient(); if (sb) { try { await sb.auth.signOut(); } catch (e) {} } window.CLOUD = { dek: null, email: null }; }
   async function cloudSession() { var sb = sbClient(); if (!sb) return null; var r = await sb.auth.getSession(); return (r.data && r.data.session) ? r.data.session : null; }
-  async function cloudResetSenha(email) { var sb = sbClient(); if (!sb) return { ok: false, reason: "sdk" }; var r = await sb.auth.resetPasswordForEmail((email || "").trim().toLowerCase(), { redirectTo: "https://morbiusfin.github.io" }); return { ok: !r.error, reason: r.error && r.error.message }; }
+  async function cloudResetSenha(email) { var sb = sbClient(); if (!sb) return { ok: false, reason: "sdk" }; var r = await sb.auth.resetPasswordForEmail((email || "").trim().toLowerCase(), { redirectTo: "https://morbiusfin.github.io/?reset=1" }); return { ok: !r.error, reason: r.error && r.error.message }; }
   // Reenvia o email de CONFIRMAÇÃO de conta (confirm-email ON). Usado pelo popup de confirmação.
   async function cloudResendConfirm(email) {
     try {

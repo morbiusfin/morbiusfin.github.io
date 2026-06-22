@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.25.4";
+const APP_VERSION = "3.25.5";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
@@ -8394,7 +8394,7 @@ async function boot() {
   applyConfigLink();
   // Chegou pelo link de "esqueci minha senha"? → tela de definir nova senha (antes de qualquer outra coisa).
   window.__onRecovery = function () { try { showResetPassword(); } catch (e) {} };
-  if (window.MFCLOUD_RECOVERY || /type=recovery/.test(location.hash) || /[?&]type=recovery/.test(location.search)) { showResetPassword(); return; }
+  if (window.MFCLOUD_RECOVERY || /[?&]reset=1\b/.test(location.search) || /type=recovery/.test(location.hash) || /[?&]type=recovery/.test(location.search)) { showResetPassword(); return; }
   if (!isProd() && /[?&]demo=1\b/.test(location.search)) { enterDemo(); return; }   // demo só fora da produção
   if (!isProd() && localStorage.getItem("financas2026.profile") === "test") { loadTestProfile(); return; }  // teste só fora da produção
   if (isProd() && localStorage.getItem("financas2026.profile") === "test") { try { localStorage.setItem("financas2026.profile", "real"); } catch (e) {} document.body.classList.remove("test-mode"); }  // se sobrou perfil de teste (localStorage é compartilhado com o /financas), na produção volta pro real
