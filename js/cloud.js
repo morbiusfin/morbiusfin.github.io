@@ -183,6 +183,21 @@
   async function cloudSetContato(nome, tel) {
     try { var sb = sbClient(); if (!sb) return; nome = (nome || "").trim(); tel = (tel || "").trim(); if (!nome && !tel) return; await sb.rpc("set_licenca_perfil", { p_nome: nome, p_tel: tel }); } catch (e) {}
   }
+  // Registra 1 ACESSO (abertura do app) na tabela 'acessos' — alimenta o dash de uso do admin.
+  // Throttle de 30 min por aparelho pra não inflar o "acessos por dia". Fail-silent (se a tabela não existir, nada quebra).
+  async function cloudLogAcesso() {
+    try {
+      var now = Date.now(), last = 0;
+      try { last = +(localStorage.getItem("financas2026.lastAcesso") || 0); } catch (e) {}
+      if (now - last < 30 * 60000) return;
+      var sb = sbClient(); if (!sb) return;
+      var uid = (window.CLOUD && window.CLOUD.uid) ? window.CLOUD.uid : "";
+      if (!uid) { try { var s = await sb.auth.getSession(); if (s && s.data && s.data.session && s.data.session.user) uid = s.data.session.user.id; } catch (e) {} }
+      if (!uid) return;
+      var r = await sb.from("acessos").insert({ user_id: uid });
+      if (!r.error) { try { localStorage.setItem("financas2026.lastAcesso", String(now)); } catch (e) {} }
+    } catch (e) {}
+  }
 
   // checa a licença no login. FAIL-OPEN: qualquer erro/sem linha/sem rede => libera (nunca trancar por bug).
   // Só barra em caso EXPLÍCITO: status 'bloqueado' ou validade vencida (validade null = vitalício, nunca expira).
@@ -248,7 +263,7 @@
     updatePassword: cloudUpdatePassword,
     watchLicenca: cloudWatchLicenca, unwatchLicenca: cloudUnwatchLicenca,
     makeCt: cloudMakeCt, snapshot: cloudSnapshot, offlineUnlock: cloudOfflineUnlock,
-    registerLicenca: cloudRegisterLicenca, checkLicenca: cloudCheckLicenca, setContato: cloudSetContato,
+    registerLicenca: cloudRegisterLicenca, checkLicenca: cloudCheckLicenca, setContato: cloudSetContato, logAcesso: cloudLogAcesso,
   };
   // Inicia o cliente já no carregamento → processa o token do link de recuperação (detectSessionInUrl)
   // e registra o listener de PASSWORD_RECOVERY mesmo antes de qualquer login.

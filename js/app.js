@@ -1,12 +1,18 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.24.0";
+const APP_VERSION = "3.25.0";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.25.0",
+    bullets: [
+      "Teste grátis agora é de <b>7 dias</b> pra todo mundo que cria conta.",
+    ],
+  },
   {
     version: "3.24.0",
     bullets: [
@@ -8080,6 +8086,7 @@ function startApp() {
   _curPlano = (window.CLOUD && window.CLOUD.plano) || null;   // baseline do plano (evita aviso falso)
   startLicensePoll();          // checa licença a cada 5s → admin reflete AO VIVO, sem re-login
   try { if (window.MFCloud && MFCloud.watchLicenca) MFCloud.watchLicenca(licenseSync); } catch (e) {}   // Realtime: admin mexeu → push na hora
+  try { if (window.MFCloud && MFCloud.logAcesso) MFCloud.logAcesso(); } catch (e) {}   // registra acesso (dash de uso do admin; throttle 30min)
   render();
   if (curTab === "resumo" && !annual) renderCharts();
   checkAndNotify(); checkVersion();
