@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.25.5";
+const APP_VERSION = "3.25.6";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
@@ -5239,6 +5239,14 @@ function openMenu() {
 }
 function closeMenu() { const m = $("#menuDrawer"); if (m) m.classList.add("hidden"); }
 // Plano atual da conta. Lê window.CLOUD (preenchido no login/checkLicenca).
+// Fim da validade no horário de BRASÍLIA (GMT-03): data "AAAA-MM-DD" vale até 23:59:59 do dia em Brasília
+// (não meia-noite UTC, que bloquearia ~21h do dia anterior). Devolve Date ou null.
+function fimDiaBR(v) {
+  if (!v) return null;
+  const s = String(v);
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + "T23:59:59-03:00") : new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
 function currentPlanInfo() {
   let plano = null, validade = null;
   try { plano = window.CLOUD && window.CLOUD.plano; validade = window.CLOUD && window.CLOUD.validade; } catch (e) {}
@@ -5249,7 +5257,8 @@ function currentPlanInfo() {
   const tier = nomes[plano] || plano;
   const vitalicio = (plano === "ultimate");
   let dias = null;
-  if (!vitalicio && validade) { const d = Math.ceil((new Date(validade) - new Date()) / 86400000); dias = d >= 0 ? d : 0; }
+  const fim = fimDiaBR(validade);
+  if (!vitalicio && fim) { const d = Math.ceil((fim - new Date()) / 86400000); dias = d >= 0 ? d : 0; }
   return { key, tier, vitalicio, dias };
 }
 // Pílula do plano no header (acima da foto do perfil).
@@ -5615,7 +5624,7 @@ function renderTrialBanner() {
     if (!plano || plano !== "teste") { el.classList.add("hidden"); return; }
     if (!validade) { el.classList.add("hidden"); return; }
     const agora = new Date();
-    const fim = new Date(validade);
+    const fim = fimDiaBR(validade) || new Date(validade);   // vence no fim do dia, horário de Brasília
     const diffMs = fim - agora;
     const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
     // FAIXA na tela principal só nos últimos 3 dias do Grátis (antes disso fica só o card do menu).

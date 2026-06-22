@@ -231,9 +231,10 @@
       _licDiag({ diag: "ok", key: (l.user_id === uid ? "uid" : "email"), uid: uid, plano: l.plano, status: l.status, validade: l.validade });
       if (l.status === "bloqueado") return { ok: false, reason: "bloqueado", plano: l.plano, validade: l.validade };
       if (l.validade) {
-        var agora = new Date();
-        var v = new Date(l.validade);
-        if (!isNaN(v.getTime()) && v < agora) return { ok: false, reason: "expirado", plano: l.plano, validade: l.validade };
+        // A validade é uma DATA; vale até o FIM daquele dia no horário de BRASÍLIA (GMT-03), não meia-noite UTC.
+        var vs = String(l.validade);
+        var v = /^\d{4}-\d{2}-\d{2}$/.test(vs) ? new Date(vs + "T23:59:59-03:00") : new Date(vs);
+        if (!isNaN(v.getTime()) && v.getTime() < Date.now()) return { ok: false, reason: "expirado", plano: l.plano, validade: l.validade };
       }
       return { ok: true, plano: l.plano, validade: l.validade };
     } catch (e) { _licDiag({ diag: "excecao", erro: String(e && e.message || e) }); return { ok: true, err: true, diag: "excecao" }; }
