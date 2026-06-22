@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.25.6";
+const APP_VERSION = "3.25.7";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
@@ -5247,6 +5247,8 @@ function fimDiaBR(v) {
   const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + "T23:59:59-03:00") : new Date(s);
   return isNaN(d.getTime()) ? null : d;
 }
+// Texto de dias restantes — MESMA redação do painel admin (pra app e admin baterem).
+function diasTxt(d) { return d <= 0 ? "vence hoje" : (d === 1 ? "falta 1 dia" : "faltam " + d + " dias"); }
 function currentPlanInfo() {
   let plano = null, validade = null;
   try { plano = window.CLOUD && window.CLOUD.plano; validade = window.CLOUD && window.CLOUD.validade; } catch (e) {}
@@ -5273,7 +5275,7 @@ function renderMenuPlanCard() {
   const planCard = $("#menuPlanCard"); if (!planCard) return;
   const info = currentPlanInfo();
   if (info) {
-    const right = info.vitalicio ? "vitalício" : (info.dias != null ? (info.dias <= 1 ? "último dia" : "faltam " + info.dias + " dias") : "");
+    const right = info.vitalicio ? "vitalício" : (info.dias != null ? diasTxt(info.dias) : "");
     planCard.innerHTML = '<span class="mpc-l">📋 <b>Plano ' + esc(info.tier) + "</b>" + (right ? " · " + esc(right) : "") + '</span><span class="mpc-go">Ver planos ›</span>';
     planCard.classList.remove("hidden");
     planCard.onclick = () => { closeMenu(); openPlanosModal(); };
@@ -5629,10 +5631,7 @@ function renderTrialBanner() {
     const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
     // FAIXA na tela principal só nos últimos 3 dias do Grátis (antes disso fica só o card do menu).
     if (diffDias > 3) { el.classList.add("hidden"); return; }
-    let texto;
-    if (diffDias <= 1) texto = "Plano Grátis · último dia — Assinar";
-    else texto = `Plano Grátis · faltam ${diffDias} dias — Assinar`;
-    el.textContent = texto;
+    el.textContent = "Plano Grátis · " + diasTxt(diffDias) + " — Assinar";
     el.classList.remove("hidden");
   } catch (e) {}
 }
