@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.25.7";
+const APP_VERSION = "3.25.8";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
@@ -4628,7 +4628,7 @@ function openEntryModal(tab, idx) {
   const valVal = isNew ? "" : (isDiaria ? (l.valor || "") : (l.vals[curMonth] || ""));
   const catField = isReceita ? "" : `<label class="field"><span>Categoria</span><select id="f_catId" class="sel">${catSelectHTML(isNew ? null : (isDiaria ? entryCatId(l) : l.catId))}</select></label>`;
   $("#entryForm").innerHTML = `
-    <label class="field"><span>Descrição</span><input id="f_desc" type="text" value="${isNew ? "" : esc(l.desc)}" required placeholder="Ex.: ${isReceita ? "Salário" : (isDiaria ? "Mercado" : "Aluguel")}" /></label>
+    <label class="field"><span>Descrição</span><div class="ac-wrap"><input id="f_desc" type="text" value="${isNew ? "" : esc(l.desc)}" required placeholder="Ex.: ${isReceita ? "Salário" : (isDiaria ? "Mercado" : "Aluguel")}" autocomplete="off" /><div id="f_descSug" class="ac-list hidden"></div></div></label>
     ${extra}
     ${catField}
     <label class="field"><span id="f_valLbl">Valor (${isDiaria ? "R$" : mLong(curMonth)})</span><input id="f_val" class="money" value="${valVal}" placeholder="0,00" required /></label>    <div class="field-row">
@@ -4641,6 +4641,8 @@ function openEntryModal(tab, idx) {
       <input id="f_rep" type="number" min="1" max="120" inputmode="numeric" value="12" /></label>`}`;
   const diaDefaultE = isNew ? (valMes === realMesAbs() ? REAL_TODAY.getDate() : null) : (l.dia || null);
   fillDaySelect("f_dia", "f_mes", diaDefaultE);   // novo lançamento no mês vigente → já vem com o dia de hoje
+  // Autocomplete de descrição (igual ao cartão): ao escolher, pré-preenche SÓ descrição + categoria — nada mais.
+  attachDescSuggest($("#f_desc"), $("#f_descSug"), (h) => { if (h.catId && $("#f_catId")) $("#f_catId").value = h.catId; });
   if (!isNew) { if (isReceita) $("#f_tipo").value = l.tipo || "Ativa"; if (!isDiaria) $("#f_st").value = l.sts[curMonth] || "vazio"; }
   else if (!isDiaria) $("#f_st").value = isReceita ? "recebido" : "pago";
   { const fa = $("#f_all"); if (fa) fa.onchange = () => { $("#f_rep_wrap").style.display = fa.checked ? "block" : "none"; }; }
@@ -6496,17 +6498,10 @@ function layoutCrop(center) {
 // Clamp ciente da rotação: a imagem (girada em torno do próprio centro) precisa cobrir o círculo
 // de raio R no centro do palco. Levo o centro do círculo pro referencial da imagem (des-rotaciono) e
 // limito a |x|≤dispW/2−R e |y|≤dispH/2−R. Como base = S/min(lado), min(dispW,dispH)≥S → sempre cobre.
-function clampCrop() {
-  const c = _crop, R = c.S / 2, th = (c.rot || 0) * Math.PI / 180;
-  const cx = c.tx + c.dispW / 2, cy = c.ty + c.dispH / 2;     // centro da imagem (coords do palco)
-  let vx = R - cx, vy = R - cy;                               // vetor centro-do-círculo − centro-da-imagem
-  const cs = Math.cos(th), sn = Math.sin(th);
-  let lx = vx * cs + vy * sn, ly = -vx * sn + vy * cs;        // gira v por −th (referencial da imagem)
-  const mx = Math.max(0, c.dispW / 2 - R), my = Math.max(0, c.dispH / 2 - R);
-  lx = Math.min(mx, Math.max(-mx, lx)); ly = Math.min(my, Math.max(-my, ly));
-  vx = lx * cs - ly * sn; vy = lx * sn + ly * cs;             // volta por +th
-  c.tx = (R - vx) - c.dispW / 2; c.ty = (R - vy) - c.dispH / 2;
-}
+// Pan/zoom LIVRES: sem limite de margem — a pessoa move a imagem pra qualquer lado, mesmo deixando
+// área vazia no círculo (o cropExport preenche o fundo onde não houver imagem). Antes isso travava o
+// arraste pra forçar a imagem a cobrir o círculo; agora é solto, como o Kaick pediu.
+function clampCrop() { /* no-op: movimento livre */ }
 function applyCrop() {
   const c = _crop, img = c.img; if (!img) return;
   img.style.width = c.dispW + "px"; img.style.height = c.dispH + "px";
