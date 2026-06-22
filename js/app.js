@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.25.2";
+const APP_VERSION = "3.25.3";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
@@ -5244,7 +5244,7 @@ function currentPlanInfo() {
   try { plano = window.CLOUD && window.CLOUD.plano; validade = window.CLOUD && window.CLOUD.validade; } catch (e) {}
   if (!plano && window.CLOUD && window.CLOUD.email) plano = "teste";   // logado mas sem leitura ainda → assume teste
   if (!plano) return null;
-  const nomes = { teste: "Novo", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
+  const nomes = { teste: "Grátis", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
   const key = nomes[plano] ? plano : "teste";
   const tier = nomes[plano] || plano;
   const vitalicio = (plano === "ultimate");
@@ -5618,10 +5618,11 @@ function renderTrialBanner() {
     const fim = new Date(validade);
     const diffMs = fim - agora;
     const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    // FAIXA na tela principal só nos últimos 3 dias do Grátis (antes disso fica só o card do menu).
+    if (diffDias > 3) { el.classList.add("hidden"); return; }
     let texto;
-    if (diffDias <= 0) texto = "Plano Novo · último dia grátis — Assinar";
-    else if (diffDias === 1) texto = "Plano Novo · último dia grátis — Assinar";
-    else texto = `Plano Novo · faltam ${diffDias} dias grátis — Assinar`;
+    if (diffDias <= 1) texto = "Plano Grátis · último dia — Assinar";
+    else texto = `Plano Grátis · faltam ${diffDias} dias — Assinar`;
     el.textContent = texto;
     el.classList.remove("hidden");
   } catch (e) {}
@@ -7937,7 +7938,7 @@ async function licenseSync() {
     var p = (window.CLOUD && window.CLOUD.plano) || null;
     applyPlanLive();                                          // header/banner/menu sempre em dia
     if (_curPlano !== null && p && p !== _curPlano) {
-      var nomes = { teste: "Novo", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
+      var nomes = { teste: "Grátis", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
       try { toast("Seu plano agora é " + (nomes[p] || p) + " ✓"); } catch (e) {}
     }
     _curPlano = p;
@@ -7982,7 +7983,7 @@ async function forceLicenseSync() {
     applyPlanLive();                                       // header + card do menu + banner na hora
     const p = (window.CLOUD && window.CLOUD.plano) || null;
     _curPlano = p;
-    const nomes = { teste: "Novo", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
+    const nomes = { teste: "Grátis", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
     try { toast("Acesso atualizado ✓ — Plano " + (nomes[p] || p || "—")); } catch (e) {}
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = label || "🔄 Atualizar"; }
