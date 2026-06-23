@@ -1,7 +1,7 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.25.8";
+const APP_VERSION = "3.25.9";
 const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
@@ -5259,10 +5259,11 @@ function currentPlanInfo() {
   const nomes = { teste: "Grátis", plus: "Plus", pro: "Pro", ultimate: "Ultimate" };
   const key = nomes[plano] ? plano : "teste";
   const tier = nomes[plano] || plano;
-  const vitalicio = (plano === "ultimate");
-  let dias = null;
+  // FLEXÍVEL: sem data = vitalício (sem prazo); COM data = expira e mostra os dias — vale pra QUALQUER plano.
   const fim = fimDiaBR(validade);
-  if (!vitalicio && fim) { const d = Math.ceil((fim - new Date()) / 86400000); dias = d >= 0 ? d : 0; }
+  const vitalicio = !fim;
+  let dias = null;
+  if (fim) { const d = Math.ceil((fim - new Date()) / 86400000); dias = d >= 0 ? d : 0; }
   return { key, tier, vitalicio, dias };
 }
 // Pílula do plano no header (acima da foto do perfil).
