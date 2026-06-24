@@ -164,6 +164,18 @@
   // 1) tenta a RPC ensure_licenca() (se o SQL foi rodado: SECURITY DEFINER, anti-clobber);
   // 2) FALLBACK robusto: se não há linha pra este usuário, cria o trial de 7 dias direto
   //    (idempotente; não duplica se já existir por user_id ou por email). Fail-silent.
+  // TESTE GRÁTIS (dias) — fonte única na tabela 'config' (editável pelo painel admin). Cai em 7 se faltar/erro.
+  var _trialDays = null;
+  async function cloudTrialDays() {
+    if (_trialDays != null) return _trialDays;
+    try {
+      var sb = sbClient();
+      if (sb) { var q = await sb.from("config").select("v").eq("k", "trial_days").limit(1); if (!q.error && q.data && q.data[0]) { var n = parseInt(q.data[0].v, 10); if (n >= 0 && n <= 365) _trialDays = n; } }
+    } catch (e) {}
+    if (_trialDays == null) _trialDays = 7;
+    try { window.CLOUD.trialDays = _trialDays; } catch (e) {}
+    return _trialDays;
+  }
   async function cloudRegisterLicenca(nome, tel) {
     try {
       var sb = sbClient(); if (!sb) return;
@@ -176,7 +188,7 @@
       if (!q1.error && !temLinha) {
         var skip = false;
         if (email) { var q2 = await sb.from("licencas").select("email").eq("email", email).limit(1); if (q2.error || (q2.data && q2.data.length)) skip = true; }
-        if (!skip) { var validade = new Date(Date.now() + 7 * 86400000).toISOString(); await sb.from("licencas").insert({ user_id: uid, email: email, status: "ativo", plano: "teste", validade: validade }); }   // 1ª vez: trial 7 dias (plano key="teste", rótulo "Novo" na UI)
+        if (!skip) { var _td = await cloudTrialDays(); var validade = new Date(Date.now() + _td * 86400000).toISOString(); await sb.from("licencas").insert({ user_id: uid, email: email, status: "ativo", plano: "teste", validade: validade }); }   // 1ª vez: trial = config.trial_days (padrão 7); plano key="teste", rótulo "Grátis"
       }
       // Sobe NOME+TELEFONE pro painel admin (colunas nome/telefone via RPC SECURITY DEFINER). NÃO entram no
       // insert de propósito: se o Kaick ainda não rodou o ALTER/RPC, a conta continua nascendo normal (fail-silent).
@@ -210,6 +222,7 @@
   function _licDiag(d) { try { window.__lic = Object.assign({ t: Date.now() }, d); } catch (e) {} return d; }
   async function cloudCheckLicenca() {
     try {
+      try { cloudTrialDays(); } catch (e) {}   // popula window.CLOUD.trialDays p/ a UI mostrar os dias certos
       var sb = sbClient(); if (!sb) { _licDiag({ diag: "sem-sdk" }); return { ok: true, err: true, diag: "sem-sdk" }; }
       // CHAVE = user_id (PK) OU email. user_id em memória (signIn) ou getSession (local, sem rede).
       var uid = (window.CLOUD && window.CLOUD.uid) ? window.CLOUD.uid : "";
@@ -269,7 +282,7 @@
     updatePassword: cloudUpdatePassword,
     watchLicenca: cloudWatchLicenca, unwatchLicenca: cloudUnwatchLicenca,
     makeCt: cloudMakeCt, snapshot: cloudSnapshot, offlineUnlock: cloudOfflineUnlock,
-    registerLicenca: cloudRegisterLicenca, checkLicenca: cloudCheckLicenca, setContato: cloudSetContato, logAcesso: cloudLogAcesso,
+    registerLicenca: cloudRegisterLicenca, checkLicenca: cloudCheckLicenca, setContato: cloudSetContato, logAcesso: cloudLogAcesso, trialDays: cloudTrialDays,
   };
   // Inicia o cliente já no carregamento → processa o token do link de recuperação (detectSessionInUrl)
   // e registra o listener de PASSWORD_RECOVERY mesmo antes de qualquer login.

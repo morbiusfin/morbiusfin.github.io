@@ -5717,7 +5717,7 @@ function renderPlanosModal(m) {
   m.innerHTML = `<div class="modal-card planos-card">
     <button type="button" class="wn-close" id="planosClose" aria-label="Fechar">✕</button>
     <h2 class="planos-title">Escolha seu plano</h2>
-    <p class="planos-sub">Comece com 7 dias grátis · cancele quando quiser</p>
+    <p class="planos-sub">Comece com ${(window.CLOUD && window.CLOUD.trialDays) || 7} dias grátis · cancele quando quiser</p>
     ${toggleHtml}
     <div class="planos-cards">${cardsHtml}</div>
     <p class="planos-note">Pagamento via Mercado Pago. Dúvidas: <a href="mailto:morbiusfin@gmail.com">morbiusfin@gmail.com</a></p>
