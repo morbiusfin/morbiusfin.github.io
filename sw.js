@@ -1,5 +1,5 @@
 /* Service Worker — network-first (sempre busca a versão nova; cache só offline) */
-const CACHE = "financas-v307";
+const CACHE = "financas-v308";
 const ASSETS = [
   "./", "./index.html", "./privacidade.html", "./termos.html", "./confirmado.html",
   "./css/styles.css",
@@ -72,15 +72,19 @@ self.addEventListener("message", (e) => { if (e.data === "skipWaiting") self.ski
 /* ---- Web Push ---- */
 self.addEventListener("push", (e) => {
   e.waitUntil((async () => {
-    // título = nome do app; corpo = só o nome da conta mais perto de vencer
-    let title = "MorbiusFin", body = "Você tem uma conta perto de vencer.";
-    try { if (e.data) { const d = e.data.json(); if (d.title) title = d.title; if (d.body) body = d.body; } } catch (err) {}
-    // se o app salvou o nome da conta mais próxima, usa ele
-    try {
-      const c = await caches.open("fin-meta");
-      const r = await c.match("/next-bill");
-      if (r) { const nb = await r.json(); if (nb && nb.name) body = nb.name; }
-    } catch (err) {}
+    // 1) Se o push trouxe PAYLOAD com texto (ex.: aviso disparado pelo painel = "vencendo nos próximos X dias"),
+    //    esse texto MANDA — não é sobrescrito pelo nome local.
+    let title = "MorbiusFin", body = null;
+    try { if (e.data) { const d = e.data.json(); if (d.title) title = d.title; if (typeof d.body === "string" && d.body) body = d.body; } } catch (err) {}
+    // 2) Push "vazio" (cron diário): usa o nome da conta mais perto de vencer salvo no cache LOCAL do aparelho.
+    if (!body) {
+      body = "Você tem conta(s) perto de vencer 👀";
+      try {
+        const c = await caches.open("fin-meta");
+        const r = await c.match("/next-bill");
+        if (r) { const nb = await r.json(); if (nb && nb.name) body = nb.name + " está perto de vencer"; }
+      } catch (err) {}
+    }
     await self.registration.showNotification(title, {
       body, icon: "icons/icon-192.png", badge: "icons/icon-192.png",
       tag: "contas", renotify: true, data: { url: "./index.html" }

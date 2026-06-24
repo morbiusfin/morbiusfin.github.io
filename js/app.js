@@ -1,12 +1,19 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.25.9";
-const VERSION_NOTES = "Sincronia de acesso/plano pela chave certa (user_id) — confiável.";
+const APP_VERSION = "3.26.0";
+const VERSION_NOTES = "Notificações de despesas a vencer com texto certo + aviso que pode ser disparado pelo painel.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.26.0",
+    bullets: [
+      "As <b>notificações de contas a vencer</b> agora chegam com a mensagem certa, mesmo com o app fechado.",
+      "Quando você liga as notificações, o app passa a manter seu aviso sempre <b>atualizado com as suas contas</b>.",
+    ],
+  },
   {
     version: "3.25.0",
     bullets: [
@@ -6028,6 +6035,27 @@ function runOpenSequence() {
   // 4) saudação do dia
   scheduleGreeting();
 }
+// email da conta logada — vira a "chave" que o painel admin usa pra mirar este usuário no push.
+async function pushEmail() {
+  try { if (window.CLOUD && window.CLOUD.email) return String(window.CLOUD.email).toLowerCase(); } catch (e) {}
+  try { if (window.MFCloud && MFCloud.session) { const s = await MFCloud.session(); if (s && s.user && s.user.email) return String(s.user.email).toLowerCase(); } } catch (e) {}
+  return null;
+}
+// No boot (já logado): se o push já está ligado, reenvia a inscrição p/ atualizar email + contas (bills)
+// no servidor — sem pedir nada ao usuário. Conserta inscrições antigas (sem email) e mantém as contas frescas.
+async function refreshPushSub() {
+  try {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !PUSH_API) return;
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return;   // não força inscrição nova no boot; só atualiza a que já existe
+    const bills = (DATA.fixas || []).filter(l => l.dia).map(l => ({ dia: l.dia, aviso: l.aviso || 0 }));
+    const email = await pushEmail();
+    const uid = (window.CLOUD && window.CLOUD.uid) || null;
+    await fetch(PUSH_API + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub, bills, email, uid }) });
+  } catch (e) {}
+}
 async function ativarPush() {
   // iPhone: notificação/push exigem o app instalado na tela de início (regra da Apple)
   if (isIOS() && !isStandalone()) {
@@ -6050,9 +6078,12 @@ async function ativarPush() {
     let sub = await reg.pushManager.getSubscription();
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) });
     localStorage.setItem("financas2026.pushsub", JSON.stringify(sub));
-    const bills = DATA.fixas.filter(l => l.dia).map(l => ({ desc: l.desc, dia: l.dia, aviso: l.aviso || 0 }));
+    // Manda só {dia, aviso} (sem o nome da conta — privacidade) + email/uid p/ o painel poder mirar a pessoa.
+    const bills = DATA.fixas.filter(l => l.dia).map(l => ({ dia: l.dia, aviso: l.aviso || 0 }));
+    const email = await pushEmail();
+    const uid = (window.CLOUD && window.CLOUD.uid) || null;
     if (PUSH_API) {
-      await fetch(PUSH_API + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub, bills }) });
+      await fetch(PUSH_API + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub, bills, email, uid }) });
       toast("✅ Push ativado — você será avisado mesmo com o app fechado.");
     } else {
       // notificação local já funciona; o aviso com app FECHADO precisa do servidor de push
@@ -8095,6 +8126,7 @@ function startApp() {
   startLicensePoll();          // checa licença a cada 5s → admin reflete AO VIVO, sem re-login
   try { if (window.MFCloud && MFCloud.watchLicenca) MFCloud.watchLicenca(licenseSync); } catch (e) {}   // Realtime: admin mexeu → push na hora
   try { if (window.MFCloud && MFCloud.logAcesso) MFCloud.logAcesso(); } catch (e) {}   // registra acesso (dash de uso do admin; throttle 30min)
+  setTimeout(refreshPushSub, 5000);   // se o push já está ligado, atualiza email+contas no servidor (silencioso)
   render();
   if (curTab === "resumo" && !annual) renderCharts();
   checkAndNotify(); checkVersion();
