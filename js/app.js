@@ -5192,31 +5192,8 @@ document.addEventListener("keydown", (e) => {
 });
 $("#btnCancel").onclick = closeModal;
 $("#modal").onclick = (e) => { if (e.target.id === "modal") closeModal(); };
-/* ===== Código de acesso (hash do id do aparelho). A trava de licença vive no painel admin;
-   aqui o app só EXIBE o código pra pessoa mandar ao administrador. Nada bloqueia por enquanto. ===== */
-const DEVICE_LS = "financas2026.deviceId";
-let _accessCode = null;
-async function deviceCode() {
-  if (_accessCode) return _accessCode;
-  let id = localStorage.getItem(DEVICE_LS);
-  if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : (Date.now() + "-" + Math.random() + "-" + Math.random())); localStorage.setItem(DEVICE_LS, id); }
-  try {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(id));
-    const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-    _accessCode = hex.slice(0, 8).toUpperCase();
-  } catch (e) { _accessCode = String(id).replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toUpperCase().padEnd(8, "0"); }
-  return _accessCode;
-}
-function fmtAccess(c) { return c && c.length === 8 ? c.slice(0, 4) + "-" + c.slice(4) : c; }
-function populateAccessCode() {
-  const el = $("#accessCode"); if (!el) return;
-  deviceCode().then(c => { el.textContent = fmtAccess(c); });
-}
-{ const cb = $("#copyAccess"); if (cb) cb.onclick = async () => { try { const c = await deviceCode(); await navigator.clipboard.writeText(fmtAccess(c)); toast("Código copiado 📋"); } catch (e) { toast("Copie manualmente"); } }; }
-
 function openSettings() {
   const si = $("#saldoInicial"); if (si) { si.value = DATA.saldoInicial ? fmtMoneyBR(DATA.saldoInicial) : ""; bindMoney(si); }   // formata com . e , igual aos demais valores
-  populateAccessCode();
   const sg = $("#setGreet");
   if (sg) {
     const row = sg.closest(".set-toggle");
@@ -7077,7 +7054,7 @@ const MANUAL = [
   ["➕ Adicionar, editar, apagar", "O <b>+</b> verde abre um novo lançamento na aba em que você está. Toque num item pra <b>editar</b>. Pra apagar, segure o dedo num item: ele entra no modo de seleção, e aí o <b>+</b> vira uma <b>🗑️ vermelha</b> no mesmo canto — marque os que quiser e toque na lixeira. Cancelou ou apagou? O <b>+</b> volta. O <b>↩︎</b> lá em cima desfaz. Uma mão na roda: os <b>centavos são automáticos</b>, então digitar 1000 vira R$ 10,00."],
   ["🟢 Badge de status", "Em Receitas, Fixas e Cartões, aquele selinho do lado do valor mostra se está <b>Pago/Recebido</b> (verde) ou <b>Programado</b> (âmbar). Toque direto nele pra alternar, sem precisar abrir a edição."],
   ["☰ Menu", "Aqui mora tudo: editar perfil, os tutoriais, conta e acesso (o PIN), backup e sincronização, categorias, metas, configurações, aviso de vencimento, tema, começar do zero e sair do app. Lá em cima, a barra de <b>Exploração do app</b> mostra o quanto você já passeou por ele."],
-  ["⚙️ Configurações & saldo inicial", "No menu ☰ → <b>Configurações</b>. O <b>Saldo inicial do ano</b> é quanto você já tinha guardado no comecinho do ano (ou o que sobrou do ano passado) — ele entra como ponto de partida em Janeiro e vai passando pros meses seguintes. Digite só os números, que ele <b>formata sozinho com ponto e vírgula</b> (ex.: 100000 vira <b>R$ 100.000,00</b>), igual a todo valor no app. Use ao <b>começar a usar o app no meio do ano</b> (ponha o que você tem hoje guardado) ou na <b>virada do ano</b>. Aqui também ligam/desligam a <b>saudação</b> de abertura e as <b>notificações</b>, e fica o seu <b>código de acesso</b>."],
+  ["⚙️ Configurações & saldo inicial", "No menu ☰ → <b>Configurações</b>. O <b>Saldo inicial do ano</b> é quanto você já tinha guardado no comecinho do ano (ou o que sobrou do ano passado) — ele entra como ponto de partida em Janeiro e vai passando pros meses seguintes. Digite só os números, que ele <b>formata sozinho com ponto e vírgula</b> (ex.: 100000 vira <b>R$ 100.000,00</b>), igual a todo valor no app. Use ao <b>começar a usar o app no meio do ano</b> (ponha o que você tem hoje guardado) ou na <b>virada do ano</b>. Aqui também ligam/desligam a <b>saudação</b> de abertura e os <b>avisos de contas a vencer</b> (com o <b>horário</b> que você preferir)."],
   ["👤 Perfil & conta conjunta", "Toque no avatar pra trocar a foto ou o bichinho, mudar o nome e o tipo de conta. Na opção <b>Conjunta</b>, você gera um convite (link ou QR) e manda pro seu par. Os dois celulares ficam sincronizados: o que um lança, aparece no do outro."],
   ["☁️ Backup e seus dados", "Seus dados ficam <b>só no seu celular</b>, então vale exportar um backup de vez em quando: menu → Backup e sincronização → Exportar, que gera um arquivo .json. Trocou de celular? Exporta no antigo e importa no novo. Sincronizar pela nuvem é opcional, fica a seu critério."],
   ["🔒 PIN, recuperação e segurança", "Em Conta e acesso você cria um <b>PIN de 4 dígitos</b> que embaralha (criptografa) seus dados. Na hora de criar, dá pra deixar uma <b>pergunta de recuperação</b> guardada. Esqueceu o código? Toque em “Esqueci meu código” e responda. Se errar muitas vezes, ele bloqueia por um tempo que vai aumentando a cada tentativa."],
