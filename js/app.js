@@ -1,12 +1,20 @@
 /* ===== Finanças 2026 — App (v2) ===== */
 let DATA = { year: 2026, saldoInicial: 0, receitas: [], fixas: [], cartao: [], diaria: [], metas: {} };
 window.CRYPTO_KEY = null;
-const APP_VERSION = "3.26.0";
-const VERSION_NOTES = "Notificações de despesas a vencer com texto certo + aviso que pode ser disparado pelo painel.";
+const APP_VERSION = "3.27.0";
+const VERSION_NOTES = "Ativação de notificações no 1º acesso + escolha do horário do aviso + recados do MorbiusFin.";
 
 /* ===== Changelog — últimas versões (mais recente primeiro) =====
    IMPORTANTE: textos do "o que melhorou" = amigáveis, sem jargão técnico, só o lado positivo. */
 const CHANGELOG = [
+  {
+    version: "3.27.0",
+    bullets: [
+      "Agora dá pra <b>escolher a que horas</b> você quer receber o aviso das contas a vencer — em Configurações ⏰.",
+      "Em Configurações você liga/desliga os <b>avisos de contas</b> quando quiser (os recados do MorbiusFin continuam chegando).",
+      "No primeiro acesso o app ajuda a <b>ativar as notificações</b>, pra você não perder nada.",
+    ],
+  },
   {
     version: "3.26.0",
     bullets: [
@@ -5221,6 +5229,20 @@ function openSettings() {
       toast(sg.checked ? "Saudação ligada 👋" : "Saudação desligada");
     };
   }
+  // 🔔 Avisos de contas a vencer (notifOn) + ⏰ horário (notifHora) — individuais, sincronizam com o servidor.
+  const sn = $("#setNotif");
+  if (sn) {
+    const row = sn.closest(".set-toggle");
+    const apply = () => { if (row) row.classList.toggle("on", sn.checked); const hw = $("#setNotifHoraWrap"); if (hw) hw.style.display = sn.checked ? "" : "none"; };
+    sn.checked = notifOn(); apply();
+    sn.onchange = () => { setNotifOn(sn.checked); apply(); refreshPushSub(); toast(sn.checked ? "Avisos de contas ligados 🔔" : "Avisos de contas desligados (recados do app continuam)"); };
+  }
+  const shora = $("#setNotifHora");
+  if (shora) {
+    if (!shora.options.length) { for (let h = 0; h < 24; h++) { const o = document.createElement("option"); o.value = String(h); o.textContent = (h < 10 ? "0" + h : h) + ":00"; shora.appendChild(o); } }
+    shora.value = String(notifHora());
+    shora.onchange = () => { setNotifHora(shora.value); refreshPushSub(); toast("Horário do aviso: " + (shora.value.length < 2 ? "0" + shora.value : shora.value) + ":00 ⏰"); };
+  }
   renderNotifBtn(); showModal("#settingsModal");
 }
 { const bs = $("#btnSettings"); if (bs) bs.onclick = openSettings; }   // botão saiu do header; fica no menu
@@ -6041,57 +6063,81 @@ async function pushEmail() {
   try { if (window.MFCloud && MFCloud.session) { const s = await MFCloud.session(); if (s && s.user && s.user.email) return String(s.user.email).toLowerCase(); } } catch (e) {}
   return null;
 }
-// No boot (já logado): se o push já está ligado, reenvia a inscrição p/ atualizar email + contas (bills)
-// no servidor — sem pedir nada ao usuário. Conserta inscrições antigas (sem email) e mantém as contas frescas.
+// ===== Preferências de notificação (individuais, neste aparelho) =====
+//  • notifOn  → AVISOS DO APP (contas a vencer). Usuário liga/desliga em Configurações.
+//  • notifHora→ a que horas (Brasília) ele quer receber esses avisos.
+//  Os RECADOS DO ADMIN ignoram isto e SEMPRE chegam (canal separado, controlado pelo painel).
+const NOTIF_ON_KEY = "financas2026.notifOn";
+const NOTIF_HORA_KEY = "financas2026.notifHora";
+function notifOn() { try { return localStorage.getItem(NOTIF_ON_KEY) !== "0"; } catch (e) { return true; } }   // padrão LIGADO
+function setNotifOn(v) { try { localStorage.setItem(NOTIF_ON_KEY, v ? "1" : "0"); } catch (e) {} }
+function notifHora() { try { const h = parseInt(localStorage.getItem(NOTIF_HORA_KEY), 10); return (h >= 0 && h <= 23) ? h : 8; } catch (e) { return 8; } }
+function setNotifHora(h) { try { localStorage.setItem(NOTIF_HORA_KEY, String(parseInt(h, 10) || 0)); } catch (e) {} }
+
+// Garante/atualiza a inscrição de push NO SERVIDOR (silencioso). Só roda se a permissão já foi dada.
+// CRIA a inscrição se ainda não existe — é isto que liga o canal do admin ("sempre chega").
+// Sobe email/uid (mirar a pessoa) + preferências (notifOn/hora) + contas {dia,aviso} (sem o nome — privacidade).
 async function refreshPushSub() {
   try {
     if (!("Notification" in window) || Notification.permission !== "granted") return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !PUSH_API) return;
     const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (!sub) return;   // não força inscrição nova no boot; só atualiza a que já existe
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) { try { sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) }); } catch (e) { return; } }
+    try { localStorage.setItem("financas2026.pushsub", JSON.stringify(sub)); } catch (e) {}
     const bills = (DATA.fixas || []).filter(l => l.dia).map(l => ({ dia: l.dia, aviso: l.aviso || 0 }));
     const email = await pushEmail();
     const uid = (window.CLOUD && window.CLOUD.uid) || null;
-    await fetch(PUSH_API + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub, bills, email, uid }) });
+    await fetch(PUSH_API + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub, bills, email, uid, notifOn: notifOn(), hora: notifHora() }) });
   } catch (e) {}
 }
+// Interativo: pede permissão (com toasts) e então assina/atualiza no servidor. Retorna true se ficou ativo.
 async function ativarPush() {
-  // iPhone: notificação/push exigem o app instalado na tela de início (regra da Apple)
   if (isIOS() && !isStandalone()) {
     toast("📲 No iPhone, instale primeiro: Compartilhar ⬆️ → Adicionar à Tela de Início. Depois abra pelo ÍCONE e ative aqui.");
-    return;
+    return false;
   }
   if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
     toast("Este navegador não suporta push. No iPhone, abra pelo app instalado na tela de início.");
-    return;
+    return false;
   }
   let perm = Notification.permission;
   if (perm === "default") perm = await Notification.requestPermission();
-  if (perm === "denied") {
-    toast("🔕 Notificações bloqueadas. Ative nos Ajustes (Notificações deste app/site) e tente de novo.");
-    return;
-  }
-  if (perm !== "granted") { toast("Sem permissão de notificação."); return; }
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) });
-    localStorage.setItem("financas2026.pushsub", JSON.stringify(sub));
-    // Manda só {dia, aviso} (sem o nome da conta — privacidade) + email/uid p/ o painel poder mirar a pessoa.
-    const bills = DATA.fixas.filter(l => l.dia).map(l => ({ dia: l.dia, aviso: l.aviso || 0 }));
-    const email = await pushEmail();
-    const uid = (window.CLOUD && window.CLOUD.uid) || null;
-    if (PUSH_API) {
-      await fetch(PUSH_API + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub, bills, email, uid }) });
-      toast("✅ Push ativado — você será avisado mesmo com o app fechado.");
-    } else {
-      // notificação local já funciona; o aviso com app FECHADO precisa do servidor de push
-      toast("✅ Notificações ligadas. (Aviso com app fechado precisa ligar o servidor — falo com você sobre isso.)");
-      enviarTeste();
-    }
-  } catch (e) { toast("Falha ao ativar: " + ((e && e.message) || e)); }
+  if (perm === "denied") { toast("🔕 Notificações bloqueadas. Ative nos Ajustes (Notificações deste app/site) e tente de novo."); return false; }
+  if (perm !== "granted") { toast("Sem permissão de notificação."); return false; }
+  await refreshPushSub();
+  toast("✅ Notificações ativadas — você será avisado mesmo com o app fechado.");
   render();
+  return true;
+}
+// No boot (já logado): se já tem permissão, garante a inscrição (silencioso). Se ainda não tem, mostra o
+// convite de ativação 1x (não no iPhone fora do app instalado, onde a Apple não permite push).
+async function ensurePush() {
+  try {
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (Notification.permission === "granted") { refreshPushSub(); return; }
+    if (isIOS() && !isStandalone()) return;
+    if (localStorage.getItem("financas2026.pushOnboardV1") === "1") return;
+    openPushOnboard(false);
+  } catch (e) {}
+}
+// Convite de ativação. firstAccess=true vem logo após o perfil obrigatório do 1º acesso.
+function openPushOnboard(firstAccess) {
+  try { if (!firstAccess && localStorage.getItem("financas2026.pushOnboardV1") === "1") return; } catch (e) {}
+  let m = document.getElementById("pushOnbModal");
+  if (!m) { m = document.createElement("div"); m.id = "pushOnbModal"; m.className = "modal center hidden"; document.body.appendChild(m); m.addEventListener("click", e => { if (e.target === m) {} }); }
+  const iosNoInstall = isIOS() && !isStandalone();
+  m.innerHTML = '<div class="modal-card aviso-card">'
+    + '<div class="aviso-head"><span>🔔</span><h2>Ative as notificações</h2></div>'
+    + '<p class="aviso-sub">Pra você não perder <b>contas a vencer</b> e receber os <b>recados do MorbiusFin</b>, ative as notificações. Os avisos de contas você ajusta depois em Configurações ⏰.</p>'
+    + (iosNoInstall ? '<p class="aviso-note">📲 No iPhone: adicione o app à <b>Tela de Início</b> (Compartilhar ⬆️ → Adicionar à Tela de Início), abra pelo ícone e ative por aqui.</p>' : '')
+    + '<button type="button" class="btn primary" id="poGo" style="width:100%">🔔 Ativar agora</button>'
+    + '<button type="button" class="btn ghost" id="poSkip" style="width:100%;margin-top:8px">' + (firstAccess ? 'Continuar sem ativar' : 'Agora não') + '</button>'
+    + '<p class="aviso-note" style="margin-top:8px">Os recados do MorbiusFin chegam sempre que você ativar; os avisos de contas você liga/desliga quando quiser.</p></div>';
+  const done = () => { try { localStorage.setItem("financas2026.pushOnboardV1", "1"); } catch (e) {} m.classList.add("hidden"); };
+  m.querySelector("#poGo").onclick = async () => { const ok = await ativarPush(); if (ok) done(); };
+  m.querySelector("#poSkip").onclick = done;
+  showModal("#pushOnbModal");
 }
 
 // Em Configurações ficou SÓ a notificação. Tema, PIN e sincronização vivem no menu ☰.
@@ -6101,7 +6147,7 @@ function renderNotifBtn() {
   wrap.innerHTML = (perm === "granted"
     ? `<div class="hint">🔔 Notificações do sistema ativadas.</div><button class="btn ghost" id="btnTest">📲 Enviar notificação de teste</button>`
     : `<button class="btn primary" id="btnNotif">🔔 Ativar notificações</button><p class="hint" style="margin-top:6px">O <b>aviso dentro do app</b> (ao abrir) já funciona sem instalar. A notificação do <b>sistema</b> funciona no PC/Android; no iPhone, só com o app na tela de início.</p>`);
-  const b = $("#btnNotif"); if (b) b.onclick = pedirNotificacao;
+  const b = $("#btnNotif"); if (b) b.onclick = ativarPush;   // assina de verdade no servidor (não só pede permissão)
   const tb = $("#btnTest"); if (tb) tb.onclick = enviarTeste;
 }
 // Linha de diagnóstico da sincronização (mostra se está realmente puxando)
@@ -6415,9 +6461,12 @@ function saveProfile() {
   // Sobe NOME + TELEFONE pro painel admin (colunas licencas.nome/telefone via RPC). E2E intacto: só nome/tel
   // vão em claro na licença (igual o e-mail), nunca os números/dados financeiros.
   try { if (window.MFCloud && MFCloud.setContato) MFCloud.setContato(nome, tel); } catch (e) {}
+  const wasMand = _profMandatory;
   _profMandatory = false;
   $("#profileModal").classList.add("hidden");
   toast("Perfil salvo ✅");
+  // 1º acesso: logo após nome+telefone obrigatórios, convida a ATIVAR as notificações (liga o canal do admin).
+  if (wasMand) setTimeout(() => { try { openPushOnboard(true); } catch (e) {} }, 420);
 }
 (function bindProfile() {
   const open = $("#btnProfile"); if (open) open.onclick = openProfile;
@@ -6923,6 +6972,8 @@ const FAQ = [
     d: "No menu ☰ → <b>Tema</b>: alterne entre <b>Claro</b>, <b>Escuro</b> e <b>Automático</b> (segue o sistema). A troca é suave, sem piscar a tela." },
   { t: "👋 Saudação ao abrir", go: "config", btn: "Abrir Configurações",
     d: "Ao abrir o app aparece uma <b>saudação</b> (Bom dia/Boa tarde/Boa noite conforme a hora) com o seu nome e um emoji animado. O botão tem um <b>contador (3 → 1)</b> e some sozinho no zero — ou toque pra fechar na hora. Pra <b>ligar/desligar</b>: menu ☰ → <b>Configurações</b> → chave <b>Saudação ao abrir o app</b>." },
+  { t: "🔔 Notificações", go: "config", btn: "Abrir Configurações",
+    d: "São <b>dois tipos</b>: <b>1) Avisos de contas a vencer</b> — o app te lembra das contas perto do vencimento, mesmo fechado. Em <b>Configurações</b> você <b>liga/desliga</b> esses avisos e escolhe <b>a que horas</b> quer recebê-los (⏰). <b>2) Recados do MorbiusFin</b> — mensagens nossas (novidades, lembretes); essas <b>chegam sempre</b> que as notificações estiverem ativas. Pra ativar: menu ☰ → <b>Configurações</b> → <b>Ativar notificações</b>. No iPhone, só com o app na Tela de Início." },
 ];
 let _faqReturnT = null, _faqReturnIdx = 0;
 function faqGo(action) {
@@ -7054,7 +7105,7 @@ const TUTORIAL = [
   ["👋", "Bem-vindo ao MorbiusFin", "É o seu controle de contas do mês, sem complicação e no bolso. Em poucos passos você pega o jeito. Pode pular quando quiser.", "aceno"],
   ["📋", "Resumo do mês", "Aqui dá pra ver pra onde o seu dinheiro vai: o que entrou, o que saiu e o que sobra no fim. No topo você troca entre Resumo, Gráficos, Insights e Metas.", "grafico"],
   ["🔥", "Ritmo de gastos", "Em Gráficos, o primeiro card mostra quanto você já gastou acumulado, dia a dia, comparado com o mês passado e a média dos últimos 3 meses. No seletor do topo dá pra filtrar por Tudo, Fixas, Cartões ou Débito.", "fogo"],
-  ["🔔", "Contas a vencer", "O sino lá em cima avisa quando tem conta chegando perto do prazo ou já atrasada. Toque pra ver e pagar, e ele para de piscar.", "sino"],
+  ["🔔", "Contas a vencer", "O sino lá em cima avisa quando tem conta chegando perto do prazo ou já atrasada. Toque pra ver e pagar, e ele para de piscar. Quer ser avisado mesmo com o app fechado? Ative as notificações em Configurações e escolha o horário (⏰) — e ainda recebe os recados do MorbiusFin.", "sino"],
   ["➕", "Lançar gastos e ganhos", "Nas abas de baixo (Receitas, Fixas, Cartões e Débito), o + adiciona. No Cartão dá pra parcelar em até 60× — e o limite já considera todas as parcelas, liberando conforme você paga. No Débito é rapidinho: descrição, valor, categoria e dia.", "mais"],
   ["🏷️", "Categorias e metas", "No menu você cria categorias com emoji e define quanto quer gastar em cada uma. Para achar o emoji rápido, toque nele e busque por nome (em português ou inglês): “beijinho”, “dinheiro”, “gato”… Verde quer dizer que está dentro, vermelho quer dizer que passou.", "moeda"],
   ["🎯", "Metas (objetivos)", "No topo do Resumo, toque em 🎯 Metas. Crie um objetivo como uma viagem, a casa ou o carro: diga quanto custa e quanto já guardou. A barrinha mostra o progresso e o emoji muda conforme o objetivo.", "alvo"],
@@ -8126,7 +8177,7 @@ function startApp() {
   startLicensePoll();          // checa licença a cada 5s → admin reflete AO VIVO, sem re-login
   try { if (window.MFCloud && MFCloud.watchLicenca) MFCloud.watchLicenca(licenseSync); } catch (e) {}   // Realtime: admin mexeu → push na hora
   try { if (window.MFCloud && MFCloud.logAcesso) MFCloud.logAcesso(); } catch (e) {}   // registra acesso (dash de uso do admin; throttle 30min)
-  setTimeout(refreshPushSub, 5000);   // se o push já está ligado, atualiza email+contas no servidor (silencioso)
+  setTimeout(ensurePush, 5000);   // garante inscrição (canal do admin) ou convida a ativar 1x; atualiza email+prefs
   render();
   if (curTab === "resumo" && !annual) renderCharts();
   checkAndNotify(); checkVersion();
