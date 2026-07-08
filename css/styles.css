@@ -1487,7 +1487,10 @@ body.kbd-open #fab { opacity: 0; pointer-events: none; transform: none; }
 /* fundo congelado enquanto um modal está aberto (não rola por trás do bottom-sheet) */
 /* position:fixed é aplicado INLINE pelo lockScroll() só quando a página rola (vide #bugfix-debito-raia);
    aqui ficam só os estilos que valem com ou sem o fixed. */
-body.scroll-locked { left: 0; right: 0; width: 100%; overflow: hidden; overscroll-behavior: none; }
+/* position:fixed é o ÚNICO jeito que trava o scroll do fundo no iOS de verdade (overflow:hidden no body
+   o iOS IGNORA). O top = -scrollY é setado inline no lockScroll; a tabbar fica visibility:hidden (fora do
+   toque, mas no render tree → NÃO perde a âncora, volta no lugar ao fechar). #scroll-fundo-modal */
+body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; overflow: hidden; overscroll-behavior: none; }
 
 
 /* ===== MODAL ===== */
