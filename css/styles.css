@@ -1229,6 +1229,15 @@ body.lock-on > #recModal { visibility: visible !important; z-index: 1300; }
 .health-sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
 .health-sub b { color: var(--ink); font-weight: 800; }
 
+/* ===== Reserva de emergência + % da renda comprometida ===== */
+.reserva-card h3 { padding-bottom: 4px; }
+.reserva-block { padding: 6px 16px 14px; }
+.reserva-block + .reserva-block { border-top: 1px dashed var(--line); padding-top: 12px; }
+.reserva-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; font-size: 13.5px; padding: 3px 0; }
+.reserva-row span i { font-style: normal; color: var(--muted); font-size: 11px; display: block; font-weight: 600; margin-top: 1px; }
+.reserva-row b { font-weight: 800; white-space: nowrap; }
+.reserva-frase { font-size: 12px; font-weight: 700; margin-top: 4px; }
+
 /* ===== Insights ===== */
 .insights { padding: 6px 16px 14px; }
 .insight { display: flex; gap: 11px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; line-height: 1.45; }
@@ -1791,6 +1800,7 @@ body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; ov
   .rpt-resumo { display: flex; flex-direction: column; }
   .rpt-rate { margin-top: auto; font-size: 11px; color: #5b6b63; padding: 8px 11px; border-top: 1px solid #eef2f0; }
   .rpt-rate b { color: #0f7a43; }
+  .rpt-rate.rpt-extra { margin-top: 0; padding: 3px 11px 0; border-top: 0; font-size: 10.5px; }
   .rpt-cols { display: flex; gap: 10px; }
   .rpt-cols .rpt-card { flex: 1; }
   .rpt-card { border: 1px solid #e2e8e5; border-radius: 12px; overflow: hidden; margin-bottom: 11px; }
