@@ -1761,15 +1761,16 @@ body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; ov
   body.printing::before, body.printing::after { display: none !important; content: none !important; }
   /* cores TÊM que sair na impressão (senão o navegador remove os fundos) */
   #printArea, #printArea * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  #printArea { padding: 9mm; color: #10231a; font-family: var(--font); }
+  #printArea { padding: 6mm 8mm; color: #10231a; font-family: var(--font); }
+  #printArea .rpt { max-height: 281mm; overflow: hidden; }   /* garante 1 PÁGINA só (A4 útil ~285mm - folga) — nunca vaza pra página 2 */
   /* uma página só: nenhum bloco se parte entre páginas */
   .rpt, .rpt-kpis, .rpt-mid, .rpt-cols, .rpt-card, .rpt-chart, .rpt-ref { break-inside: avoid; }
-  .rpt-top { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #15c266; padding-bottom: 9px; margin-bottom: 13px; }
+  .rpt-top { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #15c266; padding-bottom: 8px; margin-bottom: 10px; }
   .rpt-brand { font-size: 23px; font-weight: 900; color: #0f7a43; letter-spacing: -.3px; }
   .rpt-logo { font-size: 20px; }
   .rpt-when { font-size: 11px; color: #5b6b63; text-align: right; line-height: 1.45; }
   .rpt-when b { color: #10231a; }
-  .rpt-kpis { display: flex; gap: 9px; margin-bottom: 12px; }
+  .rpt-kpis { display: flex; gap: 9px; margin-bottom: 9px; }
   .rpt-kpi { flex: 1; border-radius: 13px; padding: 12px 13px; color: #fff; }
   .rpt-kpi.k-in { background: linear-gradient(135deg, #17c268, #0f9a4c); }
   .rpt-kpi.k-out { background: linear-gradient(135deg, #f0616a, #d23b42); }
@@ -1784,7 +1785,7 @@ body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; ov
   .rpt-bar-seg.s-deb { background: #2b7fd6; }
   .rpt-bar-cap { font-size: 9.5px; color: #5b6b63; margin: 4px 0 13px; text-align: center; }
   /* linha do meio: donut (gráfico) + resumo do mês lado a lado */
-  .rpt-mid { display: flex; gap: 10px; margin-bottom: 11px; align-items: stretch; }
+  .rpt-mid { display: flex; gap: 10px; margin-bottom: 8px; align-items: stretch; }
   .rpt-mid .rpt-chart, .rpt-mid .rpt-resumo { flex: 1; margin-bottom: 0; }
   .rpt-chart { border: 1px solid #e2e8e5; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
   .rpt-chart-in { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
@@ -1803,7 +1804,7 @@ body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; ov
   .rpt-rate.rpt-extra { margin-top: 0; padding: 3px 11px 0; border-top: 0; font-size: 10.5px; }
   .rpt-cols { display: flex; gap: 10px; }
   .rpt-cols .rpt-card { flex: 1; }
-  .rpt-card { border: 1px solid #e2e8e5; border-radius: 12px; overflow: hidden; margin-bottom: 11px; }
+  .rpt-card { border: 1px solid #e2e8e5; border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
   .rpt-card-h { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; padding: 7px 11px; color: #fff; }
   .rpt-card-h.g { background: #0f9a4c; }
   .rpt-card-h.r { background: #d23b42; }
@@ -1822,7 +1823,7 @@ body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; ov
   .rpt-ref-big { font-size: 15px; font-weight: 900; color: #0f7a43; }
   .rpt-ref-sub { font-size: 11px; color: #5b6b63; margin-top: 2px; line-height: 1.4; }
   .rpt-ref-badge { font-size: 15px; font-weight: 900; color: #fff; background: #17c268; border-radius: 999px; padding: 6px 13px; white-space: nowrap; }
-  .rpt-foot { margin-top: 14px; font-size: 9.5px; color: #98a29c; text-align: center; }
+  .rpt-foot { margin-top: 9px; font-size: 9.5px; color: #98a29c; text-align: center; }
 }
 .th-opt { flex: 1; background: 0; border: 0; padding: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 7px; }
 .th-prev { width: 100%; aspect-ratio: 9/16; border-radius: 14px; border: 2.5px solid var(--line); overflow: hidden; position: relative;
