@@ -1496,6 +1496,11 @@ body.party-on .tabbar, body.party-on #fab {
 /* Teclado aberto: a tabbar SAI do render tree (display:none) → no iOS não tem como driftar/subir
    no scroll. Reaparece ao fechar o teclado. O FAB também some. */
 body.kbd-open .tabbar { display: none !important; }
+/* REFORÇO CSS puro (instantâneo, sem depender do timing do JS keyboardAware nem da plataforma):
+   qualquer campo de TEXTO focado (= teclado aberto no iOS/Android) → tabbar SOME na hora (display:none,
+   fora do render tree → não drifta/sobe). Ao desfocar (teclado fecha) volta ao MESMO lugar. #bugfix-tabbar-teclado */
+body:has(input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="range"]):focus) .tabbar,
+body:has(textarea:focus) .tabbar { display: none !important; }
 /* teclado aberto / pop-up: o + SOME no lugar (sem deslizar). Senão, ao salvar e o teclado fechar,
    ele "saltava" de baixo pra cima (parecia que o + e a barra se levantavam). Agora só aparece/some. */
 body.kbd-open #fab { opacity: 0; pointer-events: none; transform: none; }
