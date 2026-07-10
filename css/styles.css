@@ -985,6 +985,7 @@ body.test-mode .test-badge button:active { transform: scale(.96); }
   mask-image: linear-gradient(to right, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%); }
 .month-bar::-webkit-scrollbar { display: none; }
 .month-chip {
+  position: relative;
   flex: 0 0 auto; background: rgba(255,255,255,.12); color: rgba(255,255,255,.92); border: 1px solid rgba(255,255,255,.08);
   padding: 11px 15px; border-radius: 20px; font-size: 14px; font-weight: 700; letter-spacing: .2px; scroll-snap-align: center; touch-action: manipulation;
   transition: transform .18s cubic-bezier(.2,.8,.2,1), background .25s ease, color .25s ease, box-shadow .25s ease;
@@ -992,6 +993,9 @@ body.test-mode .test-badge button:active { transform: scale(.96); }
 .month-chip:active { transform: scale(.9); }
 .month-chip.active { background: #fff; color: var(--green); box-shadow: 0 6px 18px rgba(0,0,0,.25); transform: scale(1.06); }
 .month-chip.ano { background: rgba(255,255,255,.22); }
+/* MÊS VIGENTE (mês real de hoje): realce próprio, mesmo com outro mês selecionado */
+.month-chip.vigente:not(.active) { background: rgba(21,194,102,.22); color: #eafff3; border-color: rgba(21,194,102,.7); }
+.month-chip.vigente::after { content: ""; position: absolute; top: 6px; right: 8px; width: 6px; height: 6px; border-radius: 50%; background: #15c266; box-shadow: 0 0 6px rgba(21,194,102,.9); }
 
 /* ===== MAIN ===== */
 main { padding: 18px 18px 16px; max-width: 640px; width: 100%; margin: 0 auto; flex: 1 0 auto; align-self: center; }
@@ -2007,6 +2011,15 @@ body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; ov
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .toast.hidden { display: none; }
 
+/* ===== SNACKBAR com ação (ex.: desfazer lote de import CSV) — fica ACIMA do toast pra não colidir ===== */
+.snackbar { position: fixed; bottom: calc(156px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: 12px 12px 12px 18px; border-radius: 24px; font-size: 13px; font-weight: 700; z-index: 201;
+  box-shadow: var(--shadow-lg); max-width: 92%; display: flex; align-items: center; gap: 10px; animation: toastIn .26s cubic-bezier(.2,.8,.2,1) both; }
+.snackbar.hidden { display: none; }
+.snackbar .sb-txt { flex: 1; line-height: 1.3; }
+.snackbar .sb-btn { background: var(--accent); color: #fff; border: none; border-radius: 16px; padding: 9px 14px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.snackbar .sb-btn:active { transform: scale(.96); }
+
 /* ===== Card "Contas a vencer" (prioridade no topo do Resumo) ===== */
 .venc-card { padding: 4px 0 6px; border-color: var(--line);
   box-shadow: 0 10px 34px rgba(245,166,35,.10), var(--shadow); position: relative; overflow: hidden; }
@@ -2251,9 +2264,12 @@ body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; ov
 /* ===== Subtítulo de seção ===== */
 .h3-sub { font-style: normal; font-weight: 600; color: var(--muted); font-size: 11.5px; }
 
-/* ===== Medidor: pulsação suave contínua ===== */
-@keyframes gaugePulse { 0%,100% { opacity: 1; } 50% { opacity: .72; } }
-.g-arc { animation: gaugePulse 2.6s ease-in-out infinite; }
+/* ===== Medidor: respiro contínuo — o arco "puxa" um tico pra cima (mais cheio) e volta, com brilho na cor ===== */
+@keyframes gaugeBreathe { 0%,100% { stroke-dashoffset: var(--goff); } 50% { stroke-dashoffset: var(--goff-hi); } }
+@keyframes gaugeGlow { 0%,100% { opacity: .9; filter: drop-shadow(0 0 0 transparent); } 50% { opacity: 1; filter: drop-shadow(0 0 5px currentColor); } }
+/* delay .9s: deixa a animação de PREENCHIMENTO inicial (len→off, transição .8s) terminar antes do respiro assumir */
+.g-arc.breathe { animation: gaugeBreathe 2.5s ease-in-out .9s infinite, gaugeGlow 2.5s ease-in-out .9s infinite; }
+@media (prefers-reduced-motion: reduce) { .g-arc.breathe { animation: none; } }
 
 /* ===== Impacto do lançamento (posso gastar?) ===== */
 .impact { margin-top: 6px; padding: 13px 14px; border-radius: 14px; background: var(--card-2); border: 1px solid var(--line);
