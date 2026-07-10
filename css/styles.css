@@ -729,19 +729,17 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 .trial-banner:active { opacity: .8; }
 
 /* ===== Modal de planos (só mensal) ===== */
-.planos-card { max-width: 440px !important; padding: 24px 20px 20px !important; overflow: hidden; }
-/* SCROLL-SHADOW (técnica de fundo em camadas): as "cobertas" (cor do card) rolam com o conteúdo (local) e escondem
-   a sombra quando está no fim; as sombras (radiais) ficam fixas (scroll) e SÓ aparecem quando há mais pra rolar.
-   Resultado: sombra suave no topo/base que "melhora ao rolar", sem JS. (dois-classes p/ vencer o bg do .modal-card) */
-.modal-card.planos-card {
-  background:
-    linear-gradient(var(--card) 30%, rgba(0,0,0,0)) top / 100% 34px no-repeat,
-    linear-gradient(rgba(0,0,0,0), var(--card) 70%) bottom / 100% 34px no-repeat,
-    radial-gradient(farthest-side at 50% 0, rgba(0,0,0,.38), rgba(0,0,0,0)) top / 100% 13px no-repeat,
-    radial-gradient(farthest-side at 50% 100%, rgba(0,0,0,.38), rgba(0,0,0,0)) bottom / 100% 13px no-repeat,
-    var(--card);
-  background-attachment: local, local, scroll, scroll;
-}
+.planos-card { max-width: 440px !important; }
+/* SCROLL-SHADOW à prova de iOS: o card NÃO rola (overflow hidden); quem rola é o wrapper interno .planos-scroll.
+   As sombras são ::before/::after ABSOLUTAS no card (ficam paradas no topo/base) — nada de background-attachment
+   (bugado no iOS Safari) nem sticky (jitter no momentum-scroll). JS liga/desliga cada sombra conforme a rolagem. */
+.modal-card.planos-card { position: relative; display: flex; flex-direction: column; overflow: hidden; padding: 0 !important; }
+.planos-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 26px 20px 22px; }
+.planos-card::before, .planos-card::after { content: ""; position: absolute; left: 0; right: 0; height: 30px; z-index: 3; pointer-events: none; opacity: 0; }
+.planos-card::before { top: 0; background: linear-gradient(var(--card) 40%, rgba(0,0,0,0)); border-radius: 22px 22px 0 0; }
+.planos-card::after  { bottom: 0; background: linear-gradient(rgba(0,0,0,0), var(--card) 60%); border-radius: 0 0 22px 22px; }
+.planos-card.sc-top::before { opacity: 1; }        /* rolou pra baixo → sombra no topo */
+.planos-card:not(.sc-end)::after { opacity: 1; }   /* ainda tem conteúdo abaixo → sombra na base (some ao chegar no fim) */
 .planos-title {
   font-size: 21px; font-weight: 800; text-align: center; margin: 0 0 4px;
   background: linear-gradient(135deg, var(--ink), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent;
