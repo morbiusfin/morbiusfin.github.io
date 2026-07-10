@@ -730,6 +730,18 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
 
 /* ===== Modal de planos (só mensal) ===== */
 .planos-card { max-width: 440px !important; padding: 24px 20px 20px !important; overflow: hidden; }
+/* SCROLL-SHADOW (técnica de fundo em camadas): as "cobertas" (cor do card) rolam com o conteúdo (local) e escondem
+   a sombra quando está no fim; as sombras (radiais) ficam fixas (scroll) e SÓ aparecem quando há mais pra rolar.
+   Resultado: sombra suave no topo/base que "melhora ao rolar", sem JS. (dois-classes p/ vencer o bg do .modal-card) */
+.modal-card.planos-card {
+  background:
+    linear-gradient(var(--card) 30%, rgba(0,0,0,0)) top / 100% 34px no-repeat,
+    linear-gradient(rgba(0,0,0,0), var(--card) 70%) bottom / 100% 34px no-repeat,
+    radial-gradient(farthest-side at 50% 0, rgba(0,0,0,.38), rgba(0,0,0,0)) top / 100% 13px no-repeat,
+    radial-gradient(farthest-side at 50% 100%, rgba(0,0,0,.38), rgba(0,0,0,0)) bottom / 100% 13px no-repeat,
+    var(--card);
+  background-attachment: local, local, scroll, scroll;
+}
 .planos-title {
   font-size: 21px; font-weight: 800; text-align: center; margin: 0 0 4px;
   background: linear-gradient(135deg, var(--ink), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -894,20 +906,20 @@ img.emoji-anim { -webkit-user-select: none; user-select: none; }
   margin: calc(var(--safe-top) + 16px) 0 calc(var(--safe-bottom) + 16px);
   background: var(--card); border: 1px solid var(--line); border-left: 0;
   border-radius: 0 20px 20px 0; box-shadow: 8px 0 40px rgba(0,0,0,.4);
-  padding: 0; overflow: hidden; contain: paint;   /* recorta o conteúdo aos cantos arredondados no iOS (o momentum-scroll não vaza) */
+  position: relative; padding: 0; overflow: hidden; contain: paint;   /* recorta o conteúdo aos cantos arredondados no iOS (o momentum-scroll não vaza) */
   display: flex; flex-direction: column; animation: drawerIn .26s cubic-bezier(.2,.9,.2,1.05) both; }
 /* corpo rolável: header fica ESTÁTICO fora daqui (sempre no topo); só isto rola. (sticky-em-flex quebra no iOS) */
 .menu-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; touch-action: pan-y;
   -webkit-overflow-scrolling: touch;   /* rolagem com inércia (fluida) no iOS */
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;   /* nada de seleção/menu "copiar" ao arrastar pra rolar */
-  transform: translateZ(0); will-change: scroll-position;   /* camada própria → desacopla do backdrop-filter do drawer (tira o travamento) */
+  transform: translateZ(0);   /* camada própria → desacopla do backdrop-filter do drawer (SEM will-change: scroll-position, que engasgava o momentum no iOS) */
   display: flex; flex-direction: column; gap: 9px; padding: 0 15px 16px; scrollbar-width: none; }
 /* TRAVA lateral: overflow-y:auto sozinho promove overflow-x pra auto → o menu deslizava na horizontal (cards largos + animação translateX
    de entrada geravam overflow lateral). overflow-x:hidden + touch-action:pan-y prendem o eixo X → só rola na vertical. */
 .menu-scroll::-webkit-scrollbar { display: none; }
-/* fade no rodapé: dica de que há mais itens abaixo, sem empurrar nada */
-.menu-scroll::after { content: ""; position: sticky; bottom: -16px; left: 0; right: 0;
-  flex: 0 0 auto; height: 24px; margin-top: -24px; pointer-events: none;
+/* fade no rodapé: dica de que há mais itens abaixo. FICA NO PAINEL (absoluto), NÃO no scroller — sticky dentro de
+   momentum-scroll (-webkit-overflow-scrolling:touch) trava/jitter no iOS. Assim o corpo rola liso e o fade fica parado. */
+.menu-panel::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 26px; z-index: 2; pointer-events: none;
   background: linear-gradient(to top, var(--card), transparent); }
 @keyframes drawerIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 .menu-head { flex: 0 0 auto; background: var(--card); display: flex; align-items: center; justify-content: space-between; margin: 0; padding: 16px 17px 12px; }   /* ESTÁTICO no topo do painel (fora do .menu-scroll) → nunca some ao rolar; sem depender de sticky (que quebra no iOS em flex) */
