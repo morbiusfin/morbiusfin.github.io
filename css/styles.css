@@ -1050,7 +1050,7 @@ body:has(#fab:not(.hidden)) main { padding-bottom: 178px; }   /* o + flutua até
 
 /* ===== Modal de novidades / changelog ===== */
 .wn-card { position: relative; text-align: left; max-width: 400px; }
-.wn-close { position: absolute; top: 14px; right: 14px; background: var(--card-2); border: 1px solid var(--line);
+.wn-close { position: absolute; top: 14px; right: 14px; z-index: 6; background: var(--card-2); border: 1px solid var(--line);
   color: var(--muted); border-radius: 50%; width: 32px; height: 32px; font-size: 14px;
   display: flex; align-items: center; justify-content: center; padding: 0;
   font-family: var(--font); cursor: pointer; transition: background .15s ease, transform .12s ease; }
