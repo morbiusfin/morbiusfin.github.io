@@ -1384,6 +1384,18 @@ body.lock-on > #recModal { visibility: visible !important; z-index: 1300; }
   transform: translateX(-160%); animation: headerShimmer 4s ease-in-out 1s infinite; }
 .list-header .total { font-weight: 800; font-size: 21px; letter-spacing: -.4px; color: #fff; position: relative; z-index: 1; }
 .list-header .lbl { font-size: 12.5px; color: rgba(255,255,255,.82); font-weight: 600; position: relative; z-index: 1; }
+/* header em coluna (Fixas/Cartão): linha principal + quebra pago × programado. #pedido-kaick-bulk */
+.list-header.lh-col { flex-direction: column; align-items: stretch; gap: 9px; }
+.lh-main { display: flex; justify-content: space-between; align-items: center; gap: 10px; position: relative; z-index: 1; }
+.lh-split { display: flex; justify-content: space-between; gap: 10px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.16); position: relative; z-index: 1; }
+.lh-split span { font-size: 12px; color: rgba(255,255,255,.8); font-weight: 600; }
+.lh-split b { color: #fff; font-weight: 800; }
+/* "Marcar tudo: [Pago] [Programado]" */
+.bulk-mark { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.bm-lbl { font-size: 12px; color: var(--muted); font-weight: 700; flex: 0 0 auto; }
+.bm-btn { flex: 1; min-width: 0; padding: 9px 6px; border-radius: 11px; border: 1px solid var(--line); background: var(--card-2); color: var(--ink); font-size: 12.5px; font-weight: 700; font-family: var(--font); cursor: pointer; transition: transform .1s ease, border-color .15s ease; }
+.bm-btn:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) { .bm-pago:hover { border-color: #1db954; } .bm-prog:hover { border-color: #f5a623; } }
 @keyframes headerIn { from { opacity: 0; transform: translateY(-12px) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes headerShimmer { 0% { transform: translateX(-160%); } 55%, 100% { transform: translateX(160%); } }
 .empty { text-align: center; color: var(--muted); padding: 44px 20px; font-size: 14px; }
