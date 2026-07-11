@@ -2147,8 +2147,8 @@ body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; ov
 .cofre-title { font-size: 14px; font-weight: 800; }
 .cofre-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
 .cofre-btn { width: 100%; }
+.cofre-done { border-color: rgba(21,194,102,.35); }
 @keyframes cofreWig { 0%, 88%, 100% { transform: rotate(0); } 44% { transform: rotate(-9deg); } 68% { transform: rotate(9deg); } }
-.share-mes-btn { width: 100%; margin-top: 4px; }
 @media (prefers-reduced-motion: reduce) { .sts-big b, .sts-bar > span, .ar-ic, .rec-ic, .cofre-ic { animation: none !important; } }
 
 /* ===== Card "Contas a vencer" (prioridade no topo do Resumo) ===== */
