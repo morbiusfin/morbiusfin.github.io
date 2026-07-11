@@ -2131,7 +2131,7 @@ body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; ov
 .ar-sub { font-size: 12.5px; color: var(--ink); opacity: .9; line-height: 1.5; }
 @keyframes arPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
 .rec-top { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
-.rec-ic { font-size: 22px; line-height: 1; animation: recSpin 6s linear infinite; }
+.rec-ic { font-size: 22px; line-height: 1; animation: recBob 2.6s ease-in-out infinite; }
 .rec-title { font-size: 14px; font-weight: 800; }
 .rec-meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
 .rec-meta i { font-style: normal; }
@@ -2141,15 +2141,8 @@ body.scroll-locked { position: fixed; top: 0; left: 0; right: 0; width: 100%; ov
 .rec-val { font-size: 13px; font-weight: 800; flex: 0 0 auto; }
 .rec-more { margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--muted); }
 .rec-hint { margin-top: 11px; font-size: 12px; color: var(--muted); line-height: 1.45; }
-@keyframes recSpin { to { transform: rotate(360deg); } }
-.cofre-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.cofre-ic { font-size: 24px; line-height: 1; animation: cofreWig 2.4s ease-in-out infinite; transform-origin: 50% 80%; }
-.cofre-title { font-size: 14px; font-weight: 800; }
-.cofre-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
-.cofre-btn { width: 100%; }
-.cofre-done { border-color: rgba(21,194,102,.35); }
-@keyframes cofreWig { 0%, 88%, 100% { transform: rotate(0); } 44% { transform: rotate(-9deg); } 68% { transform: rotate(9deg); } }
-@media (prefers-reduced-motion: reduce) { .sts-big b, .sts-bar > span, .ar-ic, .rec-ic, .cofre-ic { animation: none !important; } }
+@keyframes recBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .sts-big b, .sts-bar > span, .ar-ic, .rec-ic { animation: none !important; } }
 
 /* ===== Card "Contas a vencer" (prioridade no topo do Resumo) ===== */
 .venc-card { padding: 4px 0 6px; border-color: var(--line);
